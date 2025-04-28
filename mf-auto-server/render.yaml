@@ -1,0 +1,12 @@
+services:
+  - name: app
+    env: node
+    buildCommand: npm install && npm run build
+    startCommand: node dist/app.js
+    envVars:
+      - key: JWT_SECRET
+        value: DontTellAnyone
+      - key: MONGO_URI
+        value: mongodb+srv://daltonongeche:zwUI6CoCqxq656DJ@cluster1.zkgi1ra.mongodb.net/test
+      - key: PORT
+        value: "4000"

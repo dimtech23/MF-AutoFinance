@@ -1,0 +1,103 @@
+/* Global Styles */
+.form-container {
+  padding: 20px;
+  max-width: 1200px; /* Increased max-width for larger screens */
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+  .form-container {
+    max-width: 90%;
+  }
+}
+
+@media (max-width: 768px) {
+  .form-container {
+    max-width: 95%;
+    padding: 10px;
+  }
+}
+
+/* Flexbox for alignment */
+.form-row {
+  display: flex;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.form-row > * {
+  flex: 1 1 300px;
+  margin-right: 1rem;
+  margin-bottom: 1rem;
+}
+
+/* Uniform Input Styles */
+.form-input, 
+.react-select-container,
+.form-control {
+  width: 100%;
+  padding: 0.375rem 0.75rem;
+  font-size: 1rem;
+  line-height: 1.5;
+  color: #495057;
+  background-color: #fff;
+  background-clip: padding-box;
+  border: 1px solid #ced4da;
+  border-radius: 0.25rem;
+  transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.form-input:focus, 
+.react-select-container:focus,
+.form-control:focus {
+  color: #495057;
+  background-color: #fff;
+  border-color: #80bdff;
+  outline: 0;
+  box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+/* Accordion Full Width */
+.accordion-container {
+  width: 100%;
+  margin-bottom: 1rem;
+}
+
+/* Card Styles */
+.card {
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  border: none;
+}
+
+.card-body {
+  padding: 1.5rem;
+}
+
+/* Button Styles */
+.btn {
+  padding: 0.375rem 0.75rem;
+  font-size: 1rem;
+  line-height: 1.5;
+  border-radius: 0.25rem;
+  transition: color 0.15s ease-in-out, background-color 0.15s ease-in-out, border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.btn-primary {
+  color: #fff;
+  background-color: #007bff;
+  border-color: #007bff;
+}
+
+.btn-primary:hover {
+  color: #fff;
+  background-color: #0056b3;
+  border-color: #0056b3;
+}
+
+/* Label Styles */
+label {
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+}

@@ -1,0 +1,100 @@
+/* src/assets/css/auth.css */
+
+.auth-page {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #f5f7fa;
+    padding: 2rem 0;
+  }
+  
+  .logo-container {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 2rem;
+  }
+  
+  .logo-background {
+    background-color: white;
+    border-radius: 50%;
+    padding: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    width: 180px;
+    height: 180px;
+  }
+  
+  .logo-image {
+    max-width: 150px;
+    max-height: 150px;
+  }
+  
+  .auth-card {
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    padding: 1rem;
+    width: 100%;
+    max-width: 400px;
+    background-color: white;
+  }
+  
+  .auth-header {
+    text-align: center;
+    margin-bottom: 1.5rem;
+  }
+  
+  .auth-title {
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+  }
+  
+  .auth-subtitle {
+    color: #8898aa;
+  }
+  
+  .auth-form {
+    margin-top: 1rem;
+  }
+  
+  .auth-form-field {
+    margin-bottom: 1.5rem;
+  }
+  
+  .auth-button {
+    padding: 0.75rem 1.5rem;
+    font-weight: bold;
+    text-transform: none;
+    font-size: 1rem;
+    box-shadow: 0 4px 10px rgba(94, 114, 228, 0.3);
+    margin-top: 1rem;
+    margin-bottom: 1rem;
+  }
+  
+  .auth-footer {
+    text-align: center;
+    margin-top: 2rem;
+    color: #8898aa;
+    font-size: 0.875rem;
+  }
+  
+  /* Make sure form inputs have a consistent look */
+  .MuiOutlinedInput-root {
+    background-color: #fff;
+  }
+  
+  .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline {
+    border-color: #5e72e4;
+  }
+  
+  .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline {
+    border-color: #5e72e4;
+    border-width: 2px;
+  }
+  
+  /* Style for input icons */
+  .input-icon {
+    color: #5e72e4;
+  }

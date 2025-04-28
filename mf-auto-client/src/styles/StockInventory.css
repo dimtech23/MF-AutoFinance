@@ -1,0 +1,23 @@
+/* Add this in your CSS file */
+
+  
+
+  .recently-updated-row .MuiDataGrid-cell {
+    background-color: #e8f5e9; /* or any color you wish to highlight with */
+  }
+
+  
+  @keyframes highlight-row {
+    0%, 100% {
+      background-color: transparent;
+    }
+    50% {
+      background-color: #ffff99; /* Yellow background, change as needed */
+    }
+  }
+  
+/* <
+  .recently-updated-row .MuiDataGrid-cell {
+    background-color: #e8f5e9; /* Light green background */
+    /* transition: background-color 0.3s ease;
+  }> */ 
