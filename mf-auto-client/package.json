@@ -82,6 +82,7 @@
       "reactstrap": "8.9.0",
       "recharts": "^2.9.3",
       "sass": "1.54.5",
+      "serve": "^14.2.4",
       "sweetalert2": "^11.6.16",
       "sweetalert2-react-content": "^5.0.7",
       "xlsx": "^0.18.5"
