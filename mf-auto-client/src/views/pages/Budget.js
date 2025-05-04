@@ -16,6 +16,7 @@ import {
   TrendingDown,
   Activity,
   Download,
+  X,
   Calendar,
   Filter,
   RefreshCw,
@@ -56,6 +57,7 @@ import {
   Tooltip,
   Tabs,
   Tab,
+  Snackbar,
   Accordion,
   AccordionSummary,
   AccordionDetails,
@@ -90,6 +92,9 @@ const baseURL = process.env.REACT_APP_API_URL || "http://localhost:3000/api";
 const Budget = () => {
   const { token, userRole } = useContext(UserContext);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState("");
   const [budgets, setBudgets] = useState([]);
   const [filteredBudgets, setFilteredBudgets] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -127,18 +132,26 @@ const Budget = () => {
   useEffect(() => {
     const fetchBudgets = async () => {
       setLoading(true);
+      setError(null);
       try {
         const response = await budgetAPI.getAll();
-        setBudgets(response.data);
-        setFilteredBudgets(response.data);
+        if (response && response.data) {
+          setBudgets(response.data);
+          setFilteredBudgets(response.data);
 
-        // Set active budget to first active one
-        const activeBudget = response.data.find((b) => b.status === "active");
-        if (activeBudget) {
-          setActiveBudgetPeriod(activeBudget.id.toString());
+          // Set active budget to first active one or first one if none are active
+          const activeBudget = response.data.find((b) => b.status === "active");
+          if (activeBudget) {
+            setActiveBudgetPeriod(activeBudget.id.toString());
+          } else if (response.data.length > 0) {
+            setActiveBudgetPeriod(response.data[0].id.toString());
+          }
+        } else {
+          throw new Error("No data received from server");
         }
       } catch (error) {
         console.error("Error fetching budgets:", error);
+        setError("Failed to load budgets. Please try again.");
         toast.error("Failed to load budgets");
       } finally {
         setLoading(false);
@@ -171,8 +184,11 @@ const Budget = () => {
   const handleOpenDialog = (budget = null) => {
     if (budget) {
       // Edit mode
+      console.log("Opening edit dialog for budget:", budget);
+      console.log("Budget ID:", budget._id || budget.id); // Check which ID field exists
+
       setFormData({
-        id: budget.id,
+        id: budget._id || budget.id, // Try both potential ID field names
         name: budget.name,
         startDate: new Date(budget.startDate),
         endDate: new Date(budget.endDate),
@@ -181,7 +197,7 @@ const Budget = () => {
           ...category,
           allocated: category.allocated.toString(),
         })),
-        notes: budget.notes,
+        notes: budget.notes || "",
       });
       setIsEditMode(true);
     } else {
@@ -285,20 +301,30 @@ const Budget = () => {
 
     try {
       if (isEditMode) {
-        // Update existing budget
-        const response = await budgetAPI.update(
-          processedData.id,
-          processedData
-        );
+        // Log the ID to confirm it's valid
+        console.log("Updating budget with ID:", formData.id);
+
+        if (!formData.id) {
+          console.error("Budget ID is missing or undefined");
+          toast.error("Cannot update budget: Missing ID");
+          return;
+        }
+
+        const response = await budgetAPI.update(formData.id, processedData);
         const updatedBudgets = budgets.map((budget) =>
-          budget.id === processedData.id ? response.data : budget
+          budget.id === formData.id ? response.data : budget
         );
         setBudgets(updatedBudgets);
+
+        setSnackbarMessage("Garage budget updated successfully");
+        setSnackbarOpen(true);
         toast.success("Garage budget updated successfully");
       } else {
-        // Add new budget
         const response = await budgetAPI.create(processedData);
         setBudgets([response.data, ...budgets]);
+
+        setSnackbarMessage("Garage budget created successfully");
+        setSnackbarOpen(true);
         toast.success("Garage budget created successfully");
       }
 
@@ -323,7 +349,11 @@ const Budget = () => {
         (budget) => budget.id !== budgetToDelete.id
       );
       setBudgets(updatedBudgets);
+
+      setSnackbarMessage("Budget deleted successfully");
+      setSnackbarOpen(true);
       toast.success("Budget deleted successfully");
+
       setDeleteDialogOpen(false);
     } catch (error) {
       console.error("Error deleting budget:", error);
@@ -355,9 +385,11 @@ const Budget = () => {
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
-      currency: "USD",
+      currency: "GMD",
       minimumFractionDigits: 2,
-    }).format(amount);
+    })
+      .format(amount)
+      .replace(/GMD/g, "D");
   };
 
   const handleTabChange = (event, newValue) => {
@@ -393,7 +425,17 @@ const Budget = () => {
               />
             ))}
           </Pie>
-          <RechartsTooltip formatter={(value) => formatCurrency(value)} />
+              <RechartsTooltip
+          formatter={(value, name, props) => {
+            const item = props.payload;
+            return [formatCurrency(value), `${item.fullName} - ${name}`];
+          }}
+          contentStyle={{
+            backgroundColor: "rgba(255, 255, 255, 0.9)",
+            border: "1px solid #ccc",
+            borderRadius: "4px",
+          }}
+        />
         </PieChart>
       </ResponsiveContainer>
     );
@@ -403,23 +445,44 @@ const Budget = () => {
     if (!budget) return null;
 
     const data = budget.categories.map((category) => ({
-      name: category.name,
+      name:
+        category.name.length > 12
+          ? category.name.substring(0, 12) + "..."
+          : category.name,
       allocated: category.allocated,
       spent: category.spent,
       remaining: category.allocated - category.spent,
+      fullName: category.name,
     }));
 
     return (
       <ResponsiveContainer width="100%" height={400}>
         <BarChart
           data={data}
-          margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+          margin={{ top: 20, right: 30, left: 20, bottom: 80 }}
         >
           <CartesianGrid strokeDasharray="3 3" />
-          <XAxis dataKey="name" angle={-45} textAnchor="end" height={80} />
-          <YAxis tickFormatter={(value) => `$${value}`} />
-          <RechartsTooltip formatter={(value) => formatCurrency(value)} />
-          <Legend />
+          <XAxis
+            dataKey="name"
+            angle={-45}
+            textAnchor="end"
+            height={70}
+            fontSize={11}
+            interval={0}
+          />
+          <YAxis tickFormatter={(value) => `D${value}`} width={80} />
+               <RechartsTooltip
+           formatter={(value, name, props) => {
+             const item = props.payload;
+             return [formatCurrency(value), `${item.fullName} - ${name}`];
+           }}
+           contentStyle={{
+             backgroundColor: "rgba(255, 255, 255, 0.9)",
+             border: "1px solid #ccc",
+             borderRadius: "4px",
+           }}
+         />
+          <Legend verticalAlign="top" height={40} />
           <Bar dataKey="allocated" name="Allocated" fill="#8884d8" />
           <Bar dataKey="spent" name="Spent" fill="#82ca9d" />
         </BarChart>
@@ -928,7 +991,7 @@ const Budget = () => {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {filteredBudgets.map((budget) => {
+                  {filteredBudgets.map((budget) => {
                       const totalSpent = budget.categories.reduce(
                         (sum, category) => sum + category.spent,
                         0
@@ -1061,7 +1124,7 @@ const Budget = () => {
                   onChange={(e) => handleFormChange("total", e.target.value)}
                   InputProps={{
                     startAdornment: (
-                      <InputAdornment position="start">$</InputAdornment>
+                      <InputAdornment position="start">D</InputAdornment> 
                     ),
                   }}
                 />
@@ -1088,7 +1151,6 @@ const Budget = () => {
                     <TableBody>
                       {formData.categories.map((category, index) => (
                         <TableRow key={category.id}>
-                          <TableCell>{category.name}</TableCell>
                           <TableCell align="right">
                             <TextField
                               size="small"
@@ -1104,13 +1166,14 @@ const Budget = () => {
                               InputProps={{
                                 startAdornment: (
                                   <InputAdornment position="start">
-                                    $
+                                    D
                                   </InputAdornment>
                                 ),
                               }}
                               sx={{ width: 150 }}
                             />
                           </TableCell>
+
                           {isEditMode && (
                             <TableCell align="right">
                               {formatCurrency(category.spent)}
@@ -1221,6 +1284,22 @@ const Budget = () => {
           </DialogActions>
         </Dialog>
       </Container>
+
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={6000}
+        onClose={() => setSnackbarOpen(false)}
+        message={snackbarMessage}
+        action={
+          <IconButton
+            size="small"
+            color="inherit"
+            onClick={() => setSnackbarOpen(false)}
+          >
+            <X size={16} />
+          </IconButton>
+        }
+      />
     </>
   );
 };

@@ -25,6 +25,409 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+// Transaction API methods
+export const transactionAPI = {
+  // Get all transactions (we'll use budget entries as transactions)
+  getAll: (params = {}) => {
+    return budgetAPI.getAll();
+  },
+  
+  // Get a specific transaction by ID
+  getById: (id) => {
+    return budgetAPI.getById(id);
+  },
+  
+  // Create a new transaction
+  create: (data) => {
+    return budgetAPI.create(data);
+  },
+  
+  // Update a transaction
+  update: (id, data) => {
+    return budgetAPI.update(id, data);
+  },
+  
+  // Delete a transaction
+  delete: (id) => {
+    return budgetAPI.delete(id);
+  },
+  
+  // Get transaction summary by calculating from budget data
+  getSummary: async (timeRange = 'month') => {
+    try {
+      // Fetch all budget entries
+      const response = await budgetAPI.getAll();
+      const transactions = response.data;
+      
+      // Calculate date range based on timeRange
+      const endDate = new Date();
+      let startDate = new Date();
+      
+      switch(timeRange) {
+        case 'week':
+          startDate.setDate(endDate.getDate() - 7);
+          break;
+        case 'month':
+          startDate.setMonth(endDate.getMonth() - 1);
+          break;
+        case 'quarter':
+          startDate.setMonth(endDate.getMonth() - 3);
+          break;
+        case 'year':
+          startDate.setFullYear(endDate.getFullYear() - 1);
+          break;
+        case 'all':
+          startDate = new Date(0); // Beginning of time
+          break;
+        default:
+          startDate.setMonth(endDate.getMonth() - 1); // Default to month
+      }
+      
+      // Filter transactions by date range
+      const filteredTransactions = transactions.filter(t => {
+        const txDate = new Date(t.date || t.createdAt);
+        return txDate >= startDate && txDate <= endDate;
+      });
+      
+      // Calculate summary stats
+      const totalIncome = filteredTransactions
+        .filter(t => t.type === 'income')
+        .reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
+        
+      const totalExpenses = filteredTransactions
+        .filter(t => t.type === 'expense')
+        .reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
+        
+      const pendingCount = filteredTransactions.filter(t => t.status === 'pending').length;
+      const approvedCount = filteredTransactions.filter(t => t.status === 'approved').length;
+      const rejectedCount = filteredTransactions.filter(t => t.status === 'rejected').length;
+      
+      return {
+        data: {
+          totalIncome,
+          totalExpenses,
+          netBalance: totalIncome - totalExpenses,
+          pendingCount,
+          approvedCount,
+          rejectedCount
+        }
+      };
+    } catch (error) {
+      console.error('Error calculating transaction summary:', error);
+      throw error;
+    }
+  },
+  
+  // Generate monthly data for charts
+  getMonthlyData: async (year = new Date().getFullYear()) => {
+    try {
+      // Fetch all budget entries
+      const response = await budgetAPI.getAll();
+      const transactions = response.data;
+      
+      // Group by month
+      const months = {};
+      
+      transactions.forEach(transaction => {
+        const date = new Date(transaction.date || transaction.createdAt);
+        if (date.getFullYear() !== parseInt(year)) return;
+        
+        const monthKey = `${date.getFullYear()}-${date.getMonth() + 1}`;
+        
+        if (!months[monthKey]) {
+          months[monthKey] = {
+            month: date.toLocaleString('default', { month: 'short' }),
+            year: date.getFullYear(),
+            income: 0,
+            expenses: 0
+          };
+        }
+        
+        if (transaction.type === 'income') {
+          months[monthKey].income += parseFloat(transaction.amount) || 0;
+        } else {
+          months[monthKey].expenses += parseFloat(transaction.amount) || 0;
+        }
+      });
+      
+      // Convert to array and sort by date
+      const monthlyData = Object.values(months)
+        .map(month => ({
+          ...month,
+          balance: month.income - month.expenses,
+          label: `${month.month} ${month.year}`
+        }))
+        .sort((a, b) => {
+          if (a.year !== b.year) return a.year - b.year;
+          return months.indexOf(a.month) - months.indexOf(b.month);
+        });
+      
+      return { data: monthlyData };
+    } catch (error) {
+      console.error('Error generating monthly data:', error);
+      throw error;
+    }
+  },
+  
+  // Export to CSV by formatting budget data
+  exportCSV: async (params = {}) => {
+    try {
+      // Fetch all budget entries
+      const response = await budgetAPI.getAll();
+      let transactions = response.data;
+      
+      // Apply filters if provided
+      if (params.startDate && params.endDate) {
+        const startDate = new Date(params.startDate);
+        const endDate = new Date(params.endDate);
+        transactions = transactions.filter(t => {
+          const txDate = new Date(t.date || t.createdAt);
+          return txDate >= startDate && txDate <= endDate;
+        });
+      }
+      
+      if (params.type) {
+        transactions = transactions.filter(t => t.type === params.type);
+      }
+      
+      if (params.status) {
+        transactions = transactions.filter(t => t.status === params.status);
+      }
+      
+      if (params.category) {
+        transactions = transactions.filter(t => t.category === params.category);
+      }
+      
+      // Format as CSV
+      const headers = ["ID", "Date", "Type", "Category", "Description", "Amount", "Status", "Reference"];
+      const csvData = transactions.map(t => [
+        t.id || t._id,
+        new Date(t.date || t.createdAt).toISOString().split('T')[0],
+        t.type || 'expense',
+        t.category || 'other',
+        t.description || '',
+        t.amount || '0',
+        t.status || 'pending',
+        t.reference || ''
+      ]);
+      
+      const csvContent = [
+        headers.join(','),
+        ...csvData.map(row => row.join(','))
+      ].join('\n');
+      
+      // Create blob
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      return { data: blob };
+    } catch (error) {
+      console.error('Error exporting to CSV:', error);
+      throw error;
+    }
+  }
+};
+
+// Add response interceptor for client-appointment synchronization
+api.interceptors.response.use(
+  async (response) => {
+    const config = response.config;
+    const url = config.url || '';
+    const method = (config.method || '').toLowerCase();
+    
+    // Handle client updates - sync to appointments
+    if (url.includes('/api/clients/') && 
+        (method === 'put' || method === 'patch')) {
+      try {
+        const updatedClient = response.data;
+        
+        // Only proceed if there's a valid client update
+        if (updatedClient && updatedClient.id) {
+          console.log(`Syncing client update to appointments: ${updatedClient.id}`);
+          
+          // Get all related appointments for this client
+          const appointmentsResponse = await appointmentAPI.getAll({
+            clientId: updatedClient.id
+          });
+          
+          if (appointmentsResponse.data && appointmentsResponse.data.length) {
+            const clientAppointments = appointmentsResponse.data;
+            
+            // Update each appointment with the relevant client data
+            for (const appointment of clientAppointments) {
+              // Skip if the appointment doesn't need updating
+              if (appointment.clientName === updatedClient.clientName) continue;
+              
+              // Determine what needs to be updated based on the appointment type
+              const appointmentUpdates = {
+                clientName: updatedClient.clientName,
+                vehicleInfo: updatedClient.carDetails 
+                  ? `${updatedClient.carDetails.year || ""} ${updatedClient.carDetails.make || ""} ${updatedClient.carDetails.model || ""}`.trim()
+                  : appointment.vehicleInfo
+              };
+              
+              // Only update if the title contains the old client name
+              if (appointment.title && appointment.title.includes(appointment.clientName)) {
+                appointmentUpdates.title = appointment.title.replace(
+                  appointment.clientName,
+                  updatedClient.clientName
+                );
+              }
+              
+              // Update appointment status based on client repair status if relevant
+              if (updatedClient.repairStatus && appointment.type === 'repair') {
+                const statusMap = {
+                  waiting: 'scheduled',
+                  in_progress: 'in_progress',
+                  completed: 'completed',
+                  delivered: 'completed',
+                  cancelled: 'cancelled'
+                };
+                
+                const newStatus = statusMap[updatedClient.repairStatus];
+                if (newStatus) {
+                  appointmentUpdates.status = newStatus;
+                }
+              }
+              
+              // Only update if there are actual changes
+              if (Object.keys(appointmentUpdates).length > 0) {
+                await appointmentAPI.update(appointment.id, appointmentUpdates);
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Error syncing client update to appointments:", error);
+        // Don't block the original response even if sync fails
+      }
+    }
+    
+    // Handle appointment updates - sync to clients
+    if (url.includes('/api/appointments/') && 
+        (method === 'put' || method === 'patch')) {
+      try {
+        const updatedAppointment = response.data;
+        
+        // Only proceed if there's a valid appointment update with client ID
+        if (updatedAppointment && updatedAppointment.clientId) {
+          console.log(`Syncing appointment update to client: ${updatedAppointment.clientId}`);
+          
+          // Get the client data
+          const clientResponse = await clientsAPI.getById(updatedAppointment.clientId);
+          
+          if (clientResponse.data) {
+            const client = clientResponse.data;
+            
+            // Determine what needs to be updated on the client
+            const clientUpdates = {};
+            
+            // Update client status based on appointment status if this is a repair appointment
+            if (updatedAppointment.type === 'repair') {
+              const statusMap = {
+                scheduled: 'waiting',
+                in_progress: 'in_progress',
+                completed: 'completed',
+                cancelled: 'cancelled'
+              };
+              
+              const newStatus = statusMap[updatedAppointment.status];
+              if (newStatus && client.repairStatus !== newStatus) {
+                clientUpdates.repairStatus = newStatus;
+              }
+            }
+            
+            // If this appointment was completed, update the last service date
+            if (updatedAppointment.status === 'completed' && updatedAppointment.type === 'repair') {
+              clientUpdates.lastServiceDate = new Date().toISOString();
+            }
+            
+            // Only update if there are actual changes
+            if (Object.keys(clientUpdates).length > 0) {
+              await clientsAPI.update(updatedAppointment.clientId, clientUpdates);
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Error syncing appointment update to client:", error);
+        // Don't block the original response even if sync fails
+      }
+    }
+    
+    // Handle new client creation with auto appointment
+    if (url.includes('/api/clients') && method === 'post') {
+      try {
+        const newClient = response.data;
+        
+        if (newClient && newClient.id) {
+          console.log(`Creating initial appointment for new client: ${newClient.id}`);
+          
+          // Calculate a default appointment date (3 business days from today)
+          const today = new Date();
+          const appointmentDate = new Date(today);
+          appointmentDate.setDate(today.getDate() + 3);
+          
+          // Skip weekends
+          if (appointmentDate.getDay() === 0) appointmentDate.setDate(appointmentDate.getDate() + 1); // If Sunday, move to Monday
+          if (appointmentDate.getDay() === 6) appointmentDate.setDate(appointmentDate.getDate() + 2); // If Saturday, move to Monday
+          
+          // Set to 10:00 AM
+          appointmentDate.setHours(10, 0, 0, 0);
+          
+          // Create appointment data
+          const appointmentData = {
+            title: `Initial Assessment - ${newClient.clientName}`,
+            date: appointmentDate.toISOString(),
+            time: "10:00",
+            clientId: newClient.id,
+            clientName: newClient.clientName,
+            vehicleInfo: newClient.carDetails 
+              ? `${newClient.carDetails.year || ""} ${newClient.carDetails.make || ""} ${newClient.carDetails.model || ""}`.trim()
+              : "Vehicle info not available",
+            type: 'inspection',
+            status: 'scheduled',
+            description: `Initial assessment for ${newClient.clientName}`
+          };
+          
+          // Create the appointment
+          await appointmentAPI.create(appointmentData);
+          
+          // Update client with next appointment date
+          await clientsAPI.update(newClient.id, {
+            nextAppointmentDate: appointmentDate.toISOString()
+          });
+        }
+      } catch (error) {
+        console.error("Error creating initial appointment:", error);
+        // Don't block the original response even if auto-appointment creation fails
+      }
+    }
+    
+    return response;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Function to update client status
+export const updateStatus = (clientId, status) => {
+  if (!clientId) {
+    console.error("Client updateStatus called with undefined ID");
+    return Promise.reject(new Error("Cannot update status: Client ID is required"));
+  }
+  
+  return api.patch(`/api/clients/${clientId}/status`, { status });
+};
+
+// Function to update payment status
+export const updatePayment = (clientId, paymentData) => {
+  if (!clientId) {
+    console.error("Client updatePayment called with undefined ID");
+    return Promise.reject(new Error("Cannot update payment: Client ID is required"));
+  }
+  
+  return api.patch(`/api/clients/${clientId}/payment`, paymentData);
+};
+
 // Auth related API calls
 export const authAPI = {
   login: (credentials) => api.post('/auth/login', credentials),
@@ -41,7 +444,9 @@ export const clientsAPI = {
   getById: (id) => api.get(`/api/clients/${id}`),
   create: (data) => api.post('/api/clients', data),
   update: (id, data) => api.put(`/api/clients/${id}`, data),
-  delete: (id) => api.delete(`/api/clients/${id}`)
+  delete: (id) => api.delete(`/api/clients/${id}`),
+  updateStatus,
+  updatePayment
 };
 
 // Invoice related API calls - named invoicesAPI to match your imports
@@ -67,13 +472,57 @@ export const budgetAPI = {
   getAll: () => api.get('/api/budgets'),
   getById: (id) => api.get(`/api/budgets/${id}`),
   create: (data) => api.post('/api/budgets', data),
-  update: (id, data) => api.put(`/api/budgets/${id}`, data),
+  update: (id, data) => {
+    // Make sure id is a string and not undefined
+    if (!id) {
+      console.error("Budget update called with undefined ID");
+      throw new Error("Cannot update budget: ID is required");
+    }
+    
+    console.log(`Sending update request to: /api/budgets/${id}`);
+    
+    // Remove id from data to prevent duplicate ID fields
+    const { id: _, ...cleanData } = data;
+    
+    return api.put(`/api/budgets/${id}`, cleanData);
+  },
   delete: (id) => api.delete(`/api/budgets/${id}`)
 };
 
-// Also export client, invoice and user API with singular names for compatibility
+
+
+
+// Appointment related API calls
+export const appointmentAPI = {
+  getAll: (params = {}) => {
+    // Convert params object to query string
+    const queryParams = new URLSearchParams();
+    
+    if (params.startDate) queryParams.append('startDate', params.startDate);
+    if (params.endDate) queryParams.append('endDate', params.endDate);
+    if (params.clientId) queryParams.append('clientId', params.clientId);
+    if (params.status) queryParams.append('status', params.status);
+    if (params.type) queryParams.append('type', params.type);
+    
+    const queryString = queryParams.toString();
+    const url = queryString ? `/api/appointments?${queryString}` : '/api/appointments';
+    
+    return api.get(url);
+  },
+  getById: (id) => api.get(`/api/appointments/${id}`),
+  create: (data) => api.post('/api/appointments', data),
+  update: (id, data) => api.put(`/api/appointments/${id}`, data),
+  updateStatus: (id, status) => api.patch(`/api/appointments/${id}/status`, { status }),
+  delete: (id) => api.delete(`/api/appointments/${id}`)
+};
+
+
+
+//  Export client, invoice, appointment and user API with singular names for compatibility
+export const appointmentsAPI = appointmentAPI;
 export const clientAPI = clientsAPI;
 export const invoiceAPI = invoicesAPI;
 export const userAPI = usersAPI;
 
 export default api;
+ 

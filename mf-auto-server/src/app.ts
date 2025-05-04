@@ -1,4 +1,3 @@
-// app.ts (or server.ts)
 import path from "path";
 import dotenv from "dotenv";
 import mongoose from "mongoose";
@@ -18,7 +17,8 @@ import { invoiceRouter } from "./routes/invoiceRoute";
 import { budgetRouter } from "./routes/budgetRoute";
 import { router as userRouter } from "./routes/userRoutes";
 import logoutRouter from "./routes/logoutRoute";
-
+import { dashboardRouter } from "./routes/dashboardRoute"; // Add dashboard routes
+import { appointmentRouter } from "./routes/appointmentRoute"; // Add appointment routes
 
 dotenv.config();
 
@@ -95,6 +95,8 @@ app.use("/api/invoices", invoiceRouter);
 app.use("/api/users", userRouter);
 app.use("/setup", setupRouter);
 app.use("/api/budgets", budgetRouter);
+app.use("/api/dashboard", dashboardRouter); // Add dashboard routes
+app.use("/api/appointments", appointmentRouter); // Add appointment routes
 
 // Root route
 app.get("/", (req, res) => {

@@ -1,9 +1,18 @@
 import React, { useState, useEffect, useContext } from "react";
+import { useHistory } from "react-router-dom";
 import { UserContext } from "../../Context/UserContext.js";
+import {
+  getStatusColor,
+  getStatusIcon,
+  mapStatus,
+  shouldCreateInvoice,
+} from "../../utility/statusMapper.js";
+import AppointmentCalendar from "components/Calendar/AppointmentCalendar.js";
 import Header from "components/Headers/Header.js";
-import { clientsAPI } from "../../api.js";
+import { clientsAPI, appointmentsAPI, invoicesAPI } from "../../api.js";
 import { toast } from "react-toastify";
 import { format } from "date-fns";
+import Autocomplete from "@mui/material/Autocomplete";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import Select from "react-select";
@@ -111,6 +120,32 @@ const repairProcedures = [
   { value: "glass_repair", label: "Windshield & Glass Repair" },
 ];
 
+const carMakes = [
+  "Toyota",
+  "Honda",
+  "Ford",
+  "Chevrolet",
+  "Nissan",
+  "BMW",
+  "Mercedes-Benz",
+  "Audi",
+  "Hyundai",
+  "Kia",
+  "Volkswagen",
+  "Mazda",
+  "Subaru",
+  "Lexus",
+  "Jeep",
+  "GMC",
+  "Ram",
+  "Dodge",
+];
+
+// Years array (for dropdown)
+const carYears = Array.from({ length: 30 }, (_, i) =>
+  (new Date().getFullYear() - i).toString()
+);
+
 // Payment status options
 const paymentStatusOptions = [
   { value: "paid", label: "Paid" },
@@ -128,6 +163,7 @@ const repairStatusOptions = [
 ];
 
 const Clients = () => {
+  const history = useHistory();
   const { token, userRole } = useContext(UserContext);
   const [clients, setClients] = useState([]);
   const [filteredClients, setFilteredClients] = useState([]);
@@ -140,6 +176,7 @@ const Clients = () => {
   const [clientToDeliver, setClientToDeliver] = useState(null);
   const [preDeliveryImages, setPreDeliveryImages] = useState([]);
   const [preDeliveryNotes, setPreDeliveryNotes] = useState("");
+  const [showCalendarView, setShowCalendarView] = useState(false);
 
   // Form state
   const [formOpen, setFormOpen] = useState(false);
@@ -179,6 +216,10 @@ const Clients = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [clientToDelete, setClientToDelete] = useState(null);
 
+  const getRepairStatusColor = (status) => getStatusColor(status, "repair");
+  const getPaymentStatusColor = (status) => getStatusColor(status, "payment");
+  const getPaymentStatusIcon = (status) => getStatusIcon(status, "payment");
+
   // Tab state
   const [activeTab, setActiveTab] = useState("all");
 
@@ -196,7 +237,7 @@ const Clients = () => {
         setIsLoading(false);
       }
     };
-  
+
     if (token) {
       fetchClients();
     }
@@ -367,7 +408,7 @@ const Clients = () => {
       toast.error("Please enter client name and phone number");
       return;
     }
-  
+
     if (
       !formData.carDetails.make ||
       !formData.carDetails.model ||
@@ -376,17 +417,17 @@ const Clients = () => {
       toast.error("Please enter vehicle details");
       return;
     }
-  
+
     if (formData.procedures.length === 0) {
       toast.error("Please select at least one repair procedure");
       return;
     }
-  
+
     if (!formData.issueDescription) {
       toast.error("Please enter issue description");
       return;
     }
-  
+
     if (
       formData.paymentStatus === "partial" &&
       (!formData.partialPaymentAmount || formData.partialPaymentAmount <= 0)
@@ -394,26 +435,88 @@ const Clients = () => {
       toast.error("Please enter partial payment amount");
       return;
     }
-  
+
     try {
       let response;
       if (editMode && selectedClient) {
         response = await clientsAPI.update(selectedClient.id, formData);
-        
         // Update local state
-        const updatedClients = clients.map(client => 
+        const updatedClients = clients.map((client) =>
           client.id === selectedClient.id ? response.data : client
         );
         setClients(updatedClients);
         toast.success("Client record updated successfully");
+
+        // Now update the appointment if applicable
+        if (formData.repairStatus !== "cancelled") {
+          // Create appointment data from client data
+          const appointmentData = {
+            title: `${formData.clientName} - ${formData.carDetails.make} ${formData.carDetails.model}`,
+            start: new Date(),
+            end: new Date(formData.deliveryDate),
+            clientId: response.data.id,
+            description: formData.issueDescription,
+            status: mapStatus(formData.repairStatus, "repair", "appointment"),
+            // Add other relevant fields
+          };
+
+          // If editing and appointment exists, update it
+          if (selectedClient.appointmentId) {
+            await appointmentsAPI.update(
+              selectedClient.appointmentId,
+              appointmentData
+            );
+            toast.info("Appointment updated");
+          }
+          // If no existing appointment but client is in a status that needs one
+          else if (["waiting", "in_progress"].includes(formData.repairStatus)) {
+            const appointmentResponse = await appointmentsAPI.create(
+              appointmentData
+            );
+            // Update client with appointment ID reference
+            await clientsAPI.update(response.data.id, {
+              appointmentId: appointmentResponse.data.id,
+            });
+            toast.info("New appointment created");
+          }
+        }
+        // If cancelled and has appointment, cancel that too
+        else if (selectedClient.appointmentId) {
+          await appointmentsAPI.update(selectedClient.appointmentId, {
+            status: "cancelled",
+          });
+          toast.info("Appointment cancelled");
+        }
       } else {
+        // Creating new client
         response = await clientsAPI.create(formData);
-        
         // Update local state
         setClients([response.data, ...clients]);
         toast.success("Client added successfully");
+
+        // Create a new appointment for this client
+        if (formData.repairStatus !== "cancelled") {
+          const appointmentData = {
+            title: `${formData.clientName} - ${formData.carDetails.make} ${formData.carDetails.model}`,
+            start: new Date(),
+            end: new Date(formData.deliveryDate),
+            clientId: response.data.id,
+            description: formData.issueDescription,
+            status: mapStatus(formData.repairStatus, "repair", "appointment"),
+            // Add other relevant fields
+          };
+
+          const appointmentResponse = await appointmentsAPI.create(
+            appointmentData
+          );
+          // Update client with appointment ID reference
+          await clientsAPI.update(response.data.id, {
+            appointmentId: appointmentResponse.data.id,
+          });
+          toast.info("New appointment created");
+        }
       }
-      
+
       // Close the form
       closeClientForm();
     } catch (error) {
@@ -427,73 +530,239 @@ const Clients = () => {
     setDeleteDialogOpen(true);
   };
 
-const handleDeleteClient = async () => {
-  if (!clientToDelete) return;
-  
-  try {
-    await clientsAPI.delete(clientToDelete.id);
-    
-    // Update local state
-    const updatedClients = clients.filter(client => client.id !== clientToDelete.id);
-    setClients(updatedClients);
-    toast.success("Client record deleted successfully");
-    setDeleteDialogOpen(false);
-  } catch (error) {
-    console.error("Error deleting client:", error);
-    toast.error("Failed to delete client");
-    setDeleteDialogOpen(false);
-  }
-};
+  const handleDeleteClient = async () => {
+    if (!clientToDelete) return;
 
-const handleUpdateStatus = async (clientId, newStatus) => {
-  try {
-    await clientsAPI.updateStatus(clientId, newStatus);
-    
-    // Update local state
-    const updatedClients = clients.map(client => {
-      if (client.id === clientId) {
-        return {
-          ...client,
-          repairStatus: newStatus
-        };
+    try {
+      await clientsAPI.delete(clientToDelete.id);
+
+      // Update local state
+      const updatedClients = clients.filter(
+        (client) => client.id !== clientToDelete.id
+      );
+      setClients(updatedClients);
+      toast.success("Client record deleted successfully");
+      setDeleteDialogOpen(false);
+    } catch (error) {
+      console.error("Error deleting client:", error);
+      toast.error("Failed to delete client");
+      setDeleteDialogOpen(false);
+    }
+  };
+
+  // ==========================================
+  //  CLIENT STATUS UPDATE HANDLER
+  // ==========================================
+
+  const handleUpdateStatus = async (clientId, newStatus) => {
+    try {
+      setIsLoading(true);
+      // Get the client before updating to compare old status
+      const client = clients.find((c) => c.id === clientId || c._id === clientId);
+      
+      if (!client) {
+        toast.error("Client not found");
+        setIsLoading(false);
+        return;
       }
-      return client;
-    });
-    
-    setClients(updatedClients);
-    toast.success(`Status updated to ${newStatus.replace("_", " ")}`);
-  } catch (error) {
-    console.error("Error updating status:", error);
-    toast.error("Failed to update status");
-  }
-};
+  
+      const oldStatus = client.repairStatus;
+  
+      // Call API to update client status
+      const response = await clientsAPI.updateStatus(clientId, newStatus);
+      
+      if (!response || !response.data) {
+        throw new Error("Failed to update client status");
+      }
+      
+      console.log(`Client status updated successfully: ${clientId} -> ${newStatus}`);
+  
+      // Map client repair status to appointment status using your existing mapper
+      const appointmentStatus = mapStatus(newStatus, 'repair', 'appointment');
+      
+      // Find all related appointments for this client and update them
+      try {
+        const appointmentsResponse = await appointmentsAPI.getAll({ clientId });
+        
+        if (appointmentsResponse.data && Array.isArray(appointmentsResponse.data)) {
+          const clientAppointments = appointmentsResponse.data;
+          
+          // Process repair/maintenance appointments
+          const repairAppointments = clientAppointments.filter(
+            app => app.type === 'repair' || app.type === 'maintenance'
+          );
+          
+          for (const appointment of repairAppointments) {
+            // Only update if status needs to change
+            if (appointment.status !== appointmentStatus) {
+              await appointmentsAPI.updateStatus(
+                appointment._id || appointment.id, 
+                appointmentStatus
+              );
+              console.log(`Updated appointment ${appointment._id || appointment.id} to ${appointmentStatus}`);
+            }
+          }
+        }
+      } catch (appointmentError) {
+        console.error("Error updating related appointments:", appointmentError);
+        // Continue with client update even if appointment updates fail
+      }
+  
+      // Update local state for immediate UI refresh
+      const updatedClients = clients.map((c) => {
+        if (c.id === clientId || c._id === clientId) {
+          return {
+            ...c,
+            repairStatus: newStatus,
+          };
+        }
+        return c;
+      });
+  
+      setClients(updatedClients);
+      setFilteredClients(prevFiltered => prevFiltered.map(c => {
+        if (c.id === clientId || c._id === clientId) {
+          return {
+            ...c,
+            repairStatus: newStatus,
+          };
+        }
+        return c;
+      }));
+      
+      toast.success(`Status updated to ${newStatus.replace("_", " ")}`);
+  
+      // Notify dashboard via custom event to update appointment calendar
+      const updateEvent = new CustomEvent('client-updated', {
+        detail: {
+          clientId,
+          status: newStatus,
+          appointmentStatus,
+          timestamp: new Date().getTime()
+        }
+      });
+      window.dispatchEvent(updateEvent);
+  
+      // If status changed to completed, offer to create invoice using your utility
+      if (shouldCreateInvoice(oldStatus, newStatus)) {
+        const createInvoice = window.confirm(
+          "Repair marked as completed. Would you like to create an invoice now?"
+        );
+  
+        if (createInvoice) {
+          // Navigate to invoices page with client ID
+          history.push({
+            pathname: "/admin/invoices",
+            state: { createFromClient: clientId },
+          });
+        }
+      }
+      
+      setIsLoading(false);
+    } catch (error) {
+      console.error("Error updating status:", error);
+      toast.error("Failed to update status: " + (error.message || "Unknown error"));
+      setIsLoading(false);
+    }
+  };
+  
+// ==========================================
+//  ENHANCED CLIENT PAYMENT UPDATE HANDLER 
+// ==========================================
 
 const handleUpdatePayment = async (clientId, newPaymentStatus, amount = 0) => {
   try {
-    await clientsAPI.updatePayment(clientId, { 
-      paymentStatus: newPaymentStatus,
-      partialPaymentAmount: newPaymentStatus === 'partial' ? amount : 0 
-    });
+    setIsLoading(true);
     
+    const paymentData = {
+      paymentStatus: newPaymentStatus,
+      partialPaymentAmount: newPaymentStatus === "partial" ? amount : 0,
+    };
+    
+    // Call API to update payment status
+    const response = await clientsAPI.updatePayment(clientId, paymentData);
+    
+    if (!response || !response.data) {
+      throw new Error("Failed to update payment status");
+    }
+    
+    console.log(`Client payment status updated successfully: ${clientId} -> ${newPaymentStatus}`);
+
     // Update local state
-    const updatedClients = clients.map(client => {
-      if (client.id === clientId) {
+    const updatedClients = clients.map((client) => {
+      if (client.id === clientId || client._id === clientId) {
         return {
           ...client,
           paymentStatus: newPaymentStatus,
-          partialPaymentAmount: newPaymentStatus === 'partial' ? amount : 0
+          partialPaymentAmount: newPaymentStatus === "partial" ? amount : 0,
         };
       }
       return client;
     });
-    
+
     setClients(updatedClients);
+    setFilteredClients(prevFiltered => prevFiltered.map(client => {
+      if (client.id === clientId || client._id === clientId) {
+        return {
+          ...client,
+          paymentStatus: newPaymentStatus,
+          partialPaymentAmount: newPaymentStatus === "partial" ? amount : 0,
+        };
+      }
+      return client;
+    }));
+    
+    // Find associated invoices and update their status if needed
+    try {
+      const client = clients.find(c => c.id === clientId || c._id === clientId);
+      if (client) {
+        const invoicesResponse = await invoicesAPI.getAll({ clientId });
+        
+        if (invoicesResponse.data && Array.isArray(invoicesResponse.data)) {
+          const clientInvoices = invoicesResponse.data;
+          
+          // Map payment status to invoice status for any unpaid invoices
+          const newInvoiceStatus = newPaymentStatus === 'paid' ? 'paid' : 
+                                  newPaymentStatus === 'partial' ? 'pending' : 'pending';
+          
+          for (const invoice of clientInvoices) {
+            // Only update unpaid/pending invoices
+            if (invoice.status !== 'paid' && invoice.status !== 'cancelled') {
+              await invoicesAPI.updateStatus(
+                invoice._id || invoice.id, 
+                newInvoiceStatus
+              );
+              console.log(`Updated invoice ${invoice._id || invoice.id} to ${newInvoiceStatus}`);
+            }
+          }
+        }
+      }
+    } catch (invoiceError) {
+      console.error("Error updating related invoices:", invoiceError);
+      // Continue with client update even if invoice updates fail
+    }
+    
     toast.success(`Payment status updated to ${newPaymentStatus.replace("_", " ")}`);
+    
+    // Notify other components via custom event
+    const updateEvent = new CustomEvent('payment-updated', {
+      detail: {
+        clientId,
+        status: newPaymentStatus,
+        amount: newPaymentStatus === "partial" ? amount : 0,
+        timestamp: new Date().getTime()
+      }
+    });
+    window.dispatchEvent(updateEvent);
+    
+    setIsLoading(false);
   } catch (error) {
     console.error("Error updating payment status:", error);
-    toast.error("Failed to update payment status");
+    toast.error("Failed to update payment status: " + (error.message || "Unknown error"));
+    setIsLoading(false);
   }
 };
+
 
   const openPreDeliveryDialog = (client) => {
     setClientToDeliver(client);
@@ -521,26 +790,29 @@ const handleUpdatePayment = async (clientId, newPaymentStatus, amount = 0) => {
 
   const handleCompleteDelivery = async () => {
     if (!clientToDeliver) return;
-  
+
     try {
       // First, upload any delivery images
       // In a real implementation, you would upload images to your server
       // For now, we'll just send the URLs
       const deliveryData = {
         deliveryNotes: preDeliveryNotes,
-        deliveryImages: preDeliveryImages
+        deliveryImages: preDeliveryImages,
       };
-      
-      const response = await clientsAPI.markDelivered(clientToDeliver.id, deliveryData);
-      
+
+      const response = await clientsAPI.markDelivered(
+        clientToDeliver.id,
+        deliveryData
+      );
+
       // Update local state
-      const updatedClients = clients.map(client => {
+      const updatedClients = clients.map((client) => {
         if (client.id === clientToDeliver.id) {
           return response.data;
         }
         return client;
       });
-      
+
       setClients(updatedClients);
       toast.success("Vehicle marked as delivered");
       setShowPreDeliveryDialog(false);
@@ -552,7 +824,7 @@ const handleUpdatePayment = async (clientId, newPaymentStatus, amount = 0) => {
 
   const openClientHistory = async (client) => {
     setSelectedClientForHistory(client);
-  
+
     try {
       const response = await clientsAPI.getHistory(client.id);
       setClientHistory(response.data);
@@ -610,66 +882,6 @@ const handleUpdatePayment = async (clientId, newPaymentStatus, amount = 0) => {
     return format(new Date(date), "MMM d, yyyy");
   };
 
-  const getRepairStatusColor = (status) => {
-    switch (status) {
-      case "waiting":
-        return "warning";
-      case "in_progress":
-        return "info";
-      case "completed":
-        return "success";
-      case "delivered":
-        return "primary";
-      case "cancelled":
-        return "error";
-      default:
-        return "default";
-    }
-  };
-
-  const getRepairStatusIcon = (status) => {
-    switch (status) {
-      case "waiting":
-        return <Clock size={16} />;
-      case "in_progress":
-        return <Tool size={16} />;
-      case "completed":
-        return <Check size={16} />;
-      case "delivered":
-        return <CheckCircle size={16} />;
-      case "cancelled":
-        return <X size={16} />;
-      default:
-        return null;
-    }
-  };
-
-  const getPaymentStatusColor = (status) => {
-    switch (status) {
-      case "paid":
-        return "success";
-      case "not_paid":
-        return "error";
-      case "partial":
-        return "warning";
-      default:
-        return "default";
-    }
-  };
-
-  const getPaymentStatusIcon = (status) => {
-    switch (status) {
-      case "paid":
-        return <CheckCircle size={16} />;
-      case "not_paid":
-        return <XCircle size={16} />;
-      case "partial":
-        return <DollarSign size={16} />;
-      default:
-        return null;
-    }
-  };
-
   if (isLoading) {
     return (
       <>
@@ -695,7 +907,6 @@ const handleUpdatePayment = async (clientId, newPaymentStatus, amount = 0) => {
         maxWidth={false}
         sx={{ mt: 4, mb: 4, px: { xs: 2, sm: 3, md: 4 } }}
       >
-        {" "}
         <Box
           sx={{
             mb: 4,
@@ -712,273 +923,298 @@ const handleUpdatePayment = async (clientId, newPaymentStatus, amount = 0) => {
               Clients
             </Typography>
           </Box>
-          <Button
-            variant="contained"
-            color="primary"
-            startIcon={<Plus />}
-            onClick={() => openClientForm()}
-          >
-            New Client
-          </Button>
+          <Box sx={{ display: "flex", gap: 2 }}>
+            <Button
+              variant="outlined"
+              color="primary"
+              startIcon={showCalendarView ? <Users /> : <Calendar />}
+              onClick={() => setShowCalendarView(!showCalendarView)}
+            >
+              {showCalendarView ? "Table View" : "Calendar View"}
+            </Button>
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<Plus />}
+              onClick={() => openClientForm()}
+            >
+              New Client
+            </Button>
+          </Box>
         </Box>
-        {/* Dashboard Summary */}
-        <Grid container spacing={3} sx={{ mb: 4 }}>
-          <Grid item xs={12} md={3}>
-            <Card sx={{ borderLeft: 4, borderColor: "info.main" }}>
-              <CardContent>
-                <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
-                  <Avatar sx={{ bgcolor: "info.light", mr: 2 }}>
-                    <Users size={20} />
-                  </Avatar>
-                  <Typography color="info.main" variant="h6">
-                    Total Clients
-                  </Typography>
-                </Box>
-                <Typography
-                  variant="h4"
-                  component="div"
-                  sx={{ fontWeight: "bold" }}
-                >
-                  {clients.length}
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid item xs={12} md={3}>
-            <Card sx={{ borderLeft: 4, borderColor: "warning.main" }}>
-              <CardContent>
-                <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
-                  <Avatar sx={{ bgcolor: "warning.light", mr: 2 }}>
-                    <Tool size={20} />
-                  </Avatar>
-                  <Typography color="warning.main" variant="h6">
-                    Active Repairs
-                  </Typography>
-                </Box>
-                <Typography
-                  variant="h4"
-                  component="div"
-                  sx={{ fontWeight: "bold" }}
-                >
-                  {
-                    clients.filter(
-                      (client) => client.repairStatus === "in_progress"
-                    ).length
-                  }
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid item xs={12} md={3}>
-            <Card sx={{ borderLeft: 4, borderColor: "success.main" }}>
-              <CardContent>
-                <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
-                  <Avatar sx={{ bgcolor: "success.light", mr: 2 }}>
-                    <CheckCircle size={20} />
-                  </Avatar>
-                  <Typography color="success.main" variant="h6">
-                    Completed Jobs
-                  </Typography>
-                </Box>
-                <Typography
-                  variant="h4"
-                  component="div"
-                  sx={{ fontWeight: "bold" }}
-                >
-                  {
-                    clients.filter(
-                      (client) =>
-                        client.repairStatus === "completed" ||
-                        client.repairStatus === "delivered"
-                    ).length
-                  }
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid item xs={12} md={3}>
-            <Card sx={{ borderLeft: 4, borderColor: "error.main" }}>
-              <CardContent>
-                <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
-                  <Avatar sx={{ bgcolor: "error.light", mr: 2 }}>
-                    <AlertTriangle size={20} />
-                  </Avatar>
-                  <Typography color="error.main" variant="h6">
-                    Unpaid Jobs
-                  </Typography>
-                </Box>
-                <Typography
-                  variant="h4"
-                  component="div"
-                  sx={{ fontWeight: "bold" }}
-                >
-                  {
-                    clients.filter(
-                      (client) => client.paymentStatus === "not_paid"
-                    ).length
-                  }
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-        </Grid>
-        {/* Filters */}
-        <Paper sx={{ p: 2, mb: 3, borderRadius: 2 }}>
-          <Grid container spacing={2} alignItems="center">
-            <Grid item xs={12} md={3}>
-              <TextField
-                fullWidth
-                placeholder="Search by name, phone, vehicle..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <Search size={20} />
-                    </InputAdornment>
-                  ),
-                }}
-                size="small"
-                variant="outlined"
-              />
+
+        {/* Toggle between table and calendar view */}
+        {showCalendarView ? (
+          <AppointmentCalendar
+            clients={clients}
+            onCreateInvoiceFromAppointment={(clientId) => {
+              history.push({
+                pathname: "/admin/invoices",
+                state: { createFromClient: clientId },
+              });
+            }}
+          />
+        ) : (
+          <>
+            {/* Dashboard Summary */}
+            <Grid container spacing={3} sx={{ mb: 4 }}>
+              <Grid item xs={12} md={3}>
+                <Card sx={{ borderLeft: 4, borderColor: "info.main" }}>
+                  <CardContent>
+                    <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
+                      <Avatar sx={{ bgcolor: "info.light", mr: 2 }}>
+                        <Users size={20} />
+                      </Avatar>
+                      <Typography color="info.main" variant="h6">
+                        Total Clients
+                      </Typography>
+                    </Box>
+                    <Typography
+                      variant="h4"
+                      component="div"
+                      sx={{ fontWeight: "bold" }}
+                    >
+                      {clients.length}
+                    </Typography>
+                  </CardContent>
+                </Card>
+              </Grid>
+              <Grid item xs={12} md={3}>
+                <Card sx={{ borderLeft: 4, borderColor: "warning.main" }}>
+                  <CardContent>
+                    <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
+                      <Avatar sx={{ bgcolor: "warning.light", mr: 2 }}>
+                        <Tool size={20} />
+                      </Avatar>
+                      <Typography color="warning.main" variant="h6">
+                        Active Repairs
+                      </Typography>
+                    </Box>
+                    <Typography
+                      variant="h4"
+                      component="div"
+                      sx={{ fontWeight: "bold" }}
+                    >
+                      {
+                        clients.filter(
+                          (client) => client.repairStatus === "in_progress"
+                        ).length
+                      }
+                    </Typography>
+                  </CardContent>
+                </Card>
+              </Grid>
+              <Grid item xs={12} md={3}>
+                <Card sx={{ borderLeft: 4, borderColor: "success.main" }}>
+                  <CardContent>
+                    <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
+                      <Avatar sx={{ bgcolor: "success.light", mr: 2 }}>
+                        <CheckCircle size={20} />
+                      </Avatar>
+                      <Typography color="success.main" variant="h6">
+                        Completed Jobs
+                      </Typography>
+                    </Box>
+                    <Typography
+                      variant="h4"
+                      component="div"
+                      sx={{ fontWeight: "bold" }}
+                    >
+                      {
+                        clients.filter(
+                          (client) =>
+                            client.repairStatus === "completed" ||
+                            client.repairStatus === "delivered"
+                        ).length
+                      }
+                    </Typography>
+                  </CardContent>
+                </Card>
+              </Grid>
+              <Grid item xs={12} md={3}>
+                <Card sx={{ borderLeft: 4, borderColor: "error.main" }}>
+                  <CardContent>
+                    <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
+                      <Avatar sx={{ bgcolor: "error.light", mr: 2 }}>
+                        <AlertTriangle size={20} />
+                      </Avatar>
+                      <Typography color="error.main" variant="h6">
+                        Unpaid Jobs
+                      </Typography>
+                    </Box>
+                    <Typography
+                      variant="h4"
+                      component="div"
+                      sx={{ fontWeight: "bold" }}
+                    >
+                      {
+                        clients.filter(
+                          (client) => client.paymentStatus === "not_paid"
+                        ).length
+                      }
+                    </Typography>
+                  </CardContent>
+                </Card>
+              </Grid>
             </Grid>
-            <Grid item xs={12} md={3}>
-              <DatePicker
-                selectsRange={true}
-                startDate={startDate}
-                endDate={endDate}
-                onChange={(update) => setDateRange(update)}
-                placeholderText="Select date range"
-                customInput={
+            {/* Filters */}
+            <Paper sx={{ p: 2, mb: 3, borderRadius: 2 }}>
+              <Grid container spacing={2} alignItems="center">
+                <Grid item xs={12} md={3}>
                   <TextField
                     fullWidth
-                    size="small"
-                    variant="outlined"
+                    placeholder="Search by name, phone, vehicle..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
                     InputProps={{
                       startAdornment: (
                         <InputAdornment position="start">
-                          <Calendar size={20} />
+                          <Search size={20} />
                         </InputAdornment>
                       ),
                     }}
+                    size="small"
+                    variant="outlined"
                   />
-                }
-              />
-            </Grid>
-            <Grid item xs={12} md={3}>
-              <Select
-                placeholder="Filter by status"
-                isClearable
-                value={filterStatus}
-                onChange={(option) => setFilterStatus(option)}
-                options={[
-                  { value: "active", label: "Active Repairs" },
-                  ...repairStatusOptions,
-                ]}
-              />
-            </Grid>
-            <Grid item xs={12} md={3}>
-              <Box sx={{ display: "flex", gap: 1 }}>
-                <Button
-                  variant="outlined"
-                  startIcon={<Filter />}
-                  onClick={() => {
-                    setSearchTerm("");
-                    setDateRange([null, null]);
-                    setFilterStatus(null);
-                    setActiveTab("all");
-                  }}
+                </Grid>
+                <Grid item xs={12} md={3}>
+                  <DatePicker
+                    selectsRange={true}
+                    startDate={startDate}
+                    endDate={endDate}
+                    onChange={(update) => setDateRange(update)}
+                    placeholderText="Select date range"
+                    customInput={
+                      <TextField
+                        fullWidth
+                        size="small"
+                        variant="outlined"
+                        InputProps={{
+                          startAdornment: (
+                            <InputAdornment position="start">
+                              <Calendar size={20} />
+                            </InputAdornment>
+                          ),
+                        }}
+                      />
+                    }
+                  />
+                </Grid>
+                <Grid item xs={12} md={3}>
+                  <Select
+                    placeholder="Filter by status"
+                    isClearable
+                    value={filterStatus}
+                    onChange={(option) => setFilterStatus(option)}
+                    options={[
+                      { value: "active", label: "Active Repairs" },
+                      ...repairStatusOptions,
+                    ]}
+                  />
+                </Grid>
+                <Grid item xs={12} md={3}>
+                  <Box sx={{ display: "flex", gap: 1 }}>
+                    <Button
+                      variant="outlined"
+                      startIcon={<Filter />}
+                      onClick={() => {
+                        setSearchTerm("");
+                        setDateRange([null, null]);
+                        setFilterStatus(null);
+                        setActiveTab("all");
+                      }}
+                    >
+                      Reset
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      startIcon={<Download />}
+                      onClick={exportToCSV}
+                    >
+                      Export
+                    </Button>
+                  </Box>
+                </Grid>
+              </Grid>
+            </Paper>
+            {/* Tabs */}
+            <Box sx={{ mb: 3 }}>
+              <Box sx={{ borderBottom: 1, borderColor: "divider" }}>
+                <Tabs
+                  value={activeTab}
+                  onChange={handleTabChange}
+                  aria-label="client tabs"
+                  variant="scrollable"
+                  scrollButtons="auto"
                 >
-                  Reset
-                </Button>
-                <Button
-                  variant="outlined"
-                  startIcon={<Download />}
-                  onClick={exportToCSV}
-                >
-                  Export
-                </Button>
+                  <Tab label="All Clients" value="all" />
+                  <Tab
+                    label={
+                      <Badge
+                        badgeContent={
+                          clients.filter(
+                            (client) => client.repairStatus === "waiting"
+                          ).length
+                        }
+                        color="warning"
+                      >
+                        Waiting
+                      </Badge>
+                    }
+                    value="waiting"
+                  />
+                  <Tab
+                    label={
+                      <Badge
+                        badgeContent={
+                          clients.filter(
+                            (client) => client.repairStatus === "in_progress"
+                          ).length
+                        }
+                        color="info"
+                      >
+                        In Progress
+                      </Badge>
+                    }
+                    value="in_progress"
+                  />
+                  <Tab
+                    label={
+                      <Badge
+                        badgeContent={
+                          clients.filter(
+                            (client) => client.repairStatus === "completed"
+                          ).length
+                        }
+                        color="success"
+                      >
+                        Completed
+                      </Badge>
+                    }
+                    value="completed"
+                  />
+                  <Tab label="Active Repairs" value="active" />
+                </Tabs>
               </Box>
-            </Grid>
-          </Grid>
-        </Paper>
-        {/* Tabs */}
-        <Box sx={{ mb: 3 }}>
-          <Box sx={{ borderBottom: 1, borderColor: "divider" }}>
-            <Tabs
-              value={activeTab}
-              onChange={handleTabChange}
-              aria-label="client tabs"
-              variant="scrollable"
-              scrollButtons="auto"
-            >
-              <Tab label="All Clients" value="all" />
-              <Tab
-                label={
-                  <Badge
-                    badgeContent={
-                      clients.filter(
-                        (client) => client.repairStatus === "waiting"
-                      ).length
-                    }
-                    color="warning"
-                  >
-                    Waiting
-                  </Badge>
-                }
-                value="waiting"
-              />
-              <Tab
-                label={
-                  <Badge
-                    badgeContent={
-                      clients.filter(
-                        (client) => client.repairStatus === "in_progress"
-                      ).length
-                    }
-                    color="info"
-                  >
-                    In Progress
-                  </Badge>
-                }
-                value="in_progress"
-              />
-              <Tab
-                label={
-                  <Badge
-                    badgeContent={
-                      clients.filter(
-                        (client) => client.repairStatus === "completed"
-                      ).length
-                    }
-                    color="success"
-                  >
-                    Completed
-                  </Badge>
-                }
-                value="completed"
-              />
-              <Tab label="Active Repairs" value="active" />
-            </Tabs>
-          </Box>
 
-          <Box sx={{ pt: 2 }}>
-            <ClientsTable
-              clients={filteredClients}
-              onView={openClientHistory}
-              onEdit={openClientForm}
-              onDelete={openDeleteConfirmation}
-              onUpdateStatus={handleUpdateStatus}
-              onUpdatePayment={handleUpdatePayment}
-              onMarkDelivered={openPreDeliveryDialog}
-              getRepairStatusColor={getRepairStatusColor}
-              getRepairStatusIcon={getRepairStatusIcon}
-              getPaymentStatusColor={getPaymentStatusColor}
-              getPaymentStatusIcon={getPaymentStatusIcon}
-              formatDate={formatDate}
-            />
-          </Box>
-        </Box>
+              <Box sx={{ pt: 2 }}>
+                <ClientsTable
+                  clients={filteredClients}
+                  onView={openClientHistory}
+                  onEdit={openClientForm}
+                  onDelete={openDeleteConfirmation}
+                  onUpdateStatus={handleUpdateStatus}
+                  onUpdatePayment={handleUpdatePayment}
+                  onMarkDelivered={openPreDeliveryDialog}
+                  getStatusColor={getStatusColor}
+                  getStatusIcon={getStatusIcon}
+                  formatDate={formatDate}
+                />
+              </Box>
+            </Box>
+          </>
+        )}
+
         {/* Client Form Dialog */}
         <Dialog
           open={formOpen}
@@ -1036,14 +1272,16 @@ const handleUpdatePayment = async (clientId, newPaymentStatus, amount = 0) => {
               </Grid>
 
               <Grid item xs={12} md={4}>
-                <TextField
-                  label="Make"
-                  fullWidth
-                  required
+                <Autocomplete
+                  options={carMakes}
+                  freeSolo
                   value={formData.carDetails.make}
-                  onChange={(e) =>
-                    handleFormChange("carDetails.make", e.target.value)
+                  onChange={(event, newValue) =>
+                    handleFormChange("carDetails.make", newValue)
                   }
+                  renderInput={(params) => (
+                    <TextField {...params} label="Make" fullWidth required />
+                  )}
                 />
               </Grid>
 
@@ -1060,13 +1298,16 @@ const handleUpdatePayment = async (clientId, newPaymentStatus, amount = 0) => {
               </Grid>
 
               <Grid item xs={12} md={4}>
-                <TextField
-                  label="Year"
-                  fullWidth
+                <Autocomplete
+                  options={carYears}
+                  freeSolo
                   value={formData.carDetails.year}
-                  onChange={(e) =>
-                    handleFormChange("carDetails.year", e.target.value)
+                  onChange={(event, newValue) =>
+                    handleFormChange("carDetails.year", newValue)
                   }
+                  renderInput={(params) => (
+                    <TextField {...params} label="Year" fullWidth />
+                  )}
                 />
               </Grid>
 
@@ -1132,6 +1373,42 @@ const handleUpdatePayment = async (clientId, newPaymentStatus, amount = 0) => {
                   }
                   placeholder="Select repair procedures..."
                   isSearchable
+                  styles={{
+                    menu: (provided) => ({
+                      ...provided,
+                      backgroundColor: "white",
+                      zIndex: 9999,
+                      boxShadow: "0 4px 8px rgba(0, 0, 0, 0.15)",
+                    }),
+                    option: (provided, state) => ({
+                      ...provided,
+                      backgroundColor: state.isSelected
+                        ? "#1976d2"
+                        : state.isFocused
+                        ? "#e8f0fe"
+                        : "white",
+                      color: state.isSelected ? "white" : "black",
+                      padding: "10px 15px",
+                    }),
+                    control: (provided, state) => ({
+                      ...provided,
+                      borderColor: state.isFocused ? "#1976d2" : "#ced4da",
+                      boxShadow: state.isFocused
+                        ? "0 0 0 2px rgba(25, 118, 210, 0.25)"
+                        : "none",
+                      "&:hover": {
+                        borderColor: state.isFocused ? "#1976d2" : "#adb5bd",
+                      },
+                    }),
+                  }}
+                  theme={(theme) => ({
+                    ...theme,
+                    colors: {
+                      ...theme.colors,
+                      primary: "#1976d2",
+                      primary25: "#e8f0fe",
+                    },
+                  })}
                 />
               </Grid>
 
@@ -1248,7 +1525,7 @@ const handleUpdatePayment = async (clientId, newPaymentStatus, amount = 0) => {
                     }
                     InputProps={{
                       startAdornment: (
-                        <InputAdornment position="start">$</InputAdornment>
+                        <InputAdornment position="start">D</InputAdornment>
                       ),
                     }}
                     sx={{ mt: 2 }}
@@ -1663,7 +1940,11 @@ const handleUpdatePayment = async (clientId, newPaymentStatus, amount = 0) => {
   );
 };
 
-// Separate table component
+
+// ==========================================
+//  CLIENT TABLE  
+// ==========================================
+
 const ClientsTable = ({
   clients,
   onView,
@@ -1672,10 +1953,8 @@ const ClientsTable = ({
   onUpdateStatus,
   onUpdatePayment,
   onMarkDelivered,
-  getRepairStatusColor,
-  getRepairStatusIcon,
-  getPaymentStatusColor,
-  getPaymentStatusIcon,
+  getStatusColor,
+  getStatusIcon,
   formatDate,
 }) => {
   const [statusMenuAnchorEl, setStatusMenuAnchorEl] = useState(null);
@@ -1684,34 +1963,41 @@ const ClientsTable = ({
   const [partialPaymentAmount, setPartialPaymentAmount] = useState("");
   const [showPartialDialog, setShowPartialDialog] = useState(false);
 
+  // Fixed handlers with stopPropagation to prevent event bubbling
   const handleStatusMenuOpen = (event, clientId) => {
+    event.stopPropagation(); // Prevent event bubbling
     setStatusMenuAnchorEl(event.currentTarget);
     setSelectedClientId(clientId);
   };
 
-  const handleStatusMenuClose = () => {
+  const handleStatusMenuClose = (event) => {
+    if (event) event.stopPropagation();
     setStatusMenuAnchorEl(null);
     setSelectedClientId(null);
   };
 
   const handlePaymentMenuOpen = (event, clientId) => {
+    event.stopPropagation(); // Prevent event bubbling
     setPaymentMenuAnchorEl(event.currentTarget);
     setSelectedClientId(clientId);
   };
 
-  const handlePaymentMenuClose = () => {
+  const handlePaymentMenuClose = (event) => {
+    if (event) event.stopPropagation();
     setPaymentMenuAnchorEl(null);
     setSelectedClientId(null);
   };
 
-  const handleStatusUpdate = (newStatus) => {
+  const handleStatusUpdate = (event, newStatus) => {
+    if (event) event.stopPropagation();
     if (selectedClientId) {
       onUpdateStatus(selectedClientId, newStatus);
     }
     handleStatusMenuClose();
   };
 
-  const handlePaymentUpdate = (newStatus) => {
+  const handlePaymentUpdate = (event, newStatus) => {
+    if (event) event.stopPropagation();
     if (selectedClientId) {
       if (newStatus === "partial") {
         setShowPartialDialog(true);
@@ -1722,7 +2008,8 @@ const ClientsTable = ({
     handlePaymentMenuClose();
   };
 
-  const handlePartialPaymentSubmit = () => {
+  const handlePartialPaymentSubmit = (event) => {
+    if (event) event.stopPropagation();
     if (selectedClientId && partialPaymentAmount) {
       onUpdatePayment(
         selectedClientId,
@@ -1760,7 +2047,7 @@ const ClientsTable = ({
               </TableRow>
             ) : (
               clients.map((client) => (
-                <TableRow key={client.id}>
+                <TableRow key={client.id || client._id}>
                   <TableCell>
                     <Box sx={{ display: "flex", flexDirection: "column" }}>
                       <Typography variant="subtitle2">
@@ -1799,7 +2086,7 @@ const ClientsTable = ({
                         mt: 0.5,
                       }}
                     >
-                      {client.procedures.slice(0, 2).map((procedure, i) => (
+                      {client.procedures && client.procedures.slice(0, 2).map((procedure, i) => (
                         <Chip
                           key={i}
                           label={procedure.label}
@@ -1807,7 +2094,7 @@ const ClientsTable = ({
                           sx={{ fontSize: "0.7rem" }}
                         />
                       ))}
-                      {client.procedures.length > 2 && (
+                      {client.procedures && client.procedures.length > 2 && (
                         <Chip
                           label={`+${client.procedures.length - 2}`}
                           size="small"
@@ -1843,12 +2130,16 @@ const ClientsTable = ({
                       <Button
                         variant="outlined"
                         size="small"
-                        color={getRepairStatusColor(client.repairStatus)}
-                        startIcon={getRepairStatusIcon(client.repairStatus)}
-                        onClick={(e) => handleStatusMenuOpen(e, client.id)}
+                        color={getStatusColor(client.repairStatus, "repair")}
+                        startIcon={React.createElement(
+                          getStatusIcon(client.repairStatus, "repair"),
+                          { size: 16 }
+                        )}
+                        onClick={(e) => handleStatusMenuOpen(e, client.id || client._id)}
                         aria-haspopup="true"
                         aria-expanded={statusMenuAnchorEl ? "true" : undefined}
                         sx={{ textTransform: "capitalize" }}
+                        data-testid={`status-button-${client.id || client._id}`}
                       >
                         {client.repairStatus.replace("_", " ")}
                       </Button>
@@ -1859,15 +2150,19 @@ const ClientsTable = ({
                       <Button
                         variant="outlined"
                         size="small"
-                        color={getPaymentStatusColor(client.paymentStatus)}
-                        startIcon={getPaymentStatusIcon(client.paymentStatus)}
-                        onClick={(e) => handlePaymentMenuOpen(e, client.id)}
+                        color={getStatusColor(client.paymentStatus, "payment")}
+                        startIcon={React.createElement(
+                          getStatusIcon(client.paymentStatus, "payment"),
+                          { size: 16 }
+                        )}
+                        onClick={(e) => handlePaymentMenuOpen(e, client.id || client._id)}
                         aria-haspopup="true"
                         aria-expanded={paymentMenuAnchorEl ? "true" : undefined}
                         sx={{ textTransform: "capitalize" }}
+                        data-testid={`payment-button-${client.id || client._id}`}
                       >
                         {client.paymentStatus === "partial"
-                          ? `Partial (${client.partialPaymentAmount})`
+                          ? `Partial (D${client.partialPaymentAmount})`
                           : client.paymentStatus.replace("_", " ")}
                       </Button>
                     </Box>
@@ -1878,7 +2173,11 @@ const ClientsTable = ({
                         <IconButton
                           size="small"
                           color="primary"
-                          onClick={() => onView(client)}
+                          onClick={(e) => { 
+                            e.stopPropagation();
+                            onView(client);
+                          }}
+                          data-testid={`view-button-${client.id || client._id}`}
                         >
                           <FileText size={18} />
                         </IconButton>
@@ -1887,7 +2186,11 @@ const ClientsTable = ({
                         <IconButton
                           size="small"
                           color="primary"
-                          onClick={() => onEdit(client)}
+                          onClick={(e) => { 
+                            e.stopPropagation();
+                            onEdit(client);
+                          }}
+                          data-testid={`edit-button-${client.id || client._id}`}
                         >
                           <Edit size={18} />
                         </IconButton>
@@ -1897,7 +2200,11 @@ const ClientsTable = ({
                           <IconButton
                             size="small"
                             color="success"
-                            onClick={() => onMarkDelivered(client)}
+                            onClick={(e) => { 
+                              e.stopPropagation();
+                              onMarkDelivered(client);
+                            }}
+                            data-testid={`deliver-button-${client.id || client._id}`}
                           >
                             <CheckCircle size={18} />
                           </IconButton>
@@ -1907,7 +2214,11 @@ const ClientsTable = ({
                         <IconButton
                           size="small"
                           color="error"
-                          onClick={() => onDelete(client)}
+                          onClick={(e) => { 
+                            e.stopPropagation();
+                            onDelete(client);
+                          }}
+                          data-testid={`delete-button-${client.id || client._id}`}
                         >
                           <Trash2 size={18} />
                         </IconButton>
@@ -1927,31 +2238,31 @@ const ClientsTable = ({
         open={Boolean(statusMenuAnchorEl)}
         onClose={handleStatusMenuClose}
       >
-        <MenuItem onClick={() => handleStatusUpdate("waiting")}>
+        <MenuItem onClick={(e) => handleStatusUpdate(e, "waiting")} data-testid="status-waiting">
           <ListItemIcon>
             <Clock size={16} />
           </ListItemIcon>
           Waiting
         </MenuItem>
-        <MenuItem onClick={() => handleStatusUpdate("in_progress")}>
+        <MenuItem onClick={(e) => handleStatusUpdate(e, "in_progress")} data-testid="status-in-progress">
           <ListItemIcon>
             <Tool size={16} />
           </ListItemIcon>
           In Progress
         </MenuItem>
-        <MenuItem onClick={() => handleStatusUpdate("completed")}>
+        <MenuItem onClick={(e) => handleStatusUpdate(e, "completed")} data-testid="status-completed">
           <ListItemIcon>
             <Check size={16} />
           </ListItemIcon>
           Completed
         </MenuItem>
-        <MenuItem onClick={() => handleStatusUpdate("delivered")}>
+        <MenuItem onClick={(e) => handleStatusUpdate(e, "delivered")} data-testid="status-delivered">
           <ListItemIcon>
             <CheckCircle size={16} />
           </ListItemIcon>
           Delivered
         </MenuItem>
-        <MenuItem onClick={() => handleStatusUpdate("cancelled")}>
+        <MenuItem onClick={(e) => handleStatusUpdate(e, "cancelled")} data-testid="status-cancelled">
           <ListItemIcon>
             <X size={16} />
           </ListItemIcon>
@@ -1965,19 +2276,19 @@ const ClientsTable = ({
         open={Boolean(paymentMenuAnchorEl)}
         onClose={handlePaymentMenuClose}
       >
-        <MenuItem onClick={() => handlePaymentUpdate("paid")}>
+        <MenuItem onClick={(e) => handlePaymentUpdate(e, "paid")} data-testid="payment-paid">
           <ListItemIcon>
             <CheckCircle size={16} />
           </ListItemIcon>
           Paid
         </MenuItem>
-        <MenuItem onClick={() => handlePaymentUpdate("not_paid")}>
+        <MenuItem onClick={(e) => handlePaymentUpdate(e, "not_paid")} data-testid="payment-not-paid">
           <ListItemIcon>
             <XCircle size={16} />
           </ListItemIcon>
           Not Paid
         </MenuItem>
-        <MenuItem onClick={() => handlePaymentUpdate("partial")}>
+        <MenuItem onClick={(e) => handlePaymentUpdate(e, "partial")} data-testid="payment-partial">
           <ListItemIcon>
             <DollarSign size={16} />
           </ListItemIcon>
@@ -1988,7 +2299,10 @@ const ClientsTable = ({
       {/* Partial Payment Dialog */}
       <Dialog
         open={showPartialDialog}
-        onClose={() => setShowPartialDialog(false)}
+        onClose={(e) => {
+          e && e.stopPropagation();
+          setShowPartialDialog(false);
+        }}
       >
         <DialogTitle>Enter Partial Payment Amount</DialogTitle>
         <DialogContent>
@@ -2002,14 +2316,23 @@ const ClientsTable = ({
             onChange={(e) => setPartialPaymentAmount(e.target.value)}
             InputProps={{
               startAdornment: (
-                <InputAdornment position="start">$</InputAdornment>
+                <InputAdornment position="start">D</InputAdornment>
               ),
             }}
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setShowPartialDialog(false)}>Cancel</Button>
-          <Button onClick={handlePartialPaymentSubmit} color="primary">
+          <Button onClick={(e) => {
+            e.stopPropagation();
+            setShowPartialDialog(false);
+          }}>
+            Cancel
+          </Button>
+          <Button 
+            onClick={handlePartialPaymentSubmit} 
+            color="primary" 
+            data-testid="submit-partial-payment"
+          >
             Submit
           </Button>
         </DialogActions>

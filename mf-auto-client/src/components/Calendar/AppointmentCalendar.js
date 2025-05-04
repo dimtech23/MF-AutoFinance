@@ -1,4 +1,13 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext, useCallback } from "react";
+import { UserContext } from "../../Context/UserContext.js";
+import axios from "axios";
+import { toast } from "react-toastify";
+import { appointmentsAPI,appointmentAPI, clientsAPI } from "../../api";
+import {
+  mapStatus,
+  getStatusColor,
+  shouldCreateInvoice,
+} from "../../utility/statusMapper.js";
 import {
   Container,
   Typography,
@@ -22,6 +31,9 @@ import {
   IconButton,
   Tooltip,
   Alert,
+  CircularProgress,
+  Autocomplete,
+  Paper,
 } from "@mui/material";
 import {
   Calendar,
@@ -37,6 +49,7 @@ import {
   DollarSign,
   FileText,
   AlertTriangle,
+  Camera,
 } from "react-feather";
 import {
   format,
@@ -49,6 +62,7 @@ import {
   isSameDay,
   parseISO,
   addDays,
+  isToday,
 } from "date-fns";
 
 // Status options for appointments
@@ -70,15 +84,39 @@ const appointmentTypeOptions = [
   },
   { value: "inspection", label: "Inspection", icon: <FileText size={16} /> },
   { value: "invoice", label: "Invoice", icon: <DollarSign size={16} /> },
+  { value: "delivery", label: "Delivery", icon: <Truck size={16} /> },
+  {
+    value: "documentation",
+    label: "Documentation",
+    icon: <Camera size={16} />,
+  },
 ];
 
-const AppointmentCalendar = ({ clients, invoices }) => {
+// Map repair status to appointment status
+const mapRepairStatusToAppointmentStatus = {
+  waiting: "scheduled",
+  in_progress: "in_progress",
+  completed: "completed",
+  delivered: "completed",
+  cancelled: "cancelled",
+};
+
+const AppointmentCalendar = ({
+  clients = [],
+  invoices = [],
+  onCreateInvoiceFromAppointment = null,
+}) => {
+  const { token } = useContext(UserContext);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [appointments, setAppointments] = useState([]);
   const [filteredAppointments, setFilteredAppointments] = useState([]);
   const [appointmentFormOpen, setAppointmentFormOpen] = useState(false);
   const [showAllAppointments, setShowAllAppointments] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [clientOptions, setClientOptions] = useState([]);
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
 
   // State for the appointment form
   const [formData, setFormData] = useState({
@@ -93,233 +131,479 @@ const AppointmentCalendar = ({ clients, invoices }) => {
     status: "scheduled",
     description: "",
     invoiceId: "",
-    createdBy: "admin",
-    createdAt: new Date(),
+    createdBy: "",
   });
 
   // State for filtering
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
 
-  useEffect(() => {
-    // In a real app, you'd call your API to fetch appointments
-    // For now, we'll generate sample data
-    const generateSampleData = () => {
-      // If there are clients and invoices, create appointments based on them
-      const sampleAppointments = [];
+  // Format client options from props
+  const formatClientOptions = useCallback((clientsList) => {
+    if (!clientsList || !clientsList.length) return [];
 
-      // Generate appointments from clients data (simulating their delivery dates)
-      if (clients && clients.length > 0) {
-        clients.slice(0, 10).forEach((client, index) => {
-          const startDate = subMonths(new Date(), 1);
-          const endDate = addMonths(new Date(), 2);
+    return clientsList.map((client) => ({
+      id: client.id || client._id,
+      clientName: client.clientName,
+      vehicleInfo: client.carDetails
+        ? `${client.carDetails.year || ""} ${client.carDetails.make || ""} ${
+            client.carDetails.model || ""
+          }`.trim()
+        : "Vehicle info not available",
+      issueDescription: client.issueDescription || "",
+      repairStatus: client.repairStatus || "waiting",
+    }));
+  }, []);
 
-          // Create an appointment date that's either past, current, or future
-          const appointmentDate = new Date();
-          appointmentDate.setDate(appointmentDate.getDate() + (index % 8) - 3); // Spread over a week
+  // Fetch clients data from API if not provided via props
+  const fetchClients = useCallback(async () => {
+    try {
+      console.log("Fetching clients data...");
+      const response = await axios.get("/api/clients", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+      });
 
-          // Create various statuses
-          const statuses = ["scheduled", "in_progress", "completed", "waiting"];
-          const status = statuses[index % statuses.length];
+      // Format client options for autocomplete
+      const options = formatClientOptions(response.data);
+      setClientOptions(options);
+      return options;
+    } catch (error) {
+      console.error("Error fetching clients:", error);
+      throw error;
+    }
+  }, [token, formatClientOptions]);
 
-          sampleAppointments.push({
-            id: `client-${client.id || index}`,
-            title: `${status === "completed" ? "Delivery" : "Service"} - ${
-              client.clientName || `Client ${index + 1}`
-            }`,
-            date: appointmentDate,
-            time: `${9 + (index % 8)}:${index % 2 === 0 ? "00" : "30"}`,
-            clientId: client.id || index,
-            clientName: client.clientName || `Client ${index + 1}`,
-            vehicleInfo: client.carDetails
-              ? `${client.carDetails.year} ${client.carDetails.make} ${client.carDetails.model}`
-              : `Vehicle ${index + 1}`,
-            type: index % 2 === 0 ? "repair" : "maintenance",
-            status: status,
-            description:
-              client.issueDescription ||
-              `Service appointment for ${
-                client.clientName || `Client ${index + 1}`
-              }`,
-            invoiceId: "",
-            createdBy: "admin",
-            createdAt: new Date(appointmentDate),
-          });
+  // Generate appointments from clients and invoices data
+  const generateAppointmentsFromData = useCallback(
+    (clientsList = [], invoicesList = []) => {
+      console.log("Generating appointments from data:", {
+        clientsCount: clientsList.length,
+        invoicesCount: invoicesList.length,
+      });
+
+      const generatedAppointments = [];
+
+      // Process client data to create appointments
+      clientsList.forEach((client, index) => {
+        // Create initial appointment for when the vehicle was dropped off
+        const dropOffDate = client.createdAt
+          ? new Date(client.createdAt)
+          : new Date();
+
+        generatedAppointments.push({
+          id: `client-dropoff-${client.id || client._id || index}`,
+          title: `Initial Assessment - ${client.clientName}`,
+          date: dropOffDate,
+          time: format(dropOffDate, "HH:mm"),
+          clientId: client.id || client._id || index,
+          clientName: client.clientName,
+          vehicleInfo: client.carDetails
+            ? `${client.carDetails.year || ""} ${
+                client.carDetails.make || ""
+              } ${client.carDetails.model || ""}`.trim()
+            : "Vehicle info not available",
+          type: "inspection",
+          status: "completed",
+          description:
+            client.issueDescription ||
+            `Initial assessment for ${client.clientName}`,
+          invoiceId: "",
+          createdBy: client.createdBy || "",
+          createdAt: dropOffDate,
         });
-      }
 
-      // Generate appointments from invoices (for payment or review)
-      if (invoices && invoices.length > 0) {
-        invoices.slice(0, 5).forEach((invoice, index) => {
-          const invoiceDate = new Date();
-          invoiceDate.setDate(invoiceDate.getDate() + index + 1); // Future dates for invoice followups
+        // Add appointment for ongoing work or delivery based on repair status
+        let workAppointmentDate;
 
-          sampleAppointments.push({
-            id: `invoice-${invoice.id || index}`,
+        if (client.deliveryDate) {
+          workAppointmentDate = new Date(client.deliveryDate);
+        } else {
+          // If no delivery date, create an appointment in the future based on estimated duration
+          const duration = client.estimatedDuration || 3; // Default to 3 days if not specified
+          workAppointmentDate = addDays(dropOffDate, duration);
+        }
+
+        // Determine appointment type and status based on client's repair status
+        const repairStatus = client.repairStatus || "waiting";
+        const appointmentStatus =
+          mapRepairStatusToAppointmentStatus[repairStatus] || "scheduled";
+        const appointmentType =
+          repairStatus === "delivered" ? "delivery" : "repair";
+
+        generatedAppointments.push({
+          id: `client-work-${client.id || client._id || index}`,
+          title:
+            repairStatus === "delivered"
+              ? `Delivery - ${client.clientName}`
+              : `${repairStatus === "completed" ? "Completed" : "Service"} - ${
+                  client.clientName
+                }`,
+          date: workAppointmentDate,
+          time: format(workAppointmentDate, "HH:mm"),
+          clientId: client.id || client._id || index,
+          clientName: client.clientName,
+          vehicleInfo: client.carDetails
+            ? `${client.carDetails.year || ""} ${
+                client.carDetails.make || ""
+              } ${client.carDetails.model || ""}`.trim()
+            : "Vehicle info not available",
+          type: appointmentType,
+          status: appointmentStatus,
+          description:
+            client.issueDescription || `Service for ${client.clientName}`,
+          invoiceId: "",
+          createdBy: client.createdBy || "",
+          createdAt: dropOffDate,
+        });
+      });
+
+      // Add appointments for invoices
+      if (invoicesList && invoicesList.length > 0) {
+        invoicesList.forEach((invoice, index) => {
+          const invoiceDate = invoice.createdAt
+            ? new Date(invoice.createdAt)
+            : invoice.issueDate
+            ? new Date(invoice.issueDate)
+            : new Date();
+
+          generatedAppointments.push({
+            id: `invoice-${invoice.id || invoice._id || index}`,
             title: `Invoice Review - ${
-              invoice.customerInfo?.name || `Customer ${index + 1}`
+              invoice.customerInfo?.name ||
+              invoice.customerName ||
+              `Customer ${index + 1}`
             }`,
             date: invoiceDate,
-            time: `${13 + (index % 5)}:${index % 2 === 0 ? "00" : "30"}`,
-            clientId: invoice.customerInfo?.id || "",
-            clientName: invoice.customerInfo?.name || `Customer ${index + 1}`,
+            time: format(invoiceDate, "HH:mm"),
+            clientId: invoice.customerInfo?.id || invoice.clientId || "",
+            clientName:
+              invoice.customerInfo?.name ||
+              invoice.customerName ||
+              `Customer ${index + 1}`,
             vehicleInfo: invoice.vehicleInfo
-              ? `${invoice.vehicleInfo.year} ${invoice.vehicleInfo.make} ${invoice.vehicleInfo.model}`
+              ? `${invoice.vehicleInfo.year || ""} ${
+                  invoice.vehicleInfo.make || ""
+                } ${invoice.vehicleInfo.model || ""}`.trim()
               : "",
             type: "invoice",
             status: "scheduled",
-            description: `Review invoice #${invoice.invoiceNumber} for ${
-              invoice.customerInfo?.name || `Customer ${index + 1}`
+            description: `Review invoice #${
+              invoice.invoiceNumber || index + 1
             }`,
-            invoiceId: invoice.id || "",
-            createdBy: "admin",
-            createdAt: new Date(),
+            invoiceId: invoice.id || invoice._id || index,
+            createdBy: invoice.createdBy || "",
+            createdAt: invoiceDate,
           });
         });
       }
 
-      // Generate some future appointments if needed
-      if (sampleAppointments.length < 15) {
-        const additionalCount = 15 - sampleAppointments.length;
+      console.log(`Generated ${generatedAppointments.length} appointments`);
+      return generatedAppointments;
+    },
+    []
+  );
 
-        for (let i = 0; i < additionalCount; i++) {
-          const futureDate = new Date();
-          futureDate.setDate(futureDate.getDate() + (i % 20) + 1); // Spread over next 3 weeks
-
-          const types = ["repair", "maintenance", "inspection", "invoice"];
-          const statuses = ["scheduled", "waiting"];
-
-          sampleAppointments.push({
-            id: `future-${i}`,
-            title: `${
-              types[i % 4].charAt(0).toUpperCase() + types[i % 4].slice(1)
-            } Appointment`,
-            date: futureDate,
-            time: `${9 + (i % 8)}:${i % 2 === 0 ? "00" : "30"}`,
-            clientId: "",
-            clientName: `Future Client ${i + 1}`,
-            vehicleInfo: `Vehicle ${i + 1}`,
-            type: types[i % 4],
-            status: statuses[i % 2],
-            description: `Future appointment for ${types[i % 4]}`,
-            invoiceId: "",
-            createdBy: "admin",
-            createdAt: new Date(),
-          });
-        }
+  // Filter appointments based on active filters
+  const filterAppointments = useCallback(
+    (allAppointments, status, type, date, showAll) => {
+      if (!allAppointments || allAppointments.length === 0) {
+        console.log("No appointments to filter");
+        setFilteredAppointments([]);
+        return;
       }
 
-      return sampleAppointments;
+      console.log("Filtering appointments:", {
+        total: allAppointments.length,
+        status,
+        type,
+        date: date ? format(date, "yyyy-MM-dd") : null,
+        showAll,
+      });
+
+      let filtered = [...allAppointments];
+
+      // Filter by status if not "all"
+      if (status !== "all") {
+        filtered = filtered.filter(
+          (appointment) => appointment.status === status
+        );
+      }
+
+      // Filter by type if not "all"
+      if (type !== "all") {
+        filtered = filtered.filter((appointment) => appointment.type === type);
+      }
+
+      // Filter by selected date if not showing all
+      if (!showAll && date) {
+        filtered = filtered.filter((appointment) => {
+          if (!appointment.date) return false;
+
+          const appointmentDate = new Date(appointment.date);
+          // Compare only the year, month, and day components
+          const result =
+            appointmentDate.getFullYear() === date.getFullYear() &&
+            appointmentDate.getMonth() === date.getMonth() &&
+            appointmentDate.getDate() === date.getDate();
+
+          return result;
+        });
+      }
+
+      console.log(`Filtered to ${filtered.length} appointments`);
+      setFilteredAppointments(filtered);
+    },
+    []
+  );
+
+  // Fetch appointments from the API
+  const fetchAppointments = useCallback(async () => {
+    setLoading(true);
+    try {
+      console.log(
+        `Fetching appointments for ${format(currentMonth, "MMMM yyyy")}`
+      );
+
+      // Get the first day of the month
+      const firstDay = startOfMonth(currentMonth);
+      // Get the last day of the month
+      const lastDay = endOfMonth(currentMonth);
+
+      // Use appointmentAPI instead of direct axios call
+      const response = await appointmentAPI.getAll({
+        startDate: firstDay.toISOString(),
+        endDate: lastDay.toISOString(),
+      });
+
+      // Format appointments
+      let fetchedAppointments = [];
+
+      if (response.data && response.data.length > 0) {
+        console.log(`Received ${response.data.length} appointments from API`);
+
+        // Format API appointments
+        fetchedAppointments = response.data.map((appointment) => ({
+          id: appointment._id,
+          title: appointment.title,
+          date: new Date(appointment.date),
+          time: appointment.time,
+          clientId: appointment.clientId || "",
+          clientName: appointment.clientName,
+          vehicleInfo: appointment.vehicleInfo || "",
+          type: appointment.type,
+          status: appointment.status,
+          description: appointment.description || "",
+          invoiceId: appointment.invoiceId || "",
+          createdBy: appointment.createdBy || "",
+          createdAt: new Date(appointment.createdAt),
+        }));
+      } else {
+        console.log("No appointments from API, generating from client data");
+        // If no appointments from API, generate from clients and invoices
+        fetchedAppointments = generateAppointmentsFromData(clients, invoices);
+      }
+
+      console.log(
+        `Total appointments processed: ${fetchedAppointments.length}`
+      );
+      setAppointments(fetchedAppointments);
+
+      // Filter for the selected date
+      filterAppointments(
+        fetchedAppointments,
+        statusFilter,
+        typeFilter,
+        selectedDate,
+        showAllAppointments
+      );
+
+      setLoading(false);
+      return fetchedAppointments;
+    } catch (error) {
+      console.error("Error fetching appointments:", error);
+
+      // Fall back to generating appointments from data if API fails
+      console.log("API failed, falling back to generated data");
+      const generatedAppointments = generateAppointmentsFromData(
+        clients,
+        invoices
+      );
+
+      setAppointments(generatedAppointments);
+
+      // Filter for the selected date
+      filterAppointments(
+        generatedAppointments,
+        statusFilter,
+        typeFilter,
+        selectedDate,
+        showAllAppointments
+      );
+
+      setLoading(false);
+      return generatedAppointments;
+    }
+  }, [
+    currentMonth,
+    token,
+    clients,
+    invoices,
+    selectedDate,
+    statusFilter,
+    typeFilter,
+    showAllAppointments,
+    filterAppointments,
+    generateAppointmentsFromData,
+  ]);
+
+  // Fetch initial data on component mount
+  useEffect(() => {
+    const fetchInitialData = async () => {
+      setLoading(true);
+      console.log("Initial data loading started");
+
+      try {
+        // Format client options from the provided clients prop
+        if (clients && clients.length > 0) {
+          console.log(`Using ${clients.length} clients from props`);
+          const options = formatClientOptions(clients);
+          setClientOptions(options);
+        } else {
+          // If clients weren't provided as props, fetch them from the API
+          console.log("No clients in props, fetching from API");
+          await fetchClients();
+        }
+
+        // Fetch appointments from API
+        await fetchAppointments();
+        setInitialLoadComplete(true);
+
+        console.log("Initial data loading complete");
+        setLoading(false);
+      } catch (err) {
+        console.error("Error initializing appointment calendar:", err);
+        setError("Failed to load calendar data. Please try again.");
+        setLoading(false);
+      }
     };
 
-    const sampleAppointments = generateSampleData();
-    setAppointments(sampleAppointments);
-    filterAppointments(
-      sampleAppointments,
-      statusFilter,
-      typeFilter,
-      selectedDate,
-      showAllAppointments
-    );
-  }, [clients, invoices]);
+    if (!initialLoadComplete) {
+      fetchInitialData();
+    }
+  }, [
+    clients,
+    token,
+    fetchClients,
+    fetchAppointments,
+    formatClientOptions,
+    initialLoadComplete,
+  ]);
 
+  // Update appointments when currentMonth changes
   useEffect(() => {
-    filterAppointments(
-      appointments,
-      statusFilter,
-      typeFilter,
-      selectedDate,
-      showAllAppointments
-    );
+    if (initialLoadComplete) {
+      console.log("Month changed, refreshing appointments");
+      fetchAppointments();
+    }
+  }, [currentMonth, fetchAppointments, initialLoadComplete]);
+
+  // Update filtered appointments when relevant state changes
+  useEffect(() => {
+    if (appointments.length > 0) {
+      console.log("Filter parameters changed, updating filtered appointments");
+      filterAppointments(
+        appointments,
+        statusFilter,
+        typeFilter,
+        selectedDate,
+        showAllAppointments
+      );
+    }
   }, [
     appointments,
     selectedDate,
     statusFilter,
     typeFilter,
     showAllAppointments,
+    filterAppointments,
   ]);
 
-useEffect(() => {
-  if (appointments.length > 0) {
-    // Make sure we immediately filter for the current selected date
-    const dayAppointments = appointments.filter(appointment => {
-      const appointmentDate = new Date(appointment.date);
-      return (
-        appointmentDate.getFullYear() === selectedDate.getFullYear() &&
-        appointmentDate.getMonth() === selectedDate.getMonth() &&
-        appointmentDate.getDate() === selectedDate.getDate()
-      );
-    });
-    
-    setFilteredAppointments(dayAppointments);
-  }
-}, [appointments, selectedDate]);
-  const filterAppointments = (allAppointments, status, type, date, showAll) => {
-    if (!allAppointments || allAppointments.length === 0) return;
+  // Navigate to the next month
+  const nextMonth = () => {
+    const newMonth = addMonths(currentMonth, 1);
+    console.log(`Navigating to next month: ${format(newMonth, "MMMM yyyy")}`);
+    setCurrentMonth(newMonth);
+  };
 
-    let filtered = [...allAppointments];
+  // Navigate to the previous month
+  const prevMonth = () => {
+    const newMonth = subMonths(currentMonth, 1);
+    console.log(
+      `Navigating to previous month: ${format(newMonth, "MMMM yyyy")}`
+    );
+    setCurrentMonth(newMonth);
+  };
 
-    // Filter by status if not "all"
-    if (status !== "all") {
-      filtered = filtered.filter(
-        (appointment) => appointment.status === status
-      );
-    }
-
-    // Filter by type if not "all"
-    if (type !== "all") {
-      filtered = filtered.filter((appointment) => appointment.type === type);
-    }
-
-    // Filter by selected date if not showing all
-    if (!showAll && date) {
-      filtered = filtered.filter((appointment) => {
+  // Get appointments for a specific day
+  const getAppointmentsForDay = useCallback(
+    (day) => {
+      return appointments.filter((appointment) => {
         const appointmentDate = new Date(appointment.date);
-        // Compare only the year, month, and day components
         return (
-          appointmentDate.getFullYear() === date.getFullYear() &&
-          appointmentDate.getMonth() === date.getMonth() &&
-          appointmentDate.getDate() === date.getDate()
+          appointmentDate.getFullYear() === day.getFullYear() &&
+          appointmentDate.getMonth() === day.getMonth() &&
+          appointmentDate.getDate() === day.getDate()
         );
       });
-    }
+    },
+    [appointments]
+  );
 
-    setFilteredAppointments(filtered);
-  };
+  // Handle date selection in calendar
+  const onDateClick = useCallback(
+    (day) => {
+      console.log(`Date clicked: ${format(day, "yyyy-MM-dd")}`);
 
-  const nextMonth = () => {
-    setCurrentMonth(addMonths(currentMonth, 1));
-  };
-
-  const prevMonth = () => {
-    setCurrentMonth(subMonths(currentMonth, 1));
-  };
-
-  const getAppointmentsForDay = (day) => {
-    return appointments.filter((appointment) => {
-      const appointmentDate = new Date(appointment.date);
-      return (
-        appointmentDate.getFullYear() === day.getFullYear() &&
-        appointmentDate.getMonth() === day.getMonth() &&
-        appointmentDate.getDate() === day.getDate()
+      // Create a new date object to prevent reference issues
+      const newSelectedDate = new Date(
+        day.getFullYear(),
+        day.getMonth(),
+        day.getDate()
       );
-    });
-  };
 
-  const onDateClick = (day) => {
-    // Create a new date object to prevent reference issues
-    const newSelectedDate = new Date(
-      day.getFullYear(),
-      day.getMonth(),
-      day.getDate()
-    );
-    
-    // Update the selected date
-    setSelectedDate(newSelectedDate);
-    setShowAllAppointments(false);
-    
-  
-  };
+      // Update the selected date
+      setSelectedDate(newSelectedDate);
+      setShowAllAppointments(false);
+
+      console.log(
+        `Selected date set to: ${format(newSelectedDate, "yyyy-MM-dd")}`
+      );
+
+      // Filter appointments for this day
+      const dayAppointments = appointments.filter((appointment) => {
+        const appointmentDate = new Date(appointment.date);
+        return (
+          appointmentDate.getFullYear() === newSelectedDate.getFullYear() &&
+          appointmentDate.getMonth() === newSelectedDate.getMonth() &&
+          appointmentDate.getDate() === newSelectedDate.getDate()
+        );
+      });
+
+      console.log(
+        `Found ${dayAppointments.length} appointments for selected date`
+      );
+
+      // Update filtered appointments
+      setFilteredAppointments(dayAppointments);
+    },
+    [appointments]
+  );
+
+  // Render calendar header
   const renderHeader = () => {
     return (
       <Box
@@ -331,13 +615,21 @@ useEffect(() => {
         }}
       >
         <Box sx={{ display: "flex", alignItems: "center" }}>
-          <IconButton onClick={prevMonth}>
+          <IconButton
+            onClick={prevMonth}
+            aria-label="Previous month"
+            data-testid="prev-month-button"
+          >
             <ChevronLeft />
           </IconButton>
           <Typography variant="h5" sx={{ mx: 2 }}>
             {format(currentMonth, "MMMM yyyy")}
           </Typography>
-          <IconButton onClick={nextMonth}>
+          <IconButton
+            onClick={nextMonth}
+            aria-label="Next month"
+            data-testid="next-month-button"
+          >
             <ChevronRight />
           </IconButton>
         </Box>
@@ -346,6 +638,7 @@ useEffect(() => {
           color="primary"
           startIcon={<Plus />}
           onClick={() => openAppointmentForm()}
+          data-testid="add-appointment-button"
         >
           Add Appointment
         </Button>
@@ -353,6 +646,7 @@ useEffect(() => {
     );
   };
 
+  // Render days of the week header
   const renderDays = () => {
     const weekDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -362,7 +656,7 @@ useEffect(() => {
           <Grid
             item
             key={idx}
-            xs={1.7}
+            xs={true}
             sx={{
               textAlign: "center",
               p: 1,
@@ -377,6 +671,7 @@ useEffect(() => {
     );
   };
 
+  // Render days in the calendar
   const renderCells = () => {
     const monthStart = startOfMonth(currentMonth);
     const monthEnd = endOfMonth(monthStart);
@@ -387,8 +682,6 @@ useEffect(() => {
     const rows = [];
 
     let days = [];
-    let day = startDate;
-    let formattedDate = "";
 
     // Get all days in month
     const daysInMonth = eachDayOfInterval({
@@ -403,7 +696,7 @@ useEffect(() => {
         <Grid
           item
           key={`empty-${i}`}
-          xs={1.7}
+          xs={true}
           sx={{
             height: 120,
             border: "1px solid #eee",
@@ -414,162 +707,181 @@ useEffect(() => {
       );
     }
 
+    // Add the days of the month
+    for (let i = 0; i < daysInMonth.length; i++) {
+      const day = daysInMonth[i];
+      const formattedDate = format(day, dateFormat);
 
- // Add the days of the month
- for (let i = 0; i < daysInMonth.length; i++) {
-  day = daysInMonth[i];
-  formattedDate = format(day, dateFormat);
+      // Get appointments for this day
+      const dayAppointments = getAppointmentsForDay(day);
 
-  // Get appointments for this day
-  const dayAppointments = getAppointmentsForDay(day);
+      // Check if this day is the selected date
+      const isSelectedDate = isSameDay(day, selectedDate);
 
-  // Check if this day is the selected date by comparing year, month, and day
-  const isSelectedDate = 
-    day.getFullYear() === selectedDate.getFullYear() &&
-    day.getMonth() === selectedDate.getMonth() &&
-    day.getDate() === selectedDate.getDate();
+      // Check if this day is today
+      const isCurrentDay = isToday(day);
 
-  // Check if this day is today
-  const isToday = 
-    day.getFullYear() === new Date().getFullYear() &&
-    day.getMonth() === new Date().getMonth() &&
-    day.getDate() === new Date().getDate();
+      days.push(
+        <Grid
+          item
+          key={day.toString()}
+          xs={true}
+          sx={{
+            height: 120,
+            border: "1px solid #eee",
+            p: 1,
+            position: "relative",
+            bgcolor: isSelectedDate
+              ? "primary.light"
+              : isCurrentDay
+              ? "#e6f7ff"
+              : "white",
+            "&:hover": {
+              bgcolor: isSelectedDate ? "primary.light" : "#f5f5f5",
+            },
+            color: !isSameMonth(day, monthStart)
+              ? "#ccc"
+              : isCurrentDay
+              ? "primary.main"
+              : "inherit",
+          }}
+          data-testid={`calendar-day-${format(day, "yyyy-MM-dd")}`}
+        >
+          {/* This transparent overlay ensures clicks are captured */}
+          <Box
+            onClick={() => onDateClick(day)}
+            sx={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              width: "100%",
+              height: "100%",
+              cursor: "pointer",
+              zIndex: 2,
+            }}
+            data-testid={`calendar-day-overlay-${format(day, "yyyy-MM-dd")}`}
+          />
 
-  days.push(
-    <Grid
-      item
-      key={day.toString()}
-      xs={1.7}
-      onClick={() => onDateClick(day)}
-      sx={{
-        height: 120,
-        border: "1px solid #eee",
-        p: 1,
-        cursor: "pointer",
-        position: "relative",
-        bgcolor: isSelectedDate ? "primary.light" : "white",
-        "&:hover": {
-          bgcolor: isSelectedDate ? "primary.light" : "#f5f5f5",
-        },
-        color: !isSameMonth(day, monthStart)
-          ? "#ccc"
-          : isToday
-          ? "primary.main"
-          : "inherit",
-      }}
-    >
-      <Typography
-        variant="body2"
-        sx={{
-          position: "absolute",
-          top: 5,
-          right: 8,
-          fontWeight: isToday ? "bold" : "normal",
-          color: isToday ? "primary.main" : "inherit",
-        }}
-      >
-        {formattedDate}
-      </Typography>
+          <Typography
+            variant="body2"
+            sx={{
+              position: "absolute",
+              top: 5,
+              right: 8,
+              fontWeight: isCurrentDay ? "bold" : "normal",
+              color: isCurrentDay ? "primary.main" : "inherit",
+              zIndex: 1,
+            }}
+          >
+            {formattedDate}
+          </Typography>
 
-      {dayAppointments.length > 0 && (
-        <Box sx={{ mt: 4 }}>
-          {dayAppointments.length <= 2 ? (
-            // Show actual appointments if there are only a few
-            dayAppointments.map((appointment, idx) => (
-              <Chip
-                key={idx}
-                size="small"
-                label={
-                  appointment.title.substring(0, 15) +
-                  (appointment.title.length > 15 ? "..." : "")
-                }
-                color={getAppointmentStatusColor(appointment.status)}
-                sx={{ mb: 0.5, maxWidth: "100%", fontSize: "0.7rem" }}
-              />
-            ))
-          ) : (
-            // Otherwise just show the count
-            <Chip
-              size="small"
-              label={`${dayAppointments.length} appointments`}
-              color="primary"
-              sx={{ mb: 0.5 }}
-            />
+          {dayAppointments.length > 0 && (
+            <Box sx={{ mt: 4, position: "relative", zIndex: 1 }}>
+              {dayAppointments.length <= 2 ? (
+                // Show actual appointments if there are only a few
+                dayAppointments.map((appointment, idx) => (
+                  <Chip
+                    key={idx}
+                    size="small"
+                    label={
+                      appointment.title.substring(0, 15) +
+                      (appointment.title.length > 15 ? "..." : "")
+                    }
+                    color={getAppointmentStatusColor(appointment.status)}
+                    sx={{ mb: 0.5, maxWidth: "100%", fontSize: "0.7rem" }}
+                  />
+                ))
+              ) : (
+                // Otherwise just show the count
+                <Chip
+                  size="small"
+                  label={`${dayAppointments.length} appointments`}
+                  color="primary"
+                  sx={{ mb: 0.5 }}
+                />
+              )}
+            </Box>
           )}
-        </Box>
-      )}
-    </Grid>
-  );
+        </Grid>
+      );
 
-  if ((i + dayOfWeekStart + 1) % 7 === 0 || i === daysInMonth.length - 1) {
-    rows.push(
-      <Grid container key={`row-${i}`}>
-        {days}
-      </Grid>
+      if ((i + dayOfWeekStart + 1) % 7 === 0 || i === daysInMonth.length - 1) {
+        rows.push(
+          <Grid container key={`row-${i}`}>
+            {days}
+          </Grid>
+        );
+        days = [];
+      }
+    }
+
+    return <Box sx={{ mt: 2 }}>{rows}</Box>;
+  };
+
+  // Get the appropriate status color for an appointment
+  const getAppointmentStatusColor = (status) => {
+    const statusOption = appointmentStatusOptions.find(
+      (opt) => opt.value === status
     );
-    days = [];
-  }
-}
+    return statusOption ? statusOption.color : "default";
+  };
 
-return <Box sx={{ mt: 2 }}>{rows}</Box>;
-};
+  // Get icon for appointment type
+  const renderAppointmentIcon = (type) => {
+    const typeOption = appointmentTypeOptions.find((opt) => opt.value === type);
+    return typeOption ? typeOption.icon : null;
+  };
 
-const getAppointmentStatusColor = (status) => {
-const statusOption = appointmentStatusOptions.find(
-  (opt) => opt.value === status
-);
-return statusOption ? statusOption.color : "default";
-};
+  // Open appointment form for creating or editing
+  const openAppointmentForm = (appointment = null) => {
+    if (appointment) {
+      // Edit existing appointment
+      console.log(
+        `Editing appointment: ${appointment.id} - ${appointment.title}`
+      );
+      setFormData({
+        id: appointment.id,
+        title: appointment.title,
+        date: new Date(appointment.date),
+        time: appointment.time,
+        clientId: appointment.clientId,
+        clientName: appointment.clientName,
+        vehicleInfo: appointment.vehicleInfo,
+        type: appointment.type,
+        status: appointment.status,
+        description: appointment.description,
+        invoiceId: appointment.invoiceId,
+        createdBy: appointment.createdBy,
+      });
+    } else {
+      // Create new appointment
+      console.log("Creating new appointment");
+      setFormData({
+        id: null,
+        title: "",
+        date: selectedDate,
+        time: "10:00",
+        clientId: "",
+        clientName: "",
+        vehicleInfo: "",
+        type: "repair",
+        status: "scheduled",
+        description: "",
+        invoiceId: "",
+        createdBy: "",
+      });
+    }
 
-const renderAppointmentIcon = (type) => {
-const typeOption = appointmentTypeOptions.find((opt) => opt.value === type);
-return typeOption ? typeOption.icon : null;
-};
+    setAppointmentFormOpen(true);
+  };
 
-const openAppointmentForm = (appointment = null) => {
-if (appointment) {
-  // Edit existing appointment
-  setFormData({
-    id: appointment.id,
-    title: appointment.title,
-    date: new Date(appointment.date),
-    time: appointment.time,
-    clientId: appointment.clientId,
-    clientName: appointment.clientName,
-    vehicleInfo: appointment.vehicleInfo,
-    type: appointment.type,
-    status: appointment.status,
-    description: appointment.description,
-    invoiceId: appointment.invoiceId,
-    createdBy: appointment.createdBy,
-    createdAt: new Date(appointment.createdAt),
-  });
-} else {
-  // Create new appointment
-  setFormData({
-    id: null,
-    title: "",
-    date: selectedDate,
-    time: "10:00",
-    clientId: "",
-    clientName: "",
-    vehicleInfo: "",
-    type: "repair",
-    status: "scheduled",
-    description: "",
-    invoiceId: "",
-    createdBy: "admin",
-    createdAt: new Date(),
-  });
-}
-
-setAppointmentFormOpen(true);
-};
-
+  // Close appointment form
   const closeAppointmentForm = () => {
     setAppointmentFormOpen(false);
   };
 
+  // Handle form field changes
   const handleFormChange = (field, value) => {
     setFormData((prev) => ({
       ...prev,
@@ -577,74 +889,214 @@ setAppointmentFormOpen(true);
     }));
   };
 
-  const handleSaveAppointment = () => {
+  // Handle client selection in appointment form
+  const handleClientChange = (event, newValue) => {
+    if (newValue) {
+      console.log(`Client selected: ${newValue.clientName}`);
+      setFormData((prev) => ({
+        ...prev,
+        clientId: newValue.id,
+        clientName: newValue.clientName,
+        vehicleInfo: newValue.vehicleInfo,
+        description: newValue.issueDescription || prev.description,
+      }));
+    } else {
+      setFormData((prev) => ({
+        ...prev,
+        clientId: "",
+        clientName: "",
+        vehicleInfo: "",
+      }));
+    }
+  };
+
+  // Save appointment (create or update)
+  const handleSaveAppointment = async () => {
     // Validate form
     if (!formData.title || !formData.date || !formData.time) {
       alert("Please fill in required fields");
       return;
     }
 
-    // Combine date and time
-    const appointmentDateTime = new Date(formData.date);
-    const [hours, minutes] = formData.time.split(":").map(Number);
-    appointmentDateTime.setHours(hours, minutes);
+    try {
+      setLoading(true);
+      console.log("Saving appointment...");
 
-    const updatedAppointment = {
-      ...formData,
-      date: appointmentDateTime,
-    };
+      // Combine date and time
+      const appointmentDateTime = new Date(formData.date);
+      const [hours, minutes] = formData.time.split(":").map(Number);
+      appointmentDateTime.setHours(hours, minutes);
 
-    let updatedAppointments;
-
-    if (formData.id) {
-      // Update existing appointment
-      updatedAppointments = appointments.map((appointment) =>
-        appointment.id === formData.id ? updatedAppointment : appointment
-      );
-    } else {
-      // Create new appointment
-      const newId = `new-${Date.now()}`;
-      const newAppointment = {
-        ...updatedAppointment,
-        id: newId,
+      const appointmentData = {
+        ...formData,
+        date: appointmentDateTime.toISOString(),
       };
-      updatedAppointments = [...appointments, newAppointment];
-    }
 
-    // Set the updated appointments
-    setAppointments(updatedAppointments);
+      let updatedAppointment;
 
-    // Close the form
-    closeAppointmentForm();
-  };
+      if (formData.id) {
+        console.log(`Updating appointment: ${formData.id}`);
+        // Update existing appointment
+        if (
+          formData.id.startsWith("client-") ||
+          formData.id.startsWith("invoice-")
+        ) {
+          // This is a generated appointment, create a new one instead
+          console.log("Converting generated appointment to real appointment");
+          const response = await appointmentAPI.create(appointmentData);
+          updatedAppointment = response.data;
+        } else {
+          // Update existing real appointment
+          const response = await appointmentAPI.update(
+            formData.id,
+            appointmentData
+          );
+          updatedAppointment = response.data;
+        }
 
-  const handleStatusChange = (appointmentId, newStatus) => {
-    const updatedAppointments = appointments.map((appointment) => {
-      if (appointment.id === appointmentId) {
-        return {
-          ...appointment,
-          status: newStatus,
-        };
+        // Update appointments state
+        setAppointments((prevAppointments) => {
+          return prevAppointments.map((appt) =>
+            appt.id === formData.id
+              ? {
+                  ...updatedAppointment,
+                  date: new Date(updatedAppointment.date),
+                  createdAt: updatedAppointment.createdAt
+                    ? new Date(updatedAppointment.createdAt)
+                    : new Date(),
+                }
+              : appt
+          );
+        });
+      } else {
+        // Create new appointment
+        console.log("Creating new appointment");
+        const response = await appointmentAPI.create(appointmentData);
+
+        updatedAppointment = response.data;
+
+        // Add to appointments state
+        setAppointments((prevAppointments) => [
+          ...prevAppointments,
+          {
+            ...updatedAppointment,
+            date: new Date(updatedAppointment.date),
+            createdAt: updatedAppointment.createdAt
+              ? new Date(updatedAppointment.createdAt)
+              : new Date(),
+          },
+        ]);
       }
-      return appointment;
-    });
 
-    setAppointments(updatedAppointments);
-    filterAppointments(
-      updatedAppointments,
-      statusFilter,
-      typeFilter,
-      selectedDate,
-      showAllAppointments
-    );
+      // If this is linked to a client, update client repair status
+      if (formData.clientId && formData.type === "repair") {
+        try {
+          console.log(`Updating client status: ${formData.clientId}`);
+          // Map appointment status to repair status
+          const statusMap = {
+            scheduled: "waiting",
+            in_progress: "in_progress",
+            completed: "completed",
+            cancelled: "cancelled",
+          };
+
+          // Use axios for client status update since we don't have a dedicated API function
+          await axios.patch(
+            `/api/clients/${formData.clientId}/status`,
+            { status: statusMap[formData.status] || "waiting" },
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+              },
+            }
+          );
+          console.log("Client status updated successfully");
+        } catch (err) {
+          console.error("Error updating client status:", err);
+        }
+      }
+
+      console.log("Appointment saved successfully");
+      setLoading(false);
+      closeAppointmentForm();
+
+      // Refresh appointments data and filter for current date
+      await fetchAppointments();
+    } catch (error) {
+      console.error("Error saving appointment:", error);
+      setError("Failed to save appointment");
+      setLoading(false);
+    }
   };
 
-  const handleDeleteAppointment = (appointmentId) => {
-    if (window.confirm("Are you sure you want to delete this appointment?")) {
-      const updatedAppointments = appointments.filter(
-        (appointment) => appointment.id !== appointmentId
-      );
+  const handleStatusChange = async (appointmentId, newStatus) => {
+    try {
+      setLoading(true);
+  
+      // Get the appointment being updated
+      const appointment = appointments.find((a) => a.id === appointmentId || a._id === appointmentId);
+      if (!appointment) {
+        setError("Appointment not found");
+        setLoading(false);
+        return;
+      }
+  
+      // Old status for comparison
+      const oldStatus = appointment.status;
+  
+      // Update appointment in backend
+      await appointmentsAPI.updateStatus(appointmentId, newStatus);
+  
+      // Update local state
+      const updatedAppointments = appointments.map((app) => {
+        if (app.id === appointmentId || app._id === appointmentId) {
+          return {
+            ...app,
+            status: newStatus,
+          };
+        }
+        return app;
+      });
+  
       setAppointments(updatedAppointments);
+  
+      // If this is a repair appointment linked to a client, update client status
+      if (
+        appointment.clientId &&
+        (appointment.type === 'repair' || appointment.type === 'maintenance')
+      ) {
+        // Map appointment status to repair status
+        const repairStatus = mapStatus(newStatus, "appointment", "repair");
+  
+        try {
+          // Update client status
+          await clientsAPI.updateStatus(appointment.clientId, repairStatus);
+  
+          toast.info(`Client status updated to ${repairStatus.replace("_", " ")}`);
+  
+          // If status changed to completed, offer to create invoice
+          if (
+            shouldCreateInvoice(
+              mapStatus(oldStatus, "appointment", "repair"),
+              repairStatus
+            )
+          ) {
+            const createInvoice = window.confirm(
+              "Repair marked as completed. Would you like to create an invoice now?"
+            );
+  
+            if (createInvoice && onCreateInvoiceFromAppointment) {
+              onCreateInvoiceFromAppointment(appointment.clientId);
+            }
+          }
+        } catch (err) {
+          console.error("Error updating client status:", err);
+          // Don't fail if client update fails
+        }
+      }
+  
+      // Update filtered appointments
       filterAppointments(
         updatedAppointments,
         statusFilter,
@@ -652,9 +1104,67 @@ setAppointmentFormOpen(true);
         selectedDate,
         showAllAppointments
       );
+  
+      toast.success(`Appointment status updated to ${newStatus.replace("_", " ")}`);
+      setLoading(false);
+    } catch (error) {
+      console.error("Error updating appointment status:", error);
+      setError("Failed to update appointment status");
+      setLoading(false);
     }
   };
 
+  // Delete appointment
+  const handleDeleteAppointment = async (appointmentId) => {
+    if (window.confirm("Are you sure you want to delete this appointment?")) {
+      try {
+        setLoading(true);
+        console.log(`Deleting appointment: ${appointmentId}`);
+
+        // Check if this is a generated appointment
+        if (
+          appointmentId.startsWith("client-") ||
+          appointmentId.startsWith("invoice-")
+        ) {
+          // For generated appointments, just update local state
+          console.log("Deleting generated appointment (local state only)");
+          const updatedAppointments = appointments.filter(
+            (appointment) => appointment.id !== appointmentId
+          );
+          setAppointments(updatedAppointments);
+        } else {
+          // For real appointments, delete from the backend
+          console.log("Deleting appointment from backend");
+          await appointmentAPI.delete(appointmentId);
+
+          // Update local state
+          const updatedAppointments = appointments.filter(
+            (appointment) => appointment.id !== appointmentId
+          );
+          setAppointments(updatedAppointments);
+        }
+
+        // Update filtered appointments
+        filterAppointments(
+          appointments.filter(
+            (appointment) => appointment.id !== appointmentId
+          ),
+          statusFilter,
+          typeFilter,
+          selectedDate,
+          showAllAppointments
+        );
+
+        setLoading(false);
+      } catch (error) {
+        console.error("Error deleting appointment:", error);
+        setError("Failed to delete appointment");
+        setLoading(false);
+      }
+    }
+  };
+
+  // Render appointments list in sidebar
   const renderAppointmentsList = () => {
     return (
       <Card sx={{ height: "100%" }}>
@@ -675,27 +1185,24 @@ setAppointmentFormOpen(true);
               <Button
                 size="small"
                 onClick={() => {
-                  setShowAllAppointments(!showAllAppointments);
-                  // If toggling to "Show All", re-filter to show all appointments
-                  if (!showAllAppointments) {
-                    filterAppointments(
-                      appointments,
-                      statusFilter,
-                      typeFilter,
-                      selectedDate,
-                      true
-                    );
-                  } else {
-                    // If toggling to show only selected day, re-filter for just that day
-                    filterAppointments(
-                      appointments,
-                      statusFilter,
-                      typeFilter,
-                      selectedDate,
-                      false
-                    );
-                  }
+                  console.log(
+                    `Toggle view: ${
+                      showAllAppointments ? "selected day" : "all"
+                    }`
+                  );
+                  const newShowAll = !showAllAppointments;
+                  setShowAllAppointments(newShowAll);
+
+                  // Update filtered appointments
+                  filterAppointments(
+                    appointments,
+                    statusFilter,
+                    typeFilter,
+                    selectedDate,
+                    newShowAll
+                  );
                 }}
+                data-testid="toggle-view-button"
               >
                 {showAllAppointments ? "Show Selected Day" : "Show All"}
               </Button>
@@ -710,6 +1217,7 @@ setAppointmentFormOpen(true);
                   value={statusFilter}
                   label="Status"
                   onChange={(e) => setStatusFilter(e.target.value)}
+                  data-testid="status-filter"
                 >
                   <MenuItem value="all">All Statuses</MenuItem>
                   {appointmentStatusOptions.map((option) => (
@@ -727,6 +1235,7 @@ setAppointmentFormOpen(true);
                   value={typeFilter}
                   label="Type"
                   onChange={(e) => setTypeFilter(e.target.value)}
+                  data-testid="type-filter"
                 >
                   <MenuItem value="all">All Types</MenuItem>
                   {appointmentTypeOptions.map((option) => (
@@ -740,7 +1249,15 @@ setAppointmentFormOpen(true);
           }
         />
         <CardContent sx={{ maxHeight: 600, overflowY: "auto" }}>
-          {filteredAppointments.length === 0 ? (
+          {loading ? (
+            <Box sx={{ display: "flex", justifyContent: "center", my: 3 }}>
+              <CircularProgress />
+            </Box>
+          ) : error ? (
+            <Alert severity="error" sx={{ mt: 2 }}>
+              {error}
+            </Alert>
+          ) : filteredAppointments.length === 0 ? (
             <Alert severity="info" sx={{ mt: 2 }}>
               No appointments found for the selected filters.
             </Alert>
@@ -758,6 +1275,7 @@ setAppointmentFormOpen(true);
                     appointment.status
                   )}.main`,
                 }}
+                data-testid={`appointment-item-${appointment.id}`}
               >
                 <Box
                   sx={{
@@ -833,6 +1351,7 @@ setAppointmentFormOpen(true);
                       displayEmpty
                       variant="outlined"
                       size="small"
+                      data-testid={`status-select-${appointment.id}`}
                     >
                       {appointmentStatusOptions.map((option) => (
                         <MenuItem key={option.value} value={option.value}>
@@ -846,6 +1365,7 @@ setAppointmentFormOpen(true);
                     <IconButton
                       size="small"
                       onClick={() => openAppointmentForm(appointment)}
+                      data-testid={`edit-button-${appointment.id}`}
                     >
                       <Tool size={18} />
                     </IconButton>
@@ -856,6 +1376,7 @@ setAppointmentFormOpen(true);
                       size="small"
                       color="error"
                       onClick={() => handleDeleteAppointment(appointment.id)}
+                      data-testid={`delete-button-${appointment.id}`}
                     >
                       <X size={18} />
                     </IconButton>
@@ -893,8 +1414,9 @@ setAppointmentFormOpen(true);
         onClose={closeAppointmentForm}
         maxWidth="md"
         fullWidth
+        aria-labelledby="appointment-dialog-title"
       >
-        <DialogTitle>
+        <DialogTitle id="appointment-dialog-title">
           {formData.id ? "Edit Appointment" : "New Appointment"}
         </DialogTitle>
         <DialogContent>
@@ -906,6 +1428,7 @@ setAppointmentFormOpen(true);
                 required
                 value={formData.title}
                 onChange={(e) => handleFormChange("title", e.target.value)}
+                data-testid="appointment-title-input"
               />
             </Grid>
 
@@ -920,6 +1443,7 @@ setAppointmentFormOpen(true);
                   handleFormChange("date", new Date(e.target.value))
                 }
                 InputLabelProps={{ shrink: true }}
+                data-testid="appointment-date-input"
               />
             </Grid>
 
@@ -932,6 +1456,7 @@ setAppointmentFormOpen(true);
                 value={formData.time}
                 onChange={(e) => handleFormChange("time", e.target.value)}
                 InputLabelProps={{ shrink: true }}
+                data-testid="appointment-time-input"
               />
             </Grid>
 
@@ -942,12 +1467,49 @@ setAppointmentFormOpen(true);
               </Typography>
             </Grid>
 
+            <Grid item xs={12}>
+              <Autocomplete
+                id="client-autocomplete"
+                options={clientOptions}
+                getOptionLabel={(option) => option.clientName || ""}
+                onChange={handleClientChange}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Select Client"
+                    placeholder="Start typing client name"
+                    fullWidth
+                    data-testid="client-autocomplete"
+                  />
+                )}
+                renderOption={(props, option) => (
+                  <li {...props}>
+                    <Box>
+                      <Typography variant="body1">
+                        {option.clientName}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {option.vehicleInfo}
+                      </Typography>
+                    </Box>
+                  </li>
+                )}
+              />
+            </Grid>
+
             <Grid item xs={12} md={6}>
               <TextField
                 label="Client Name"
                 fullWidth
                 value={formData.clientName}
                 onChange={(e) => handleFormChange("clientName", e.target.value)}
+                disabled={formData.clientId !== ""}
+                helperText={
+                  formData.clientId !== ""
+                    ? "Selected from client records"
+                    : "Manual entry (if client not in system)"
+                }
+                data-testid="client-name-input"
               />
             </Grid>
 
@@ -959,7 +1521,14 @@ setAppointmentFormOpen(true);
                 onChange={(e) =>
                   handleFormChange("vehicleInfo", e.target.value)
                 }
+                disabled={formData.clientId !== ""}
                 placeholder="Year Make Model"
+                helperText={
+                  formData.clientId !== ""
+                    ? "Selected from client records"
+                    : "Manual entry"
+                }
+                data-testid="vehicle-info-input"
               />
             </Grid>
 
@@ -977,6 +1546,7 @@ setAppointmentFormOpen(true);
                   value={formData.type}
                   label="Type"
                   onChange={(e) => handleFormChange("type", e.target.value)}
+                  data-testid="appointment-type-select"
                 >
                   {appointmentTypeOptions.map((option) => (
                     <MenuItem key={option.value} value={option.value}>
@@ -997,6 +1567,7 @@ setAppointmentFormOpen(true);
                   value={formData.status}
                   label="Status"
                   onChange={(e) => handleFormChange("status", e.target.value)}
+                  data-testid="appointment-status-select"
                 >
                   {appointmentStatusOptions.map((option) => (
                     <MenuItem key={option.value} value={option.value}>
@@ -1017,27 +1588,46 @@ setAppointmentFormOpen(true);
                 onChange={(e) =>
                   handleFormChange("description", e.target.value)
                 }
+                data-testid="appointment-description-input"
               />
             </Grid>
 
-            <Grid item xs={12}>
-              <TextField
-                label="Invoice ID (if applicable)"
-                fullWidth
-                value={formData.invoiceId}
-                onChange={(e) => handleFormChange("invoiceId", e.target.value)}
-              />
-            </Grid>
+            {formData.type === "invoice" && (
+              <Grid item xs={12}>
+                <TextField
+                  label="Invoice ID (if applicable)"
+                  fullWidth
+                  value={formData.invoiceId}
+                  onChange={(e) =>
+                    handleFormChange("invoiceId", e.target.value)
+                  }
+                  data-testid="invoice-id-input"
+                />
+              </Grid>
+            )}
           </Grid>
         </DialogContent>
         <DialogActions>
-          <Button onClick={closeAppointmentForm}>Cancel</Button>
+          <Button
+            onClick={closeAppointmentForm}
+            data-testid="cancel-appointment-button"
+          >
+            Cancel
+          </Button>
           <Button
             variant="contained"
             color="primary"
             onClick={handleSaveAppointment}
+            disabled={loading}
+            data-testid="save-appointment-button"
           >
-            {formData.id ? "Update" : "Create"}
+            {loading ? (
+              <CircularProgress size={24} />
+            ) : formData.id ? (
+              "Update"
+            ) : (
+              "Create"
+            )}
           </Button>
         </DialogActions>
       </Dialog>

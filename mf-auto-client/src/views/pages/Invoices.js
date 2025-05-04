@@ -1,10 +1,17 @@
 import React, { useState, useEffect, useContext } from "react";
-import { invoicesAPI, clientsAPI } from "../../api";
+import { useLocation, useHistory } from "react-router-dom";
+import { invoicesAPI, clientsAPI, budgetAPI,  } from "../../api";
 import { UserContext } from "../../Context/UserContext.js";
 import Header from "components/Headers/Header.js";
 import { toast } from "react-toastify";
 import { format } from "date-fns";
 import DatePicker from "react-datepicker";
+import {
+  getStatusColor,
+  getStatusIcon,
+  mapStatus,
+  shouldCreateInvoice,
+} from "../../utility/statusMapper.js";
 import "react-datepicker/dist/react-datepicker.css";
 import Select from "react-select";
 import { 
@@ -135,6 +142,8 @@ const partItems = [
 ];
 
 const Invoices = () => {
+const location = useLocation();
+const history = useHistory();
   const { token, userRole } = useContext(UserContext);
   const [invoices, setInvoices] = useState([]);
   const [filteredInvoices, setFilteredInvoices] = useState([]);
@@ -143,20 +152,18 @@ const Invoices = () => {
   const [statusFilter, setStatusFilter] = useState(null);
   const [dateRange, setDateRange] = useState([null, null]);
   const [startDate, endDate] = dateRange;
-
   const [clients, setClients] = useState([]);
   const [selectedClient, setSelectedClient] = useState(null);
   const [clientDetailsOpen, setClientDetailsOpen] = useState(false);
   const [clientRepairHistory, setClientRepairHistory] = useState([]);
-
   const [previewOpen, setPreviewOpen] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState(null);
-
   const [formOpen, setFormOpen] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   const [itemSearchTerm, setItemSearchTerm] = useState("");
   const [filteredItems, setFilteredItems] = useState([...serviceItems, ...partItems]);
+  const [loading, setLoading] = useState(false);
 
   const [formData, setFormData] = useState({
     invoiceNumber: "",
@@ -218,6 +225,115 @@ const Invoices = () => {
     reference: '',
     date: new Date()
   });
+
+  useEffect(() => {
+    // Check if there's a request to create from client
+    if (location.state && location.state.createFromClient) {
+      const clientId = location.state.createFromClient;
+      createInvoiceFromClient(clientId);
+      
+      // Clear the location state so it doesn't trigger again on refresh
+      history.replace({
+        pathname: location.pathname,
+        state: {}
+      });
+    }
+  }, [location, history]);
+
+  // Add the function to create invoice from client
+const createInvoiceFromClient = async (clientId) => {
+  try {
+    // Find client in the clients list
+    let client = clients.find(c => c.id === clientId);
+    
+    // If not found in local state, fetch from API
+    if (!client) {
+      const response = await clientsAPI.getById(clientId);
+      client = response.data;
+    }
+    
+    if (!client) {
+      toast.error("Client not found");
+      return;
+    }
+    
+    // Generate a new invoice number
+    const lastInvoiceNumber = invoices.length > 0 
+      ? invoices[0].invoiceNumber 
+      : "INV-2025-1000";
+    const lastNumber = parseInt(lastInvoiceNumber.split('-')[2]);
+    const newInvoiceNumber = `INV-2025-${lastNumber + 1}`;
+    
+    // Create invoice data
+    const invoiceData = {
+      invoiceNumber: newInvoiceNumber,
+      status: "draft",
+      issueDate: new Date(),
+      dueDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000),
+      customerInfo: {
+        id: client.id,
+        name: client.clientName,
+        email: client.email || "",
+        phone: client.phoneNumber || "",
+        address: client.address || ""
+      },
+      vehicleInfo: {
+        id: client.carDetails?.id || null,
+        make: client.carDetails?.make || "",
+        model: client.carDetails?.model || "",
+        year: client.carDetails?.year || "",
+        licensePlate: client.carDetails?.licensePlate || "",
+        vin: client.carDetails?.vin || "",
+        odometer: client.carDetails?.odometer || ""
+      },
+      items: [
+        {
+          id: 1,
+          type: "service",
+          description: "Auto repair service",
+          quantity: 1,
+          unitPrice: 0,
+          laborHours: 0,
+          laborRate: 85,
+          taxable: true
+        }
+      ],
+      notes: `Invoice for repair service for ${client.clientName}`,
+      terms: "Payment due within 15 days. Late payments subject to 1.5% monthly interest.",
+      taxRate: 7.5,
+      paymentMethod: "",
+      paymentDate: null,
+      mechanicNotes: "",
+      relatedClientId: client.id
+    };
+    
+    // Add procedures from client as line items if available
+    if (client.procedures && client.procedures.length > 0) {
+      invoiceData.items = client.procedures.map((procedure, index) => ({
+        id: index + 1,
+        type: "service",
+        description: procedure.label || "Service",
+        quantity: 1,
+        unitPrice: 0, // You'll need to set prices
+        laborHours: 1, // Default
+        laborRate: 85,
+        taxable: true
+      }));
+    }
+    
+    // Set form data and open form
+    setFormData(invoiceData);
+    setEditMode(false);
+    setSelectedInvoice(null);
+    setCurrentStep(0);
+    setFormOpen(true);
+    
+    toast.success("Invoice created from client data");
+  } catch (error) {
+    console.error("Error creating invoice from client:", error);
+    toast.error("Failed to create invoice from client");
+  }
+};
 
   useEffect(() => {
     const loadData = async () => {
@@ -988,38 +1104,86 @@ const Invoices = () => {
     if (!selectedInvoice) return;
     
     try {
+      setLoading(true);
       const paymentData = {
         amount: parseFloat(paymentDetails.amount) || 0,
         method: paymentDetails.method,
-        reference: paymentDetails.reference || ''
+        reference: paymentDetails.reference || '',
+        date: paymentDetails.date || new Date()
       };
       
+      // Process payment in backend
       const response = await invoicesAPI.processPayment(selectedInvoice.id, paymentData);
+      const updatedInvoice = response.data;
       
+      // Determine if this is full or partial payment
       const isFullPayment = parseFloat(paymentDetails.amount) >= selectedInvoice.total;
       
+      // Update invoices state
       const updatedInvoices = invoices.map(inv => {
         if (inv.id === selectedInvoice.id) {
-          return response.data;
+          return updatedInvoice;
         }
         return inv;
       });
       
       setInvoices(updatedInvoices);
       
+      // If invoice is linked to a client, update client payment status
+      if (updatedInvoice.relatedClientId) {
+        try {
+          // Determine payment status based on amount
+          const paymentStatus = isFullPayment ? 'paid' : 'partial';
+          
+          // Update client payment status
+          await clientsAPI.updatePayment(updatedInvoice.relatedClientId, {
+            paymentStatus,
+            partialPaymentAmount: isFullPayment ? 0 : paymentData.amount
+          });
+          
+          toast.info(`Client payment status updated to ${paymentStatus}`);
+        } catch (err) {
+          console.error("Error updating client payment status:", err);
+          // Don't block the invoice update if client update fails
+        }
+      }
+      
+      // Create transaction record in budget/transactions
+      try {
+        const transactionData = {
+          date: paymentData.date,
+          type: "income",
+          amount: paymentData.amount,
+          category: "invoice_payment",
+          description: `Payment for invoice ${selectedInvoice.invoiceNumber}`,
+          reference: paymentData.reference || selectedInvoice.invoiceNumber,
+          clientName: selectedInvoice.customerInfo?.name,
+          vehicleInfo: selectedInvoice.vehicleInfo ? 
+            `${selectedInvoice.vehicleInfo.year || ""} ${selectedInvoice.vehicleInfo.make || ""} ${selectedInvoice.vehicleInfo.model || ""}`.trim() : 
+            null,
+          status: "approved"
+        };
+        
+        // Create budget entry (which acts as transaction)
+        await budgetAPI.create(transactionData);
+      } catch (err) {
+        console.error("Error creating transaction record:", err);
+        // Don't block payment processing if transaction creation fails
+      }
+      
       const message = isFullPayment 
         ? "Payment processed successfully" 
         : "Partial payment recorded successfully";
       
-      setSnackbarMessage(message);
-      setSnackbarOpen(true);
       toast.success(message);
+      setLoading(false);
       
       closePaymentDialog();
       closeInvoicePreview();
     } catch (error) {
       console.error("Error processing payment:", error);
       toast.error("Failed to process payment");
+      setLoading(false);
     }
   };
 
@@ -1082,11 +1246,11 @@ const Invoices = () => {
   };
   
   const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2
-    }).format(amount);
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "GMD",
+      minimumFractionDigits: 2,
+    }).format(amount).replace(/GMD/g, "D"); 
   };
 
   const getStatusColor = (status) => {
@@ -1188,7 +1352,7 @@ const Invoices = () => {
               value={paymentDetails.amount}
               onChange={(e) => handlePaymentDetailsChange('amount', e.target.value)}
               InputProps={{
-                startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                startAdornment: <InputAdornment position="start">D</InputAdornment>,
                 inputProps: { min: 0, step: '0.01' }
               }}
             />
@@ -1273,7 +1437,7 @@ const Invoices = () => {
               <FileText size={24} />
             </Avatar>
             <Typography variant="h4" component="h1">
-              Invoices & Receipts
+              Invoices
             </Typography>
           </Box>
           <Box sx={{ display: 'flex', gap: 2 }}>
@@ -1750,7 +1914,7 @@ const Invoices = () => {
                               fullWidth
                               type="number"
                               InputProps={{
-                                startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                                startAdornment: <InputAdornment position="start">D</InputAdornment>,
                                 inputProps: { step: "0.01", min: 0 }
                               }}
                               value={item.unitPrice}
@@ -1776,7 +1940,7 @@ const Invoices = () => {
                                   fullWidth
                                   type="number"
                                   InputProps={{
-                                    startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                                    startAdornment: <InputAdornment position="start">D</InputAdornment>,
                                     inputProps: { step: "0.01", min: 0 }
                                   }}
                                   value={item.laborRate}
@@ -2645,7 +2809,7 @@ const Invoices = () => {
                 value={paymentDetails.amount}
                 onChange={(e) => handlePaymentDetailsChange('amount', e.target.value)}
                 InputProps={{
-                  startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                  startAdornment: <InputAdornment position="start">D</InputAdornment>,
                   inputProps: { min: 0, step: '0.01' }
                 }}
               />

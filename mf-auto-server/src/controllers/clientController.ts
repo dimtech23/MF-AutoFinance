@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import Client from '../models/Client';
+import Appointment from '../models/Appointment';
 import User from '../models/User';
 import { UserRole } from '../constants/roles';
 import mongoose from 'mongoose';
@@ -111,6 +112,9 @@ export const updateClient = async (req: Request, res: Response) => {
       { $set: req.body },
       { new: true, runValidators: true }
     );
+    
+    // Update related appointments after client update
+    await updateRelatedAppointments(req.params.id, req.body);
     
     res.status(200).json(updatedClient);
   } catch (error) {
@@ -285,6 +289,70 @@ export const markAsDelivered = async (req: Request, res: Response) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
+
+// Function to update related appointments when a client is modified
+const updateRelatedAppointments = async (clientId: string, updatedFields: any): Promise<void> => {
+  try {
+    const client = await Client.findById(clientId);
+    if (!client) return;
+    
+    // Only proceed if client name or vehicle info changed
+    if (!updatedFields.clientName && !updatedFields.carDetails) return;
+    
+    // Find all appointments for this client
+    const clientAppointments = await Appointment.find({ clientId });
+    
+    for (const appointment of clientAppointments) {
+      const appointmentUpdates: Record<string, any> = {};
+      
+      // Update client name
+      if (updatedFields.clientName && appointment.clientName !== updatedFields.clientName) {
+        appointmentUpdates.clientName = updatedFields.clientName;
+        
+        // Update appointment title if it contains client name
+        if (appointment.title && appointment.title.includes(appointment.clientName)) {
+          appointmentUpdates.title = appointment.title.replace(
+            appointment.clientName,
+            updatedFields.clientName
+          );
+        }
+      }
+      
+      // Update vehicle info
+      if (updatedFields.carDetails) {
+        const vehicleInfo = `${updatedFields.carDetails.year || ""} ${updatedFields.carDetails.make || ""} ${updatedFields.carDetails.model || ""}`.trim();
+        
+        if (vehicleInfo && appointment.vehicleInfo !== vehicleInfo) {
+          appointmentUpdates.vehicleInfo = vehicleInfo;
+        }
+      }
+      
+      // Update appointment status based on repair status
+      if (updatedFields.repairStatus && appointment.type === 'repair') {
+        const statusMap: Record<string, string> = {
+          'waiting': 'scheduled',
+          'in_progress': 'in_progress',
+          'completed': 'completed',
+          'delivered': 'completed',
+          'cancelled': 'cancelled'
+        };
+        
+        const newStatus = statusMap[updatedFields.repairStatus];
+        if (newStatus && appointment.status !== newStatus) {
+          appointmentUpdates.status = newStatus;
+        }
+      }
+      
+      // Only update if there are changes to make
+      if (Object.keys(appointmentUpdates).length > 0) {
+        await Appointment.findByIdAndUpdate(appointment._id, appointmentUpdates);
+      }
+    }
+  } catch (error) {
+    console.error('Error updating related appointments:', error);
+  }
+};
+
 
 // Register an admin (special function, typically used once for initial setup)
 export const registerAdmin = async (req: Request, res: Response) => {

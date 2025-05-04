@@ -1,22 +1,24 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
+import { UserContext } from "../../Context/UserContext.js";
 import Header from "components/Headers/Header.js";
 import { format, startOfMonth, endOfMonth, subMonths } from "date-fns";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
-import Select from "react-select";
-import {
-  Download,
-  Calendar,
-  Filter,
-  RefreshCw,
-  Printer,
-  TrendingUp,
+import { 
+  Download, 
+  Calendar, 
+  Filter, 
+  RefreshCw, 
+  Printer, 
+  TrendingUp, 
   ChevronDown,
   ChevronUp,
   FileText,
   DollarSign,
   Activity,
-  PieChart as PieChartIcon
+  PieChart as PieChartIcon,
+  Users,
+  Tool
 } from "react-feather";
 
 import {
@@ -58,7 +60,8 @@ import {
   Select as MUISelect,
   Menu,
   ListItemIcon,
-  ListItemText
+  ListItemText,
+  Avatar
 } from "@mui/material";
 
 import {
@@ -189,6 +192,7 @@ const generateBalanceSheetData = () => {
 };
 
 const Reports = () => {
+  const { token, userRole } = useContext(UserContext);
   const [loading, setLoading] = useState(true);
   const [tabValue, setTabValue] = useState(0);
   const [reportType, setReportType] = useState('income-statement');
@@ -349,9 +353,9 @@ const Reports = () => {
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'USD',
+      currency: 'GMD',
       minimumFractionDigits: 2
-    }).format(amount);
+    }).format(amount).replace(/GMD/g, "D"); 
   };
 
   // Income Statement Report
@@ -459,13 +463,20 @@ const Reports = () => {
                     textAnchor="end" 
                     height={60}
                   />
-                <YAxis tickFormatter={(value) => `$${value / 1000}k`} />
-<RechartsTooltip formatter={(value) => formatCurrency(value)} />
-<Legend />
-<Bar name="Income" dataKey="income" fill="#8884d8" />
-<Bar name="Expenses" dataKey="expenses" fill="#82ca9d" />
-<Bar name="Profit" dataKey="profit" fill="#ffc658" />
-</BarChart>
+                  <YAxis tickFormatter={(value) => `D${value / 1000}k`} />
+                  <RechartsTooltip
+                    formatter={(value, name) => [formatCurrency(value), name]}
+                    contentStyle={{
+                      backgroundColor: "rgba(255, 255, 255, 0.9)",
+                      border: "1px solid #ccc",
+                      borderRadius: "4px",
+                    }}
+                  />
+                  <Legend />
+                  <Bar name="Income" dataKey="income" fill="#8884d8" />
+                  <Bar name="Expenses" dataKey="expenses" fill="#82ca9d" />
+                  <Bar name="Profit" dataKey="profit" fill="#ffc658" />
+                </BarChart>
               </ResponsiveContainer>
             </CardContent>
           </Card>
@@ -473,57 +484,66 @@ const Reports = () => {
         
         <Grid item xs={12} md={6}>
           <Card>
-            <CardHeader title="Cash Flow by Category" />
+            <CardHeader title="Income by Category" />
             <CardContent>
-              <Typography variant="subtitle1" gutterBottom>Cash Inflows</Typography>
-              <TableContainer>
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={reportData.incomeCategories}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="value"
+                    nameKey="name"
+                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                  >
+                    {reportData.incomeCategories.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Legend />
+                  <RechartsTooltip formatter={(value) => formatCurrency(value)} />
+                </PieChart>
+              </ResponsiveContainer>
+              
+              <TableContainer component={Paper} variant="outlined" sx={{ mt: 2 }}>
                 <Table size="small">
                   <TableHead>
                     <TableRow>
                       <TableCell>Category</TableCell>
                       <TableCell align="right">Amount</TableCell>
+                      <TableCell align="right">%</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {reportData.incomeCategories.map((category) => (
-                      <TableRow key={category.name}>
-                        <TableCell>{category.name}</TableCell>
+                    {reportData.incomeCategories.map((category, index) => (
+                      <TableRow key={index}>
+                        <TableCell>
+                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                            <Box sx={{ 
+                              width: 12, 
+                              height: 12, 
+                              borderRadius: '50%', 
+                              bgcolor: COLORS[index % COLORS.length],
+                              mr: 1 
+                            }} />
+                            {category.name}
+                          </Box>
+                        </TableCell>
                         <TableCell align="right">{formatCurrency(category.value)}</TableCell>
+                        <TableCell align="right">
+                          {((category.value / reportData.summary.totalIncome) * 100).toFixed(1)}%
+                        </TableCell>
                       </TableRow>
                     ))}
                     <TableRow>
-                      <TableCell sx={{ fontWeight: 'bold' }}>Total Inflows</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold' }}>Total</TableCell>
                       <TableCell align="right" sx={{ fontWeight: 'bold' }}>
                         {formatCurrency(reportData.summary.totalIncome)}
                       </TableCell>
-                    </TableRow>
-                  </TableBody>
-                </Table>
-              </TableContainer>
-              
-              <Divider sx={{ my: 3 }} />
-              
-              <Typography variant="subtitle1" gutterBottom>Cash Outflows</Typography>
-              <TableContainer>
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Category</TableCell>
-                      <TableCell align="right">Amount</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {reportData.expenseCategories.map((category) => (
-                      <TableRow key={category.name}>
-                        <TableCell>{category.name}</TableCell>
-                        <TableCell align="right">{formatCurrency(category.value)}</TableCell>
-                      </TableRow>
-                    ))}
-                    <TableRow>
-                      <TableCell sx={{ fontWeight: 'bold' }}>Total Outflows</TableCell>
-                      <TableCell align="right" sx={{ fontWeight: 'bold' }}>
-                        {formatCurrency(reportData.summary.totalExpenses)}
-                      </TableCell>
+                      <TableCell align="right">100%</TableCell>
                     </TableRow>
                   </TableBody>
                 </Table>
@@ -534,57 +554,70 @@ const Reports = () => {
         
         <Grid item xs={12} md={6}>
           <Card>
-            <CardHeader title="Cash Flow Analysis" />
+            <CardHeader title="Expenses by Category" />
             <CardContent>
-              <Box sx={{ mb: 3 }}>
-                <Typography variant="subtitle1" gutterBottom>Cash Flow Metrics</Typography>
-                <Grid container spacing={2}>
-                  <Grid item xs={12}>
-                    <Paper sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <Typography>Net Cash Flow:</Typography>
-                      <Typography variant="h6" sx={{ 
-                        color: reportData.summary.netProfit >= 0 ? 'success.main' : 'error.main'
-                      }}>
-                        {formatCurrency(reportData.summary.netProfit)}
-                      </Typography>
-                    </Paper>
-                  </Grid>
-                  <Grid item xs={12}>
-                    <Paper sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <Typography>Cash Flow Ratio:</Typography>
-                      <Typography variant="h6">
-                        {(reportData.summary.totalIncome / reportData.summary.totalExpenses).toFixed(2)}
-                      </Typography>
-                    </Paper>
-                  </Grid>
-                  <Grid item xs={12}>
-                    <Paper sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <Typography>Cash Flow Margin:</Typography>
-                      <Typography variant="h6">
-                        {(reportData.summary.netProfit / reportData.summary.totalIncome * 100).toFixed(1)}%
-                      </Typography>
-                    </Paper>
-                  </Grid>
-                </Grid>
-              </Box>
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={reportData.expenseCategories}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="value"
+                    nameKey="name"
+                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                  >
+                    {reportData.expenseCategories.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Legend />
+                  <RechartsTooltip formatter={(value) => formatCurrency(value)} />
+                </PieChart>
+              </ResponsiveContainer>
               
-              <Box sx={{ mt: 4 }}>
-                <Typography variant="subtitle1" gutterBottom>Cash Flow Trend Analysis</Typography>
-                <Typography variant="body2" paragraph>
-                  Cash flow has been {reportData.summary.netProfit >= 0 ? 'positive' : 'negative'} during the selected period. 
-                  {reportData.summary.netProfit >= 0 
-                    ? ' This indicates healthy business operations with sufficient cash generation to cover all expenses.'
-                    : ' This indicates potential challenges in cash management that should be addressed promptly.'}
-                </Typography>
-                <Typography variant="body2">
-                  The cash flow ratio of {(reportData.summary.totalIncome / reportData.summary.totalExpenses).toFixed(2)} 
-                  {(reportData.summary.totalIncome / reportData.summary.totalExpenses) >= 1.2 
-                    ? ' shows strong liquidity and operational efficiency.'
-                    : (reportData.summary.totalIncome / reportData.summary.totalExpenses) >= 1.0
-                      ? ' is adequate but leaves little room for unexpected expenses.'
-                      : ' indicates potential cash flow problems that need immediate attention.'}
-                </Typography>
-              </Box>
+              <TableContainer component={Paper} variant="outlined" sx={{ mt: 2 }}>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Category</TableCell>
+                      <TableCell align="right">Amount</TableCell>
+                      <TableCell align="right">%</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {reportData.expenseCategories.map((category, index) => (
+                      <TableRow key={index}>
+                        <TableCell>
+                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                            <Box sx={{ 
+                              width: 12, 
+                              height: 12, 
+                              borderRadius: '50%', 
+                              bgcolor: COLORS[index % COLORS.length],
+                              mr: 1 
+                            }} />
+                            {category.name}
+                          </Box>
+                        </TableCell>
+                        <TableCell align="right">{formatCurrency(category.value)}</TableCell>
+                        <TableCell align="right">
+                          {((category.value / reportData.summary.totalExpenses) * 100).toFixed(1)}%
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    <TableRow>
+                      <TableCell sx={{ fontWeight: 'bold' }}>Total</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 'bold' }}>
+                        {formatCurrency(reportData.summary.totalExpenses)}
+                      </TableCell>
+                      <TableCell align="right">100%</TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </TableContainer>
             </CardContent>
           </Card>
         </Grid>
@@ -592,10 +625,8 @@ const Reports = () => {
     );
   };
   
-
-  
-// Cash Flow Report
-const renderCashFlowReport = () => {
+  // Cash Flow Report
+  const renderCashFlowReport = () => {
     if (!reportData || !reportData.monthly || reportData.monthly.length === 0) return (
       <Alert severity="info" sx={{ mt: 2 }}>
         No data available for the selected date range. Please adjust your filters.
@@ -693,8 +724,15 @@ const renderCashFlowReport = () => {
                     textAnchor="end" 
                     height={60}
                   />
-                  <YAxis tickFormatter={(value) => `$${value / 1000}k`} />
-                  <RechartsTooltip formatter={(value) => formatCurrency(value)} />
+                  <YAxis tickFormatter={(value) => `D${value / 1000}k`} />
+                  <RechartsTooltip
+                    formatter={(value, name) => [formatCurrency(value), name]}
+                    contentStyle={{
+                      backgroundColor: "rgba(255, 255, 255, 0.9)",
+                      border: "1px solid #ccc",
+                      borderRadius: "4px",
+                    }}
+                  />
                   <Legend />
                   <Bar name="Cash Inflow" dataKey="cashInflow" fill="#4CAF50" />
                   <Bar name="Cash Outflow" dataKey="cashOutflow" fill="#F44336" />
@@ -721,8 +759,15 @@ const renderCashFlowReport = () => {
                     textAnchor="end" 
                     height={60}
                   />
-                  <YAxis tickFormatter={(value) => `$${value / 1000}k`} />
-                  <RechartsTooltip formatter={(value) => formatCurrency(value)} />
+                  <YAxis tickFormatter={(value) => `D${value / 1000}k`} />
+                  <RechartsTooltip
+                    formatter={(value, name) => [formatCurrency(value), name]}
+                    contentStyle={{
+                      backgroundColor: "rgba(255, 255, 255, 0.9)",
+                      border: "1px solid #ccc",
+                      borderRadius: "4px",
+                    }}
+                  />
                   <Legend />
                   <Area 
                     type="monotone" 
@@ -858,6 +903,7 @@ const renderCashFlowReport = () => {
       </Grid>
     );
   };
+
   // Balance Sheet Report
   const renderBalanceSheet = () => {
     if (!reportData || !reportData.balanceSheet) return (
@@ -961,7 +1007,14 @@ const renderCashFlowReport = () => {
                     <Cell fill="#f44336" />
                     <Cell fill="#4caf50" />
                   </Pie>
-                  <RechartsTooltip formatter={(value) => formatCurrency(value)} />
+                  <RechartsTooltip
+                    formatter={(value, name) => [formatCurrency(value), name]}
+                    contentStyle={{
+                      backgroundColor: "rgba(255, 255, 255, 0.9)",
+                      border: "1px solid #ccc",
+                      borderRadius: "4px",
+                    }}
+                  />
                 </PieChart>
               </ResponsiveContainer>
             </CardContent>
@@ -1103,28 +1156,19 @@ const renderCashFlowReport = () => {
     );
   };
 
-  if (loading) {
-    return (
-      <>
-        <Header />
-        <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
-          <Box display="flex" justifyContent="center" alignItems="center" height="50vh" flexDirection="column">
-            <CircularProgress size={60} sx={{ mb: 3 }} />
-            <Typography variant="h6">Loading financial reports...</Typography>
-          </Box>
-        </Container>
-      </>
-    );
-  }
-
   return (
     <>
       <Header />
       <Container maxWidth={false} sx={{ mt: 4, mb: 4, px: { xs: 2, sm: 3, md: 4 } }}>
         <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Typography variant="h4" component="h1">
-            Financial Reports
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <Avatar sx={{ bgcolor: 'primary.main', mr: 2 }}>
+              <FileText size={24} />
+            </Avatar>
+            <Typography variant="h4">
+              Financial Reports
+            </Typography>
+          </Box>
           <Box sx={{ display: 'flex', gap: 2 }}>
             <Button 
               variant="outlined" 
@@ -1311,7 +1355,7 @@ const renderCashFlowReport = () => {
           <Button variant="contained" onClick={simulatePrint}>Print</Button>
         </DialogActions>
       </Dialog>
-    </>
+      </>
   );
 };
 
