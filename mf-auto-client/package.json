@@ -21,6 +21,7 @@
    "scripts": {
       "start": "react-scripts start",
       "build": "react-scripts build",
+      "serve": "serve -s build",
       "test": "react-scripts test",
       "eject": "react-scripts eject",
       "install:clean": "rm -rf node_modules/ && rm -rf package-lock.json && npm install && npm start",
@@ -82,6 +83,7 @@
       "reactstrap": "8.9.0",
       "recharts": "^2.9.3",
       "sass": "1.54.5",
+      "serve": "^14.2.4",
       "sweetalert2": "^11.6.16",
       "sweetalert2-react-content": "^5.0.7",
       "xlsx": "^0.18.5"
@@ -108,8 +110,5 @@
       "eslint-plugin-flowtype": "8.0.3",
       "jquery": "3.6.0",
       "typescript": "4.8.2"
-   },
-   "overrides": {
-      "autoprefixer": "10.4.5"
    }
 }
