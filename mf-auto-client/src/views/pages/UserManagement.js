@@ -4,19 +4,19 @@ import { UserContext } from "../../Context/UserContext.js";
 import Header from "components/Headers/Header.js";
 import { toast } from "react-toastify";
 import { 
-  Plus, 
+  // Plus, 
   Edit, 
   Trash2, 
   Search,
   UserPlus,
   Lock,
-  Mail,
-  Phone,
-  Award,
-  User,
+  // Mail,
+  // Phone,
+  // Award,
+  // User,
   Users,
-  ShieldCheck,
-  RefreshCw,
+  // ShieldCheck,
+  // RefreshCw,
   EyeOff,
   Eye
 } from "react-feather";
@@ -27,9 +27,9 @@ import {
   Grid,
   CircularProgress,
   Alert,
-  Card,
-  CardHeader,
-  CardContent,
+  // Card,
+  // CardHeader,
+  // CardContent,
   Button,
   Table,
   TableBody,
@@ -49,27 +49,27 @@ import {
   DialogContentText,
   DialogTitle,
   FormControl,
-  FormLabel,
+  // FormLabel,
   FormControlLabel,
-  FormHelperText,
+  // FormHelperText,
   Switch,
   MenuItem,
   InputLabel,
   Select,
   Divider,
   Tooltip,
-  Avatar,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemIcon,
-  ListItemAvatar,
-  ListItemSecondaryAction
+  Avatar
+  // List,
+  // ListItem,
+  // ListItemText,
+  // ListItemIcon,
+  // ListItemAvatar,
+  // ListItemSecondaryAction
 } from "@mui/material";
 import { styled } from "@mui/material/styles";
-import axios from "axios";
+// import axios from "axios";
 
-const baseURL = process.env.REACT_APP_API_URL || "http://localhost:3000/api";
+// const baseURL = process.env.REACT_APP_API_URL || "http://localhost:3000/api";
 
 // Role options
 const roleOptions = [
@@ -127,7 +127,7 @@ const UserAvatar = styled(Avatar)(({ theme, role }) => ({
 }));
 
 const UserManagement = () => {
-  const { token, userRole } = useContext(UserContext);
+  const { token } = useContext(UserContext);
   const [users, setUsers] = useState([]);
   const [filteredUsers, setFilteredUsers] = useState([]);
   const [isLoading, setIsLoading] = useState(false);

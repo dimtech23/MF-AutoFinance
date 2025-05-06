@@ -24,26 +24,11 @@ dotenv.config();
 
 const app = express();
 const port = parseInt(process.env.PORT || "4000", 10);
-const isDevelopment = process.env.NODE_ENV === "development";
+const isDevelopment = process.env.NODE_ENV !== "production";
 
-app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Origin", "http://localhost:3000");
-  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
-  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-  res.header("Access-Control-Allow-Credentials", "true");
-  
-  // Handle preflight requests
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-  
-  next();
-});
-
-
-// CORS configuration - SIMPLIFIED VERSION
+// CORS configuration
 app.use(cors({
-  origin: ["http://localhost:3000", "http://localhost:3001"],
+  origin: ["http://localhost:3000", "http://localhost:3001", "http://mfautousfinance.com"],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
@@ -71,6 +56,7 @@ if (!isDevelopment) {
           scriptSrc: ["'self'", "'unsafe-inline'"],
           styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
           imgSrc: ["'self'", "data:"],
+          connectSrc: ["'self'", "http://mfautousfinance.com"]
         },
       },
     })
@@ -84,24 +70,17 @@ if (!isDevelopment) {
 app.use(bodyParser.json());
 // app.use("/uploads", express.static(UPLOAD_PATH));
 
-// Register routes
+// API routes
 app.use("/auth", loginRouter);
 app.use("/auth", registrationRouter);
 app.use("/auth", logoutRouter);
-
-// API routes
 app.use("/api/clients", clientRouter);
 app.use("/api/invoices", invoiceRouter);
 app.use("/api/users", userRouter);
 app.use("/setup", setupRouter);
 app.use("/api/budgets", budgetRouter);
-app.use("/api/dashboard", dashboardRouter); // Add dashboard routes
-app.use("/api/appointments", appointmentRouter); // Add appointment routes
-
-// Root route
-app.get("/", (req, res) => {
-  res.status(200).json({ message: "Auto Garage Management API is running" });
-});
+app.use("/api/dashboard", dashboardRouter);
+app.use("/api/appointments", appointmentRouter);
 
 // Test MongoDB connection
 app.get("/test-db", async (req, res) => {
@@ -125,9 +104,59 @@ app.get("/test-db", async (req, res) => {
   }
 });
 
-// Start server
-app.listen(port, "localhost", () => {
-  console.log(`Server is running on http://localhost:${port}`);
+// Development API root route
+app.get("/", (req, res) => {
+  res.status(200).json({ message: "Auto Garage Management API is running" });
+});
+
+// Production configuration to serve frontend
+if (!isDevelopment) {
+  // Try multiple possible paths for the frontend build
+  const possiblePaths = [
+    path.join(__dirname, '../client/build'),
+    path.join(__dirname, '../build'),
+    path.join(__dirname, '../../client/build'),
+    path.join(__dirname, '../../mf-auto-client/build'),
+    path.join(__dirname, '../frontend/build'),
+    path.join(__dirname, '/app/client/build'),
+    path.join(__dirname, '/app/build'),
+    path.join(__dirname, '../../../mf-auto-client/build'),
+    path.join(process.cwd(), '../client/build'),
+    path.join(process.cwd(), '../mf-auto-client/build'),
+    path.join(process.cwd(), './build')
+  ];
+  
+  // Find the first path that exists
+  let frontendBuildPath = '';
+  for (const testPath of possiblePaths) {
+    try {
+      if (fs.existsSync(testPath)) {
+        frontendBuildPath = testPath;
+        console.log(`Found frontend build at: ${frontendBuildPath}`);
+        break;
+      }
+    } catch (err) {
+      // Continue trying other paths if one fails
+      console.log(`Path ${testPath} not accessible`);
+    }
+  }
+  
+  if (frontendBuildPath) {
+    // Serve static files from the React app build directory
+    app.use('/mf-autofinance', express.static(frontendBuildPath));
+    
+    // For any routes that don't match API routes, serve the React app
+    app.get('/mf-autofinance/*', (req, res) => {
+      res.sendFile(path.join(frontendBuildPath, 'index.html'));
+    });
+  } else {
+    console.warn('Could not find frontend build directory. Static files will not be served.');
+  }
+}
+
+// Start server - Changed from localhost to 0.0.0.0 to allow external connections
+app.listen(port, "0.0.0.0", () => {
+  console.log(`Server is running on port ${port}`);
   console.log(
     `Using ${
       process.env.NODE_ENV === "production"
@@ -135,4 +164,5 @@ app.listen(port, "localhost", () => {
         : "local storage"
     } for file uploads`
   );
+  console.log(`Running in ${isDevelopment ? 'development' : 'production'} mode`);
 });

@@ -11,14 +11,14 @@ import {
   RefreshCw, 
   Printer, 
   TrendingUp, 
-  ChevronDown,
-  ChevronUp,
+  // ChevronDown,
+  // ChevronUp,
   FileText,
-  DollarSign,
+  // DollarSign,
   Activity,
   PieChart as PieChartIcon,
-  Users,
-  Tool
+  // Users,
+  // Tool
 } from "react-feather";
 
 import {
@@ -26,7 +26,7 @@ import {
   Typography,
   Box,
   Grid,
-  CircularProgress,
+  // CircularProgress,
   Alert,
   Card,
   CardHeader,
@@ -39,24 +39,24 @@ import {
   TableHead,
   TableRow,
   Paper,
-  Chip,
+  // Chip,
   TextField,
   InputAdornment,
-  IconButton,
+  // IconButton,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
   Divider,
-  Tooltip,
+  // Tooltip,
   Tabs,
   Tab,
   FormControl,
   InputLabel,
   MenuItem,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
+  // Accordion,
+  // AccordionSummary,
+  // AccordionDetails,
   Select as MUISelect,
   Menu,
   ListItemIcon,
@@ -67,8 +67,8 @@ import {
 import {
   BarChart,
   Bar,
-  LineChart,
-  Line,
+  // LineChart,
+  // Line,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -192,23 +192,23 @@ const generateBalanceSheetData = () => {
 };
 
 const Reports = () => {
-  const { token, userRole } = useContext(UserContext);
-  const [loading, setLoading] = useState(true);
+  // const { token, userRole } = useContext(UserContext);
+  const [ setLoading] = useState(true);
   const [tabValue, setTabValue] = useState(0);
   const [reportType, setReportType] = useState('income-statement');
   const [dateRange, setDateRange] = useState([startOfMonth(subMonths(new Date(), 2)), endOfMonth(new Date())]);
   const [startDate, endDate] = dateRange;
   const [reportData, setReportData] = useState(null);
   const [exportMenuAnchorEl, setExportMenuAnchorEl] = useState(null);
-  const [expandedIncomeSummary, setExpandedIncomeSummary] = useState(true);
-  const [expandedExpenseSummary, setExpandedExpenseSummary] = useState(true);
+  // const [expandedIncomeSummary, setExpandedIncomeSummary] = useState(true);
+  // const [expandedExpenseSummary, setExpandedExpenseSummary] = useState(true);
   const [showPrintDialog, setShowPrintDialog] = useState(false);
   
   // Sample data for the reports
-  const [monthlyData, setMonthlyData] = useState([]);
-  const [expensesData, setExpensesData] = useState([]);
-  const [incomeData, setIncomeData] = useState([]);
-  const [balanceSheetData, setBalanceSheetData] = useState({});
+  const [ setMonthlyData] = useState([]);
+  const [setExpensesData] = useState([]);
+  const [ setIncomeData] = useState([]);
+  const [ setBalanceSheetData] = useState({});
   
   useEffect(() => {
     // Load sample data
@@ -367,27 +367,27 @@ const Reports = () => {
     );
 
     // Calculate quarterly data
-    const quarterlyData = reportData.monthly.reduce((quarters, month) => {
-      const date = new Date(month.date + '-01');
-      const quarter = `Q${Math.floor(date.getMonth() / 3) + 1} ${date.getFullYear()}`;
+    // const quarterlyData = reportData.monthly.reduce((quarters, month) => {
+    //   const date = new Date(month.date + '-01');
+    //   const quarter = `Q${Math.floor(date.getMonth() / 3) + 1} ${date.getFullYear()}`;
       
-      if (!quarters[quarter]) {
-        quarters[quarter] = {
-          quarter,
-          income: 0,
-          expenses: 0,
-          profit: 0
-        };
-      }
+    //   if (!quarters[quarter]) {
+    //     quarters[quarter] = {
+    //       quarter,
+    //       income: 0,
+    //       expenses: 0,
+    //       profit: 0
+    //     };
+    //   }
       
-      quarters[quarter].income += month.income;
-      quarters[quarter].expenses += month.expenses;
-      quarters[quarter].profit += month.profit;
+    //   quarters[quarter].income += month.income;
+    //   quarters[quarter].expenses += month.expenses;
+    //   quarters[quarter].profit += month.profit;
       
-      return quarters;
-    }, {});
+    //   return quarters;
+    // }, {});
     
-    const quarterlyDataArray = Object.values(quarterlyData);
+    // const quarterlyDataArray = Object.values(quarterlyData);
     
     return (
       <Grid container spacing={3}>
