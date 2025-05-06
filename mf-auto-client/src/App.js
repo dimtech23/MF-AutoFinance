@@ -9,8 +9,7 @@ import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
 const App = () => {
-  const basename = process.env.PUBLIC_URL || '/mf-autofinance';
-    
+  const basename = '';        
   return (
     <Router basename={basename}>
       <UserProvider>
