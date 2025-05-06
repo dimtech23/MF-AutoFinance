@@ -1,7 +1,7 @@
 {
   "files": {
     "main.css": "/mf-autofinance/static/css/main.a6997a83.css",
-    "main.js": "/mf-autofinance/static/js/main.f269b3de.js",
+    "main.js": "/mf-autofinance/static/js/main.2689257f.js",
     "static/media/fa-solid-900.svg": "/mf-autofinance/static/media/fa-solid-900.13de59f1a36b6cb4bca0.svg",
     "static/media/fa-brands-400.svg": "/mf-autofinance/static/media/fa-brands-400.216edb96b562c79adc09.svg",
     "static/media/mfautos-logo.jpg": "/mf-autofinance/static/media/mfautos-logo.e29ba08dd02fc4cb36e8.jpg",
@@ -26,10 +26,10 @@
     "static/media/nucleo-icons.woff2": "/mf-autofinance/static/media/nucleo-icons.cba267483aa6a7cb6e33.woff2",
     "index.html": "/mf-autofinance/index.html",
     "main.a6997a83.css.map": "/mf-autofinance/static/css/main.a6997a83.css.map",
-    "main.f269b3de.js.map": "/mf-autofinance/static/js/main.f269b3de.js.map"
+    "main.2689257f.js.map": "/mf-autofinance/static/js/main.2689257f.js.map"
   },
   "entrypoints": [
     "static/css/main.a6997a83.css",
-    "static/js/main.f269b3de.js"
+    "static/js/main.2689257f.js"
   ]
 }

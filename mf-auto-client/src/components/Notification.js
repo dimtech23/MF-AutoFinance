@@ -15,7 +15,7 @@ import { styled } from '@mui/material/styles';
 import CloseIcon from '@mui/icons-material/Close';
 
 const baseURL = process.env.NODE_ENV === 'production'
-  ? 'https://apps.mrc.gm/bioship'
+  ? ''
   : 'https://localhost:7097';
 
 const StyledBadge = styled(Badge)(({ theme }) => ({
