@@ -21,14 +21,14 @@
    "scripts": {
       "start": "react-scripts start",
       "build": "CI=false react-scripts build",
-      "serve": "serve -s build -l 3000 --config ./serve.json",
+      "serve": "serve -s build -l 3000 --cors --no-compression --debug",
       "test": "react-scripts test",
       "eject": "react-scripts eject",
       "install:clean": "rm -rf node_modules/ && rm -rf package-lock.json && npm install && npm start",
       "compile:scss": "sass src/assets/scss/argon-dashboard-react.scss src/assets/css/argon-dashboard-react.css",
       "minify:scss": "sass src/assets/scss/argon-dashboard-react.scss src/assets/css/argon-dashboard-react.min.css --style compressed",
       "build:scss": "npm run compile:scss && npm run minify:scss && npm run map:scss",
-      "build:prod": "copy .env.production .env && react-scripts build"
+     "build:prod": "cp .env.production .env && CI=false react-scripts build"
    },
    "eslintConfig": {
       "extends": "react-app"
