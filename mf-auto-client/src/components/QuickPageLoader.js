@@ -16,7 +16,7 @@ const QuickPageLoader = () => {
       }}
     >
       <motion.img
-        src="https://apps.mrc.gm/api-services/api/images/lshtm-favicon"
+        src=""
         alt="Loading..."
         style={{ width: '40px', height: '40px' }}
         initial={{ scale: 0.5, rotate: 0 }}

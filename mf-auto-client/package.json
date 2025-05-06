@@ -20,8 +20,8 @@
    "bugs": {},
    "scripts": {
       "start": "react-scripts start",
-      "build": "react-scripts build",
-      "serve": "serve -s build",
+      "build": "CI=false react-scripts build",
+      "serve": "serve -s build -l 3000 --config ./serve.json",
       "test": "react-scripts test",
       "eject": "react-scripts eject",
       "install:clean": "rm -rf node_modules/ && rm -rf package-lock.json && npm install && npm start",
@@ -92,6 +92,7 @@
       "assert": "^2.0.0",
       "autoprefixer": "^10.4.20",
       "buffer": "^6.0.3",
+      "eslint-config-react-app": "^7.0.1",
       "https-browserify": "^1.0.0",
       "os-browserify": "^0.3.0",
       "postcss": "^8.4.49",
