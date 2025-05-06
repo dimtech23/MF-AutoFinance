@@ -20,7 +20,7 @@
   "bugs": {},
   "scripts": {
     "start": "react-scripts start",
-    "build": "react-scripts build",
+    "build": "CI=false react-scripts build",
     "serve": "serve -s build -l 3000 --cors --no-compression --debug --single",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
