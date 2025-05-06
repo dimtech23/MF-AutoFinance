@@ -2,10 +2,10 @@ import React, { useContext, useState, useEffect } from "react";
 import { UserContext } from "../../Context/UserContext.js";
 import Header from "components/Headers/Header.js";
 import AppointmentCalendar from "components/Calendar/AppointmentCalendar.js";
-import QuickActionsWidget from '../../components/QuickActionsWidget.js';
+// import QuickActionsWidget from '../../components/QuickActionsWidget.js';
 import axios from "axios";
 import { 
-  Wallet, 
+  // Wallet, 
   CreditCard, 
   TrendingUp, 
   FileText, 
@@ -13,12 +13,12 @@ import {
   ArrowDown, 
   Calendar, 
   DollarSign, 
-  Percent, 
+  // Percent, 
   Tool, 
-  Users, 
-  Truck, 
+  // Users, 
+  // Truck, 
   Clock,
-  AlertTriangle,
+  // AlertTriangle,
   Activity
 } from "react-feather";
 import {
@@ -97,14 +97,14 @@ const CAR_COLORS = {
 };
 
 const Dashboard = () => {
-  const { userName, userRole, token } = useContext(UserContext);
+  const { token } = useContext(UserContext);
   const [dashboardStats, setDashboardStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [timeRange, setTimeRange] = useState("month");
   const [recentTransactions, setRecentTransactions] = useState([]);
   const [upcomingAppointments, setUpcomingAppointments] = useState([]);
-  const [inventoryAlerts, setInventoryAlerts] = useState([]);
+  const [ setInventoryAlerts] = useState([]);
   const [activeTab, setActiveTab] = useState(0);
   const [clients, setClients] = useState([]);
   const [invoices, setInvoices] = useState([]);

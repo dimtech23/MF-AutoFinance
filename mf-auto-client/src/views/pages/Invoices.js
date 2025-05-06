@@ -6,12 +6,12 @@ import Header from "components/Headers/Header.js";
 import { toast } from "react-toastify";
 import { format } from "date-fns";
 import DatePicker from "react-datepicker";
-import {
-  getStatusColor,
-  getStatusIcon,
-  mapStatus,
-  shouldCreateInvoice,
-} from "../../utility/statusMapper.js";
+// import {
+//   getStatusColor,
+//   getStatusIcon,
+//   mapStatus,
+//   shouldCreateInvoice,
+// } from "../../utility/statusMapper.js";
 import "react-datepicker/dist/react-datepicker.css";
 import Select from "react-select";
 import { 
@@ -30,15 +30,10 @@ import {
   CheckCircle,
   Clock,
   XCircle,
-  Truck,
   Tool,
   Link,
-  ExternalLink,
   CornerDownRight,
   Copy,
-  Save,
-  MessageSquare,
-  AlertCircle,
   User,
   X
 } from "react-feather";
@@ -50,8 +45,8 @@ import {
   CircularProgress,
   Alert,
   Card,
-  CardHeader,
-  CardContent,
+  // CardHeader,
+  // CardContent,
   Button,
   Table,
   TableBody,
@@ -70,8 +65,8 @@ import {
   DialogContentText,
   DialogTitle,
   FormControl,
-  FormLabel,
-  RadioGroup,
+  // FormLabel,
+  // RadioGroup,
   FormControlLabel,
   Radio,
   MenuItem,
@@ -83,19 +78,19 @@ import {
   Stepper,
   Step,
   StepLabel,
-  Autocomplete,
+  // Autocomplete,
   Popover,
-  Badge,
+  // Badge,
   List,
-  ListItem,
-  ListItemText,
+  // ListItem,
+  // ListItemText,
   ListItemIcon,
   Menu,
   Snackbar
 } from "@mui/material";
-import axios from "axios";
+// import axios from "axios";
 
-const baseURL = process.env.REACT_APP_API_URL || "http://localhost:3000/api";
+// const baseURL = process.env.REACT_APP_API_URL || "http://localhost:3000/api";
 
 const invoiceStatusOptions = [
   { value: "draft", label: "Draft" },
@@ -144,7 +139,7 @@ const partItems = [
 const Invoices = () => {
 const location = useLocation();
 const history = useHistory();
-  const { token, userRole } = useContext(UserContext);
+  const { token } = useContext(UserContext);
   const [invoices, setInvoices] = useState([]);
   const [filteredInvoices, setFilteredInvoices] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -163,7 +158,7 @@ const history = useHistory();
   const [currentStep, setCurrentStep] = useState(0);
   const [itemSearchTerm, setItemSearchTerm] = useState("");
   const [filteredItems, setFilteredItems] = useState([...serviceItems, ...partItems]);
-  const [loading, setLoading] = useState(false);
+  const [setLoading] = useState(false);
 
   const [formData, setFormData] = useState({
     invoiceNumber: "",
@@ -361,212 +356,212 @@ const createInvoiceFromClient = async (clientId) => {
     }
   }, [token]);
 
-  const fetchInvoices = async () => {
-    const generateSampleData = () => {
-      const carMakes = ["Toyota", "Honda", "Ford", "Chevrolet", "Nissan", "BMW", "Audi", "Mercedes"];
-      const carModels = {
-        "Toyota": ["Camry", "Corolla", "RAV4", "Highlander"],
-        "Honda": ["Accord", "Civic", "CR-V", "Pilot"],
-        "Ford": ["F-150", "Escape", "Explorer", "Mustang"],
-        "Chevrolet": ["Silverado", "Equinox", "Malibu", "Tahoe"],
-        "Nissan": ["Altima", "Sentra", "Rogue", "Pathfinder"],
-        "BMW": ["3 Series", "5 Series", "X3", "X5"],
-        "Audi": ["A4", "A6", "Q5", "Q7"],
-        "Mercedes": ["C-Class", "E-Class", "GLC", "GLE"]
-      };
+  // const fetchInvoices = async () => {
+  //   const generateSampleData = () => {
+  //     const carMakes = ["Toyota", "Honda", "Ford", "Chevrolet", "Nissan", "BMW", "Audi", "Mercedes"];
+  //     const carModels = {
+  //       "Toyota": ["Camry", "Corolla", "RAV4", "Highlander"],
+  //       "Honda": ["Accord", "Civic", "CR-V", "Pilot"],
+  //       "Ford": ["F-150", "Escape", "Explorer", "Mustang"],
+  //       "Chevrolet": ["Silverado", "Equinox", "Malibu", "Tahoe"],
+  //       "Nissan": ["Altima", "Sentra", "Rogue", "Pathfinder"],
+  //       "BMW": ["3 Series", "5 Series", "X3", "X5"],
+  //       "Audi": ["A4", "A6", "Q5", "Q7"],
+  //       "Mercedes": ["C-Class", "E-Class", "GLC", "GLE"]
+  //     };
 
-      const customerNames = [
-        "John Smith", "Mary Johnson", "David Williams", "Sarah Brown", 
-        "Michael Davis", "Jennifer Miller", "Robert Wilson", "Jessica Moore"
-      ];
+  //     const customerNames = [
+  //       "John Smith", "Mary Johnson", "David Williams", "Sarah Brown", 
+  //       "Michael Davis", "Jennifer Miller", "Robert Wilson", "Jessica Moore"
+  //     ];
 
-      const statuses = ["draft", "pending", "paid", "overdue", "cancelled"];
-      const statusProbability = [0.1, 0.3, 0.4, 0.15, 0.05];
+  //     const statuses = ["draft", "pending", "paid", "overdue", "cancelled"];
+  //     const statusProbability = [0.1, 0.3, 0.4, 0.15, 0.05];
 
-      const getRandomStatus = () => {
-        const rand = Math.random();
-        let cumulative = 0;
-        for (let i = 0; i < statusProbability.length; i++) {
-          cumulative += statusProbability[i];
-          if (rand < cumulative) return statuses[i];
-        }
-        return statuses[0];
-      };
+  //     const getRandomStatus = () => {
+  //       const rand = Math.random();
+  //       let cumulative = 0;
+  //       for (let i = 0; i < statusProbability.length; i++) {
+  //         cumulative += statusProbability[i];
+  //         if (rand < cumulative) return statuses[i];
+  //       }
+  //       return statuses[0];
+  //     };
 
-      const getRandomItems = (count) => {
-        const items = [];
-        const availableItems = [...serviceItems, ...partItems];
-        const itemCount = Math.min(count, availableItems.length);
-        const selectedIndices = new Set();
+  //     const getRandomItems = (count) => {
+  //       const items = [];
+  //       const availableItems = [...serviceItems, ...partItems];
+  //       const itemCount = Math.min(count, availableItems.length);
+  //       const selectedIndices = new Set();
         
-        while (selectedIndices.size < itemCount) {
-          selectedIndices.add(Math.floor(Math.random() * availableItems.length));
-        }
+  //       while (selectedIndices.size < itemCount) {
+  //         selectedIndices.add(Math.floor(Math.random() * availableItems.length));
+  //       }
 
-        [...selectedIndices].forEach(index => {
-          const sourceItem = availableItems[index];
-          items.push({
-            ...sourceItem,
-            quantity: sourceItem.type === "service" ? 1 : Math.floor(Math.random() * 3) + 1,
-            taxable: Math.random() > 0.2
-          });
-        });
+  //       [...selectedIndices].forEach(index => {
+  //         const sourceItem = availableItems[index];
+  //         items.push({
+  //           ...sourceItem,
+  //           quantity: sourceItem.type === "service" ? 1 : Math.floor(Math.random() * 3) + 1,
+  //           taxable: Math.random() > 0.2
+  //         });
+  //       });
 
-        return items;
-      };
+  //       return items;
+  //     };
 
-      const calculateInvoiceTotal = (items, taxRate) => {
-        let subtotal = 0;
-        let taxableAmount = 0;
+  //     const calculateInvoiceTotal = (items, taxRate) => {
+  //       let subtotal = 0;
+  //       let taxableAmount = 0;
 
-        items.forEach(item => {
-          const itemTotal = item.type === "service" 
-            ? (item.laborHours * 85) + (item.quantity * item.price)
-            : (item.quantity * item.price);
+  //       items.forEach(item => {
+  //         const itemTotal = item.type === "service" 
+  //           ? (item.laborHours * 85) + (item.quantity * item.price)
+  //           : (item.quantity * item.price);
 
-          subtotal += itemTotal;
-          if (item.taxable) taxableAmount += itemTotal;
-        });
+  //         subtotal += itemTotal;
+  //         if (item.taxable) taxableAmount += itemTotal;
+  //       });
 
-        const tax = taxableAmount * (taxRate / 100);
-        const total = subtotal + tax;
+  //       const tax = taxableAmount * (taxRate / 100);
+  //       const total = subtotal + tax;
 
-        return { subtotal, tax, total };
-      };
+  //       return { subtotal, tax, total };
+  //     };
 
-      const mockInvoices = Array(30).fill().map((_, index) => {
-        const issueDate = new Date(2025, Math.floor(Math.random() * 4), Math.floor(Math.random() * 28) + 1);
-        const dueDate = new Date(issueDate);
-        dueDate.setDate(dueDate.getDate() + 15);
+  //     const mockInvoices = Array(30).fill().map((_, index) => {
+  //       const issueDate = new Date(2025, Math.floor(Math.random() * 4), Math.floor(Math.random() * 28) + 1);
+  //       const dueDate = new Date(issueDate);
+  //       dueDate.setDate(dueDate.getDate() + 15);
 
-        const status = getRandomStatus();
+  //       const status = getRandomStatus();
 
-        let paymentDate = null;
-        if (status === "paid") {
-          paymentDate = new Date(issueDate);
-          paymentDate.setDate(paymentDate.getDate() + Math.floor(Math.random() * 15) + 1);
-        }
+  //       let paymentDate = null;
+  //       if (status === "paid") {
+  //         paymentDate = new Date(issueDate);
+  //         paymentDate.setDate(paymentDate.getDate() + Math.floor(Math.random() * 15) + 1);
+  //       }
 
-        const items = getRandomItems(Math.floor(Math.random() * 4) + 1);
-        const taxRate = 7.5;
-        const { subtotal, tax, total } = calculateInvoiceTotal(items, taxRate);
+  //       const items = getRandomItems(Math.floor(Math.random() * 4) + 1);
+  //       const taxRate = 7.5;
+  //       const { subtotal, tax, total } = calculateInvoiceTotal(items, taxRate);
 
-        const make = carMakes[Math.floor(Math.random() * carMakes.length)];
-        const model = carModels[make][Math.floor(Math.random() * carModels[make].length)];
-        const year = 2010 + Math.floor(Math.random() * 14);
+  //       const make = carMakes[Math.floor(Math.random() * carMakes.length)];
+  //       const model = carModels[make][Math.floor(Math.random() * carModels[make].length)];
+  //       const year = 2010 + Math.floor(Math.random() * 14);
 
-        const customerName = customerNames[Math.floor(Math.random() * customerNames.length)];
-        const customerEmail = customerName.replace(' ', '.').toLowerCase() + '@example.com';
+  //       const customerName = customerNames[Math.floor(Math.random() * customerNames.length)];
+  //       const customerEmail = customerName.replace(' ', '.').toLowerCase() + '@example.com';
 
-        const clientId = Math.floor(Math.random() * 20) + 1;
-        const relatedRepairId = Math.random() > 0.6 ? Math.floor(Math.random() * 30) + 1 : null;
+  //       const clientId = Math.floor(Math.random() * 20) + 1;
+  //       const relatedRepairId = Math.random() > 0.6 ? Math.floor(Math.random() * 30) + 1 : null;
 
-        return {
-          id: index + 1,
-          invoiceNumber: `INV-${2025}-${1000 + index}`,
-          status,
-          issueDate,
-          dueDate,
-          customerInfo: {
-            id: clientId,
-            name: customerName,
-            email: customerEmail,
-            phone: `(${Math.floor(Math.random() * 900) + 100}) ${Math.floor(Math.random() * 900) + 100}-${Math.floor(Math.random() * 9000) + 1000}`,
-            address: `${Math.floor(Math.random() * 1000) + 100} Main St, Anytown, ST ${Math.floor(Math.random() * 90000) + 10000}`
-          },
-          vehicleInfo: {
-            id: clientId * 2,
-            make,
-            model,
-            year,
-            licensePlate: `${String.fromCharCode(65 + Math.floor(Math.random() * 26))}${String.fromCharCode(65 + Math.floor(Math.random() * 26))}${Math.floor(Math.random() * 10)}${Math.floor(Math.random() * 10)}${Math.floor(Math.random() * 10)}`,
-            vin: `${Math.random().toString(36).substring(2, 10).toUpperCase()}${Math.random().toString(36).substring(2, 10).toUpperCase()}`,
-            odometer: Math.floor(Math.random() * 100000) + 10000
-          },
-          items,
-          subtotal,
-          tax,
-          total,
-          notes: Math.random() > 0.7 ? "Customer requested service by end of week." : "",
-          terms: "Payment due within 15 days. Late payments subject to 1.5% monthly interest.",
-          taxRate,
-          paymentMethod: status === "paid" ? paymentMethods[Math.floor(Math.random() * paymentMethods.length)].value : "",
-          paymentDate,
-          createdBy: "admin",
-          createdAt: issueDate,
-          relatedClientId: clientId,
-          relatedRepairId
-        };
-      });
+  //       return {
+  //         id: index + 1,
+  //         invoiceNumber: `INV-${2025}-${1000 + index}`,
+  //         status,
+  //         issueDate,
+  //         dueDate,
+  //         customerInfo: {
+  //           id: clientId,
+  //           name: customerName,
+  //           email: customerEmail,
+  //           phone: `(${Math.floor(Math.random() * 900) + 100}) ${Math.floor(Math.random() * 900) + 100}-${Math.floor(Math.random() * 9000) + 1000}`,
+  //           address: `${Math.floor(Math.random() * 1000) + 100} Main St, Anytown, ST ${Math.floor(Math.random() * 90000) + 10000}`
+  //         },
+  //         vehicleInfo: {
+  //           id: clientId * 2,
+  //           make,
+  //           model,
+  //           year,
+  //           licensePlate: `${String.fromCharCode(65 + Math.floor(Math.random() * 26))}${String.fromCharCode(65 + Math.floor(Math.random() * 26))}${Math.floor(Math.random() * 10)}${Math.floor(Math.random() * 10)}${Math.floor(Math.random() * 10)}`,
+  //           vin: `${Math.random().toString(36).substring(2, 10).toUpperCase()}${Math.random().toString(36).substring(2, 10).toUpperCase()}`,
+  //           odometer: Math.floor(Math.random() * 100000) + 10000
+  //         },
+  //         items,
+  //         subtotal,
+  //         tax,
+  //         total,
+  //         notes: Math.random() > 0.7 ? "Customer requested service by end of week." : "",
+  //         terms: "Payment due within 15 days. Late payments subject to 1.5% monthly interest.",
+  //         taxRate,
+  //         paymentMethod: status === "paid" ? paymentMethods[Math.floor(Math.random() * paymentMethods.length)].value : "",
+  //         paymentDate,
+  //         createdBy: "admin",
+  //         createdAt: issueDate,
+  //         relatedClientId: clientId,
+  //         relatedRepairId
+  //       };
+  //     });
 
-      return mockInvoices;
-    };
+  //     return mockInvoices;
+  //   };
 
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        const data = generateSampleData();
-        setInvoices(data);
-        setFilteredInvoices(data);
-        resolve(data);
-      }, 500);
-    });
-  };
+  //   return new Promise((resolve) => {
+  //     setTimeout(() => {
+  //       const data = generateSampleData();
+  //       setInvoices(data);
+  //       setFilteredInvoices(data);
+  //       resolve(data);
+  //     }, 500);
+  //   });
+  // };
 
-  const fetchClients = async () => {
-    const generateSampleClientData = () => {
-      const carMakes = ["Toyota", "Honda", "Ford", "Chevrolet", "Nissan", "BMW", "Audi", "Mercedes"];
-      const carModels = {
-        "Toyota": ["Camry", "Corolla", "RAV4", "Highlander"],
-        "Honda": ["Accord", "Civic", "CR-V", "Pilot"],
-        "Ford": ["F-150", "Escape", "Explorer", "Mustang"],
-        "Chevrolet": ["Silverado", "Equinox", "Malibu", "Tahoe"],
-        "Nissan": ["Altima", "Sentra", "Rogue", "Pathfinder"],
-        "BMW": ["3 Series", "5 Series", "X3", "X5"],
-        "Audi": ["A4", "A6", "Q5", "Q7"],
-        "Mercedes": ["C-Class", "E-Class", "GLC", "GLE"]
-      };
+  // const fetchClients = async () => {
+  //   const generateSampleClientData = () => {
+  //     const carMakes = ["Toyota", "Honda", "Ford", "Chevrolet", "Nissan", "BMW", "Audi", "Mercedes"];
+  //     const carModels = {
+  //       "Toyota": ["Camry", "Corolla", "RAV4", "Highlander"],
+  //       "Honda": ["Accord", "Civic", "CR-V", "Pilot"],
+  //       "Ford": ["F-150", "Escape", "Explorer", "Mustang"],
+  //       "Chevrolet": ["Silverado", "Equinox", "Malibu", "Tahoe"],
+  //       "Nissan": ["Altima", "Sentra", "Rogue", "Pathfinder"],
+  //       "BMW": ["3 Series", "5 Series", "X3", "X5"],
+  //       "Audi": ["A4", "A6", "Q5", "Q7"],
+  //       "Mercedes": ["C-Class", "E-Class", "GLC", "GLE"]
+  //     };
 
-      const clientNames = [
-        "John Smith", "Mary Johnson", "David Williams", "Sarah Brown", 
-        "Michael Davis", "Jennifer Miller", "Robert Wilson", "Jessica Moore",
-        "James Anderson", "Patricia Thomas", "Richard Jackson", "Linda White",
-        "Thomas Harris", "Elizabeth Martin", "Charles Thompson", "Susan Garcia",
-        "Mark Rodriguez", "Donna Lewis", "Joseph Lee", "Helen Walker"
-      ];
+  //     const clientNames = [
+  //       "John Smith", "Mary Johnson", "David Williams", "Sarah Brown", 
+  //       "Michael Davis", "Jennifer Miller", "Robert Wilson", "Jessica Moore",
+  //       "James Anderson", "Patricia Thomas", "Richard Jackson", "Linda White",
+  //       "Thomas Harris", "Elizabeth Martin", "Charles Thompson", "Susan Garcia",
+  //       "Mark Rodriguez", "Donna Lewis", "Joseph Lee", "Helen Walker"
+  //     ];
 
-      return clientNames.map((name, index) => {
-        const make = carMakes[Math.floor(Math.random() * carMakes.length)];
-        const model = carModels[make][Math.floor(Math.random() * carModels[make].length)];
-        const year = 2010 + Math.floor(Math.random() * 14);
+  //     return clientNames.map((name, index) => {
+  //       const make = carMakes[Math.floor(Math.random() * carMakes.length)];
+  //       const model = carModels[make][Math.floor(Math.random() * carModels[make].length)];
+  //       const year = 2010 + Math.floor(Math.random() * 14);
 
-        return {
-          id: index + 1,
-          clientName: name,
-          phoneNumber: `(${Math.floor(Math.random() * 900) + 100}) ${Math.floor(Math.random() * 900) + 100}-${Math.floor(Math.random() * 9000) + 1000}`,
-          email: name.replace(' ', '.').toLowerCase() + '@example.com',
-          carDetails: {
-            id: (index + 1) * 2,
-            make,
-            model,
-            year,
-            licensePlate: `${String.fromCharCode(65 + Math.floor(Math.random() * 26))}${String.fromCharCode(65 + Math.floor(Math.random() * 26))}${Math.floor(Math.random() * 10)}${Math.floor(Math.random() * 10)}${Math.floor(Math.random() * 10)}`,
-            color: ["Black", "White", "Silver", "Red", "Blue", "Gray"][Math.floor(Math.random() * 6)],
-            vin: `${Math.random().toString(36).substring(2, 10).toUpperCase()}${Math.random().toString(36).substring(2, 10).toUpperCase()}`
-          },
-          repairCount: Math.floor(Math.random() * 5) + 1,
-          lastVisit: new Date(2025, Math.floor(Math.random() * 4), Math.floor(Math.random() * 28) + 1)
-        };
-      });
-    };
+  //       return {
+  //         id: index + 1,
+  //         clientName: name,
+  //         phoneNumber: `(${Math.floor(Math.random() * 900) + 100}) ${Math.floor(Math.random() * 900) + 100}-${Math.floor(Math.random() * 9000) + 1000}`,
+  //         email: name.replace(' ', '.').toLowerCase() + '@example.com',
+  //         carDetails: {
+  //           id: (index + 1) * 2,
+  //           make,
+  //           model,
+  //           year,
+  //           licensePlate: `${String.fromCharCode(65 + Math.floor(Math.random() * 26))}${String.fromCharCode(65 + Math.floor(Math.random() * 26))}${Math.floor(Math.random() * 10)}${Math.floor(Math.random() * 10)}${Math.floor(Math.random() * 10)}`,
+  //           color: ["Black", "White", "Silver", "Red", "Blue", "Gray"][Math.floor(Math.random() * 6)],
+  //           vin: `${Math.random().toString(36).substring(2, 10).toUpperCase()}${Math.random().toString(36).substring(2, 10).toUpperCase()}`
+  //         },
+  //         repairCount: Math.floor(Math.random() * 5) + 1,
+  //         lastVisit: new Date(2025, Math.floor(Math.random() * 4), Math.floor(Math.random() * 28) + 1)
+  //       };
+  //     });
+  //   };
 
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        const data = generateSampleClientData();
-        setClients(data);
-        resolve(data);
-      }, 300);
-    });
-  };
+  //   return new Promise((resolve) => {
+  //     setTimeout(() => {
+  //       const data = generateSampleClientData();
+  //       setClients(data);
+  //       resolve(data);
+  //     }, 300);
+  //   });
+  // };
 
   const fetchClientRepairHistory = async (clientId) => {
     try {
@@ -1055,29 +1050,29 @@ const createInvoiceFromClient = async (clientId) => {
     setClientLookupOpen(false);
   };
 
-  const handlePayInvoice = async (invoice) => {
-    try {
-      const response = await invoicesAPI.markAsPaid(invoice.id, invoice.paymentMethod || 'cash');
-      const updatedInvoices = invoices.map(inv => {
-        if (inv.id === invoice.id) {
-          return response.data;
-        }
-        return inv;
-      });
+  // const handlePayInvoice = async (invoice) => {
+  //   try {
+  //     const response = await invoicesAPI.markAsPaid(invoice.id, invoice.paymentMethod || 'cash');
+  //     const updatedInvoices = invoices.map(inv => {
+  //       if (inv.id === invoice.id) {
+  //         return response.data;
+  //       }
+  //       return inv;
+  //     });
   
-      setInvoices(updatedInvoices);
-      toast.success("Invoice marked as paid");
-      setSnackbarMessage("Invoice marked as paid");
-      setSnackbarOpen(true);
+  //     setInvoices(updatedInvoices);
+  //     toast.success("Invoice marked as paid");
+  //     setSnackbarMessage("Invoice marked as paid");
+  //     setSnackbarOpen(true);
   
-      if (previewOpen) {
-        setPreviewOpen(false);
-      }
-    } catch (error) {
-      console.error("Error marking invoice as paid:", error);
-      toast.error("Failed to mark invoice as paid");
-    }
-  };
+  //     if (previewOpen) {
+  //       setPreviewOpen(false);
+  //     }
+  //   } catch (error) {
+  //     console.error("Error marking invoice as paid:", error);
+  //     toast.error("Failed to mark invoice as paid");
+  //   }
+  // };
   const openPaymentDialog = (invoice) => {
     setSelectedInvoice(invoice);
     setPaymentDetails({
@@ -1318,101 +1313,101 @@ const createInvoiceFromClient = async (clientId) => {
     return () => clearInterval(intervalId);
   }, [invoices]);
 
-  const PaymentDialog = () => (
-    <Dialog
-      open={paymentDialogOpen}
-      onClose={closePaymentDialog}
-      maxWidth="sm"
-      fullWidth
-    >
-      <DialogTitle>Process Payment</DialogTitle>
-      <DialogContent>
-        <Grid container spacing={2} sx={{ mt: 1 }}>
-          <Grid item xs={12}>
-            <Typography variant="subtitle1" gutterBottom>
-              Invoice: {selectedInvoice?.invoiceNumber}
-            </Typography>
-            <Typography variant="body2" gutterBottom>
-              Customer: {selectedInvoice?.customerInfo.name}
-            </Typography>
-            <Typography variant="body2" gutterBottom>
-              Total Due: {formatCurrency(selectedInvoice?.total || 0)}
-            </Typography>
-          </Grid>
+  // const PaymentDialog = () => (
+  //   <Dialog
+  //     open={paymentDialogOpen}
+  //     onClose={closePaymentDialog}
+  //     maxWidth="sm"
+  //     fullWidth
+  //   >
+  //     <DialogTitle>Process Payment</DialogTitle>
+  //     <DialogContent>
+  //       <Grid container spacing={2} sx={{ mt: 1 }}>
+  //         <Grid item xs={12}>
+  //           <Typography variant="subtitle1" gutterBottom>
+  //             Invoice: {selectedInvoice?.invoiceNumber}
+  //           </Typography>
+  //           <Typography variant="body2" gutterBottom>
+  //             Customer: {selectedInvoice?.customerInfo.name}
+  //           </Typography>
+  //           <Typography variant="body2" gutterBottom>
+  //             Total Due: {formatCurrency(selectedInvoice?.total || 0)}
+  //           </Typography>
+  //         </Grid>
           
-          <Grid item xs={12}>
-            <Divider sx={{ my: 1 }} />
-          </Grid>
+  //         <Grid item xs={12}>
+  //           <Divider sx={{ my: 1 }} />
+  //         </Grid>
           
-          <Grid item xs={12} md={6}>
-            <TextField
-              label="Payment Amount"
-              fullWidth
-              type="number"
-              value={paymentDetails.amount}
-              onChange={(e) => handlePaymentDetailsChange('amount', e.target.value)}
-              InputProps={{
-                startAdornment: <InputAdornment position="start">D</InputAdornment>,
-                inputProps: { min: 0, step: '0.01' }
-              }}
-            />
-          </Grid>
+  //         <Grid item xs={12} md={6}>
+  //           <TextField
+  //             label="Payment Amount"
+  //             fullWidth
+  //             type="number"
+  //             value={paymentDetails.amount}
+  //             onChange={(e) => handlePaymentDetailsChange('amount', e.target.value)}
+  //             InputProps={{
+  //               startAdornment: <InputAdornment position="start">D</InputAdornment>,
+  //               inputProps: { min: 0, step: '0.01' }
+  //             }}
+  //           />
+  //         </Grid>
           
-          <Grid item xs={12} md={6}>
-            <FormControl fullWidth>
-              <TextField
-                select
-                label="Payment Method"
-                value={paymentDetails.method}
-                onChange={(e) => handlePaymentDetailsChange('method', e.target.value)}
-              >
-                {paymentMethods.map(option => (
-                  <MenuItem key={option.value} value={option.value}>
-                    {option.label}
-                  </MenuItem>
-                ))}
-              </TextField>
-            </FormControl>
-          </Grid>
+  //         <Grid item xs={12} md={6}>
+  //           <FormControl fullWidth>
+  //             <TextField
+  //               select
+  //               label="Payment Method"
+  //               value={paymentDetails.method}
+  //               onChange={(e) => handlePaymentDetailsChange('method', e.target.value)}
+  //             >
+  //               {paymentMethods.map(option => (
+  //                 <MenuItem key={option.value} value={option.value}>
+  //                   {option.label}
+  //                 </MenuItem>
+  //               ))}
+  //             </TextField>
+  //           </FormControl>
+  //         </Grid>
           
-          <Grid item xs={12} md={6}>
-            <TextField
-              label="Reference Number"
-              fullWidth
-              value={paymentDetails.reference}
-              onChange={(e) => handlePaymentDetailsChange('reference', e.target.value)}
-              placeholder="Check #, Transaction ID, etc."
-            />
-          </Grid>
+  //         <Grid item xs={12} md={6}>
+  //           <TextField
+  //             label="Reference Number"
+  //             fullWidth
+  //             value={paymentDetails.reference}
+  //             onChange={(e) => handlePaymentDetailsChange('reference', e.target.value)}
+  //             placeholder="Check #, Transaction ID, etc."
+  //           />
+  //         </Grid>
           
-          <Grid item xs={12} md={6}>
-            <DatePicker
-              selected={paymentDetails.date}
-              onChange={(date) => handlePaymentDetailsChange('date', date)}
-              dateFormat="MMMM d, yyyy"
-              customInput={
-                <TextField 
-                  label="Payment Date" 
-                  fullWidth
-                />
-              }
-            />
-          </Grid>
-        </Grid>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={closePaymentDialog}>Cancel</Button>
-        <Button 
-          variant="contained" 
-          color="primary"
-          onClick={handleProcessPayment}
-          startIcon={<DollarSign />}
-        >
-          Process Payment
-        </Button>
-      </DialogActions>
-    </Dialog>
-  );
+  //         <Grid item xs={12} md={6}>
+  //           <DatePicker
+  //             selected={paymentDetails.date}
+  //             onChange={(date) => handlePaymentDetailsChange('date', date)}
+  //             dateFormat="MMMM d, yyyy"
+  //             customInput={
+  //               <TextField 
+  //                 label="Payment Date" 
+  //                 fullWidth
+  //               />
+  //             }
+  //           />
+  //         </Grid>
+  //       </Grid>
+  //     </DialogContent>
+  //     <DialogActions>
+  //       <Button onClick={closePaymentDialog}>Cancel</Button>
+  //       <Button 
+  //         variant="contained" 
+  //         color="primary"
+  //         onClick={handleProcessPayment}
+  //         startIcon={<DollarSign />}
+  //       >
+  //         Process Payment
+  //       </Button>
+  //     </DialogActions>
+  //   </Dialog>
+  // );
 
   if (isLoading) {
     return (

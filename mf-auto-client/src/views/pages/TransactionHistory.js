@@ -7,24 +7,24 @@ import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import Select from "react-select";
 import { 
-  DollarSign, 
-  Plus, 
+  // DollarSign, 
+  // Plus, 
   Filter, 
   Download, 
-  Edit, 
+  // Edit, 
   Check,
   X,
   Search,
   Calendar,
   FileText,
-  Clock,
-  RefreshCw,
-  Info,
-  User,
-  ArrowLeft,
-  ArrowRight,
-  ChevronDown,
-  AlertCircle
+  Clock
+  // RefreshCw,
+  // Info,
+  // User,
+  // ArrowLeft,
+  // ArrowRight,
+  // ChevronDown,
+  // AlertCircle
 } from "react-feather";
 import {
   Container,
@@ -32,7 +32,7 @@ import {
   Box,
   Grid,
   CircularProgress,
-  Alert,
+  // Alert,
   Card,
   CardHeader,
   CardContent,
@@ -48,17 +48,17 @@ import {
   Chip,
   TextField,
   InputAdornment,
-  IconButton,
+  // IconButton,
   Dialog,
   DialogActions,
   DialogContent,
-  DialogContentText,
+  // DialogContentText,
   DialogTitle,
   FormControl,
-  InputLabel,
+  // InputLabel,
   MenuItem,
   Select as MUISelect,
-  Divider,
+  // Divider,
   Tooltip,
   Avatar,
   List,
@@ -67,14 +67,14 @@ import {
   ListItemAvatar,
   Badge,
   Tabs,
-  Tab,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
+   Tab,
+  // Accordion,
+  // AccordionSummary,
+  // AccordionDetails,
 } from "@mui/material";
-import axios from "axios";
+// import axios from "axios";
 
-const baseURL = process.env.REACT_APP_API_URL || "http://localhost:3001/api";
+// const baseURL = process.env.REACT_APP_API_URL || "http://localhost:3001/api";
 
 // Car garage specific categories
 const expenseCategories = [
@@ -106,14 +106,14 @@ const incomeCategories = [
 ];
 
 // Transaction status options
-const transactionStatusOptions = [
-  { value: "pending", label: "Pending Approval" },
-  { value: "approved", label: "Approved" },
-  { value: "rejected", label: "Rejected" },
-];
+// const transactionStatusOptions = [
+//   { value: "pending", label: "Pending Approval" },
+//   { value: "approved", label: "Approved" },
+//   { value: "rejected", label: "Rejected" },
+// ];
 
 const TransactionHistory = () => {
-  const { token, userName, userRole } = useContext(UserContext);
+  const { token} = useContext(UserContext);
   const [transactions, setTransactions] = useState([]);
   const [filteredTransactions, setFilteredTransactions] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -144,7 +144,7 @@ const TransactionHistory = () => {
   const [reportPeriod, setReportPeriod] = useState('month');
   
   // Monthly data for charts
-  const [monthlyData, setMonthlyData] = useState([]);
+  const [setMonthlyData] = useState([]);
   
   // Tab state
   const [activeTab, setActiveTab] = useState('all');
