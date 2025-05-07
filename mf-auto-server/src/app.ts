@@ -28,7 +28,7 @@ const isDevelopment = process.env.NODE_ENV !== "production";
 
 // CORS configuration
 app.use(cors({
-  origin: ["http://localhost:3000", "http://localhost:3001", "http://mfautousfinance.com", "https://mfautosfinance.com", "http://172.20.10.6:3000"],
+  origin: ["http://localhost:3000", "http://localhost:3001", "http://mfautosfinance.com", "https://mfautosfinance.com", "http://172.20.10.6:3000", "https://server.mfautosfinance.com" ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
@@ -56,7 +56,7 @@ if (!isDevelopment) {
           scriptSrc: ["'self'", "'unsafe-inline'"],
           styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
           imgSrc: ["'self'", "data:"],
-          connectSrc: ["'self'", "http://mfautousfinance.com"]
+          connectSrc: ["'self'", "http://mfautosfinance.com", "https://mfautosfinance.com"]
         },
       },
     })
