@@ -5,7 +5,7 @@ import axios from 'axios';
 const API_URL =
   process.env.REACT_APP_API_URL && process.env.REACT_APP_BASE_URL
     ? `${process.env.REACT_APP_API_URL}${process.env.REACT_APP_BASE_URL}/api`
-    : 'http://localhost:4000/api';
+    : 'https://mfautosfinance.com/api';
 
 
 // Create axios instance with base settings

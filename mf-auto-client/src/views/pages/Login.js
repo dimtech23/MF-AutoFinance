@@ -75,7 +75,7 @@ const Login = () => {
     try {
       console.log("Submitting login with email:", email);
       
-      const response = await axios.post(`${process.env.REACT_APP_API_URL || 'https://mfautosfinance.com'}/auth/login`, { email, password });
+      const response = await axios.post('https://mfautosfinance.com/auth/login', { email, password });
             
       console.log("Login response:", response.data);
 
