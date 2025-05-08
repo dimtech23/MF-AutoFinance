@@ -26,7 +26,7 @@ const app = express();
 const port = parseInt(process.env.PORT || "4000", 10);
 const isDevelopment = process.env.NODE_ENV !== "production";
 
-// CORS configuration
+// CORS configurations
 app.use(cors({
   origin: ["http://localhost:3000", "http://localhost:3001", "https://mfautosfinance.com", "https://server.mfautosfinance.com" ],
   credentials: true,

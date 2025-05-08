@@ -42,7 +42,7 @@ const Login = () => {
   useEffect(() => {
     console.log("Auth state in Login component:", { isAuthenticated, userRole });
     
-    // If authentication becomes true after login success, handle redirect here
+    // If authentication becomes true after login success, handle redirect heres
     if (isAuthenticated && loginSuccess) {
       console.log("Auth state changed to authenticated, redirecting...");
       redirectToDashboard();
