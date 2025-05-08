@@ -1,4 +1,4 @@
-import React, { useState, useContext, useEffect } from "react";
+import React, { useState, useContext, useEffect, useCallback } from "react";
 import { useHistory } from "react-router-dom";
 import axios from "axios";
 import { UserContext } from "../../Context/UserContext";
@@ -47,10 +47,10 @@ const Login = () => {
       console.log("Auth state changed to authenticated, redirecting...");
       redirectToDashboard();
     }
-  }, [isAuthenticated, userRole, loginSuccess]);
+  }, [isAuthenticated, userRole, loginSuccess, redirectToDashboard]);
 
   // Separate function for redirection
-  const redirectToDashboard = () => {
+  const redirectToDashboard = useCallback(() => {
     console.log("Attempting redirection to dashboard...");
     setTimeout(() => {
       // Use the full path with the basename
@@ -58,7 +58,7 @@ const Login = () => {
       console.log(`Redirecting to: ${fullPath}`);
       history.push(fullPath);
     }, 500); // Small delay to ensure state updates are processed
-  };
+  }, [history]);
 
   // Handle form submission
   const handleSubmit = async (e) => {
@@ -75,8 +75,8 @@ const Login = () => {
     try {
       console.log("Submitting login with email:", email);
       
-      const response = await axios.post('https://mfautosfinance.com/auth/login', { email, password });
-            
+      const response = await axios.post('https://server.mfautosfinance.com/auth/login', { email, password });
+                  
       console.log("Login response:", response.data);
 
       if (response.data && response.data.token) {

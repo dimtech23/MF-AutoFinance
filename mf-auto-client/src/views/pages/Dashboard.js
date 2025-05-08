@@ -2,10 +2,9 @@ import React, { useContext, useState, useEffect, useCallback } from "react";
 import { UserContext } from "../../Context/UserContext.js";
 import Header from "components/Headers/Header.js";
 import AppointmentCalendar from "components/Calendar/AppointmentCalendar.js";
-import QuickActionsWidget from '../../components/QuickActionsWidget.js';
+// import QuickActionsWidget from '../../components/QuickActionsWidget.js';
 import axios from "axios";
 import { 
-  Wallet, 
   CreditCard, 
   TrendingUp, 
   FileText, 
@@ -13,12 +12,8 @@ import {
   ArrowDown, 
   Calendar, 
   DollarSign, 
-  Percent, 
   Tool, 
-  Users, 
-  Truck, 
   Clock,
-  AlertTriangle,
   Activity
 } from "react-feather";
 import {
@@ -42,18 +37,15 @@ import {
   TableCell,
   Paper,
   Chip,
-  IconButton,
   FormControl,
   InputLabel,
   MenuItem,
   Select,
   Avatar,
-  Divider,
   LinearProgress,
   List,
   ListItem,
   ListItemText,
-  ListItemIcon,
   ListItemAvatar
 } from "@mui/material";
 import {
@@ -69,8 +61,6 @@ import {
   PieChart,
   Pie,
   Cell,
-  LineChart,
-  Line,
   AreaChart,
   Area,
 } from "recharts";
@@ -97,14 +87,14 @@ const CAR_COLORS = {
 };
 
 const Dashboard = () => {
-const { userName, userRole, token, isAuthenticated, isLoading } = useContext(UserContext);
+const { token, isAuthenticated, isLoading } = useContext(UserContext);
 const [dashboardStats, setDashboardStats] = useState(null);
 const [loading, setLoading] = useState(true);
 const [error, setError] = useState(null);
 const [timeRange, setTimeRange] = useState("month");
 const [recentTransactions, setRecentTransactions] = useState([]);
 const [upcomingAppointments, setUpcomingAppointments] = useState([]);
-const [inventoryAlerts, setInventoryAlerts] = useState([]);
+const [ setInventoryAlerts] = useState([]);
 const [activeTab, setActiveTab] = useState(0);
 const [clients, setClients] = useState([]);
 const [invoices, setInvoices] = useState([]);

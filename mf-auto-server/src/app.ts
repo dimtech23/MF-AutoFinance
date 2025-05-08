@@ -28,7 +28,7 @@ const isDevelopment = process.env.NODE_ENV !== "production";
 
 // CORS configuration
 app.use(cors({
-  origin: ["http://localhost:3000", "http://localhost:3001", "http://mfautosfinance.com", "https://mfautosfinance.com", "http://172.20.10.6:3000", "https://server.mfautosfinance.com" ],
+  origin: ["http://localhost:3000", "http://localhost:3001", "https://mfautosfinance.com", "https://server.mfautosfinance.com" ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
