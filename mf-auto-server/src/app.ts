@@ -17,8 +17,8 @@ import { invoiceRouter } from "./routes/invoiceRoute";
 import { budgetRouter } from "./routes/budgetRoute";
 import { router as userRouter } from "./routes/userRoutes";
 import logoutRouter from "./routes/logoutRoute";
-import { dashboardRouter } from "./routes/dashboardRoute"; // Add dashboard routes
-import { appointmentRouter } from "./routes/appointmentRoute"; // Add appointment routes
+import { dashboardRouter } from "./routes/dashboardRoute";
+import { appointmentRouter } from "./routes/appointmentRoute";
 
 dotenv.config();
 
@@ -26,9 +26,14 @@ const app = express();
 const port = parseInt(process.env.PORT || "4000", 10);
 const isDevelopment = process.env.NODE_ENV !== "production";
 
-// CORS configurations
+// CORS configurations - Updated with all possible frontend origins
 app.use(cors({
-  origin: ["http://localhost:3000", "http://localhost:3001", "https://mfautosfinance.com", "https://server.mfautosfinance.com" ],
+  origin: [
+    "http://localhost:3000", 
+    "http://localhost:3001", 
+    "https://mfautosfinance.com", 
+    "https://server.mfautosfinance.com"
+  ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
@@ -53,10 +58,14 @@ if (!isDevelopment) {
       contentSecurityPolicy: {
         directives: {
           defaultSrc: ["'self'"],
-          scriptSrc: ["'self'", "'unsafe-inline'"],
+          scriptSrc: ["'self'", "'unsafe-inline'", "https://maps.googleapis.com"],
           styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-          imgSrc: ["'self'", "data:"],
-          connectSrc: ["'self'", "http://mfautosfinance.com", "https://mfautosfinance.com"]
+          imgSrc: ["'self'", "data:", "https://*.mfautosfinance.com"],
+          connectSrc: ["'self'", "https://*.mfautosfinance.com", "wss://*.mfautosfinance.com"],
+          fontSrc: ["'self'", "https://fonts.gstatic.com"],
+          objectSrc: ["'none'"],
+          mediaSrc: ["'self'"],
+          frameSrc: ["'self'"]
         },
       },
     })
@@ -66,21 +75,31 @@ if (!isDevelopment) {
   app.use(helmet({ contentSecurityPolicy: false }));
 }
 
-// Middleware for parsing JSON and form data
-app.use(bodyParser.json());
-// app.use("/uploads", express.static(UPLOAD_PATH));
+// Request logging middleware - helps debugging API calls
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} [${req.method}] ${req.originalUrl}`);
+  next();
+});
 
-// API routes
+// Middleware for parsing JSON and form data
+app.use(bodyParser.json({ limit: '50mb' }));
+app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
+
+// API routes - CRITICAL FIX: Do NOT add /api prefix to auth routes
 app.use("/auth", loginRouter);
 app.use("/auth", registrationRouter);
 app.use("/auth", logoutRouter);
+
+// API routes - These SHOULD have /api prefix
 app.use("/api/clients", clientRouter);
 app.use("/api/invoices", invoiceRouter);
 app.use("/api/users", userRouter);
-app.use("/setup", setupRouter);
 app.use("/api/budgets", budgetRouter);
 app.use("/api/dashboard", dashboardRouter);
 app.use("/api/appointments", appointmentRouter);
+
+// Setup route
+app.use("/setup", setupRouter);
 
 // Test MongoDB connection
 app.get("/test-db", async (req, res) => {
@@ -104,87 +123,83 @@ app.get("/test-db", async (req, res) => {
   }
 });
 
-// Development API root route
+// API root route - useful for health checks
 app.get("/", (req, res) => {
-  res.status(200).json({ message: "Auto Garage Management API is running" });
+  res.status(200).json({ 
+    message: "Auto Garage Management API is running",
+    environment: process.env.NODE_ENV || 'development',
+    version: "1.0.0"
+  });
 });
 
- // Production configuration to serve frontend
+// Base API route response - helps debug path issues
+app.get("/api", (req, res) => {
+  res.status(200).json({ 
+    message: "Auto Garage Management API endpoints available",
+    docs: "See documentation for available endpoints",
+    environment: process.env.NODE_ENV || 'development'
+  });
+});
+
+// Production configuration to serve frontend - SIMPLIFIED
 if (!isDevelopment) {
-  console.log("Running in production mode, looking for frontend build");
-  // Try multiple possible paths for the frontend build
-  const possiblePaths = [
-    path.join(__dirname, '../client/build'),
-    path.join(__dirname, '../build'),
-    path.join(__dirname, '../../client/build'),
-    path.join(__dirname, '../../mf-auto-client/build'),
-    path.join(__dirname, '../frontend/build'),
-    path.join(__dirname, '/app/client/build'),
-    path.join(__dirname, '/app/build'),
-    path.join(__dirname, '../../../mf-auto-client/build'),
-    path.join(process.cwd(), '../client/build'),
-    path.join(process.cwd(), '../mf-auto-client/build'),
-    path.join(process.cwd(), './build'),
-    // Add more paths if needed
-  ];
+  console.log("Running in production mode, configuring frontend serving");
   
-  console.log("Possible frontend paths to check:");
-  possiblePaths.forEach((p, i) => console.log(`[${i}] ${p}`));
+  // Define the base path for the frontend application
+  const basePath = process.env.REACT_APP_BASE_URL || '/mf-autofinance';
+  console.log(`Using base path: ${basePath} for frontend routes`);
   
-  // Find the first path that exists
-  let frontendBuildPath = '';
-  for (const testPath of possiblePaths) {
-    try {
-      console.log(`Checking path: ${testPath}`);
-      if (fs.existsSync(testPath)) {
-        frontendBuildPath = testPath;
-        console.log(`✅ Found frontend build at: ${frontendBuildPath}`);
-        break;
-      } else {
-        console.log(`❌ Path not found: ${testPath}`);
-      }
-    } catch (err: any) { // Using the any type to handle the error
-      // Continue trying other paths if one fails
-      console.log(`⚠️ Error checking path ${testPath}: ${err?.message || 'Unknown error'}`);
-    }
-  }
+  // Set a single, fixed path for the frontend build
+  const frontendBuildPath = path.join(__dirname, '../client/build');
   
-  if (frontendBuildPath) {
+  // Check if the path exists
+  if (fs.existsSync(frontendBuildPath)) {
     console.log(`Serving static files from: ${frontendBuildPath}`);
-    console.log(`Route path: /mf-autofinance`);
     
     // Serve static files from the React app build directory
-    app.use('/mf-autofinance', express.static(frontendBuildPath));
+    app.use(basePath, express.static(frontendBuildPath));
     
     // For any routes that don't match API routes, serve the React app
-    app.get('/mf-autofinance/*', (req, res) => {
+    app.get(`${basePath}/*`, (req, res) => {
       const indexPath = path.join(frontendBuildPath, 'index.html');
-      console.log(`Serving index.html from: ${indexPath}`);
+      console.log(`Serving index.html from: ${indexPath} for path: ${req.path}`);
       res.sendFile(indexPath);
     });
     
-    // Log successful setup
+    // Also handle root path redirects to the base path if needed
+    app.get('/', (req, res) => {
+      res.redirect(basePath);
+    });
+    
     console.log('Frontend routing configured successfully');
   } else {
-    console.warn('⛔️ Could not find frontend build directory. Static files will not be served.');
+    console.warn(`⛔️ Frontend build directory not found at ${frontendBuildPath}`);
     console.log('Current working directory:', process.cwd());
-    try {
-      console.log('Directory contents:', fs.readdirSync(process.cwd()));
-    } catch (err: any) {
-      console.error('Error reading directory:', err?.message || 'Unknown error');
-    }
   }
 }
 
-// Start server - Changed from localhost to 0.0.0.0 to allow external connections
+// Global error handler
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  console.error('Unhandled error:', err);
+  res.status(500).json({
+    error: 'Internal server error',
+    message: process.env.NODE_ENV === 'production' ? 'An unexpected error occurred' : err.message
+  });
+});
+
+// Handle 404 routes
+app.use((req, res) => {
+  console.log(`404 Not Found: ${req.method} ${req.originalUrl}`);
+  res.status(404).json({ 
+    error: 'Not Found',
+    message: `The requested resource was not found: ${req.originalUrl}`
+  });
+});
+
+// Start server - Listen on all interfaces (0.0.0.0) to allow external connections
 app.listen(port, "0.0.0.0", () => {
   console.log(`Server is running on port ${port}`);
-  console.log(
-    `Using ${
-      process.env.NODE_ENV === "production"
-        ? "production uploads directory"
-        : "local storage"
-    } for file uploads`
-  );
-  console.log(`Running in ${isDevelopment ? 'development' : 'production'} mode`);
+  console.log(`Server environment: ${process.env.NODE_ENV || 'development'}`);
 });
+
+export default app;

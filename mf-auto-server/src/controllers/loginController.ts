@@ -9,36 +9,50 @@ export const loginUser = async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
 
+    // Add debugging to help identify issues
+    console.log("Login attempt for email:", email);
+
     const user = await User.findOne({ email }).collation({ locale: 'en', strength: 2 });
 
     if (!user) {
-      return res.status(404).json({ message: 'No account associated with this email. Please check the email entered or register.' });
+      console.log("No user found with this email");
+      return res.status(404).json({ message: 'No account associated with this email.' });
     }
 
     const passwordMatch = await bcrypt.compare(password, user.password);
 
     if (!passwordMatch) {
-      return res.status(401).json({ message: 'Incorrect password. Please try again' });
+      console.log("Password mismatch");
+      return res.status(401).json({ message: 'Incorrect password.' });
     }
+
+    // Create a consistent user object for the frontend
+    const userForResponse = {
+      id: user._id,
+      role: user.role,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName
+    };
 
     const token = jwt.sign(
       { userId: user._id, role: user.role },
-      process.env.JWT_SECRET as string,
+      process.env.JWT_SECRET || 'default_secret',
       { expiresIn: '24h' }
     );
+
+    // Log successful login
+    console.log("Login successful for:", email);
+    console.log("Token generated successfully");
 
     res.status(200).json({ 
       message: 'Login successful', 
       token,
-      user: {
-        id: user._id,
-        role: user.role,
-        email: user.email
-      }
+      user: userForResponse
     });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Internal Server Error' });
+    console.error("Login error:", error);
+    res.status(500).json({ error: 'Internal Server Error', message: 'An unexpected error occurred during login.' });
   }
 };
 
