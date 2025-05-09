@@ -6,7 +6,6 @@ import bodyParser from "body-parser";
 import express from "express";
 import fs from "fs";
 import helmet from "helmet";
-// import { UPLOAD_PATH } from "./multer.config";
 
 // Import routes for garage management system
 import { router as loginRouter } from "./routes/loginRoute";
@@ -26,8 +25,29 @@ const app = express();
 const port = parseInt(process.env.PORT || "4000", 10);
 const isDevelopment = process.env.NODE_ENV !== "production";
 
-// CORS configurations - Updated with all possible frontend origins
-app.use(cors({
+app.use((req, res, next) => {
+  // Log all requests to help with debugging
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.url} - Origin: ${req.headers.origin || 'unknown'}`);
+  
+  // Special handling for OPTIONS requests
+  if (req.method === 'OPTIONS') {
+    console.log('Handling OPTIONS request with custom headers');
+    
+    // These headers are crucial for CORS preflight
+    res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+    res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,PATCH,OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Content-Length, X-Requested-With');
+    res.header('Access-Control-Allow-Credentials', 'true');
+    
+    // Respond with 200 OK for OPTIONS requests
+    return res.status(200).send();
+  }
+  
+  next();
+});
+
+// Define CORS options
+const corsOptions = {
   origin: [
     "http://localhost:3000", 
     "http://localhost:3001", 
@@ -36,8 +56,20 @@ app.use(cors({
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
+  allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'X-Requested-With', 'Accept']
+};
+
+// Enable pre-flight across all routes - THIS IS THE CRITICAL FIX
+app.options('*', cors(corsOptions));
+
+// CORS configurations - this now applies to non-OPTIONS requests
+app.use(cors(corsOptions));
+
+// Request logging middleware with more details to help debug API calls
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} [${req.method}] ${req.originalUrl} - Origin: ${req.headers.origin || 'unknown'}`);
+  next();
+});
 
 // Connect to MongoDB
 const mongoUri = process.env.MONGO_URI;

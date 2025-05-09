@@ -3,7 +3,13 @@ import { loginUser, passwordReset, verifyResetCode,resetPassword ,updateInfo} fr
 // import { loginAdmin } from '../controllers/adminController';
 
 const router = express.Router();
-
+router.get('/status', (req, res) => {
+    res.status(200).json({ 
+      status: 'online',
+      message: 'Authentication service is running'
+    });
+  });
+  
 // User routes
 router.post('/login', loginUser);
 router.post('/reset', passwordReset);

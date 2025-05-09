@@ -17,7 +17,7 @@ console.log('API Configuration:', {
 
 // Create axios instance with base settings
 const api = axios.create({
-  baseURL: API_URL,
+  baseURL: process.env.REACT_APP_API_URL || 'https://server.mfautosfinance.com',
   headers: {
     'Content-Type': 'application/json',
   },
@@ -70,6 +70,8 @@ export const authAPI = {
       ? `${process.env.REACT_APP_API_URL}/auth/login`
       : 'https://server.mfautosfinance.com/auth/login';
       
+    console.log("Login request being sent to:", loginUrl);
+    
     return axios.post(loginUrl, credentials, {
       headers: {
         'Content-Type': 'application/json',
