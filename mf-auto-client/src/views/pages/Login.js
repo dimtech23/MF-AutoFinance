@@ -1,6 +1,5 @@
 import React, { useState, useContext, useEffect, useCallback } from "react";
 import { useHistory } from "react-router-dom";
-import axios from "axios";
 import { UserContext } from "../../Context/UserContext";
 import {
   Card,
@@ -19,10 +18,11 @@ import {
 import { EyeOff, Eye, Mail, Lock } from "react-feather";
 import logo from "../../assets/img/brand/mfautos-logo.jpg"; 
 import "../../assets/css/auth.css";
+// Import the api service with fixed URL handling
+import { authAPI } from "../../api";
 
 const Login = () => {
   const history = useHistory();
-  // Extract everything we need from context
   const { 
     setUser, 
     setIsAuthenticated, 
@@ -37,30 +37,32 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [loginSuccess, setLoginSuccess] = useState(false);
+  const [debugInfo, setDebugInfo] = useState(null);
 
   // Debug: Log authentication state changes
   useEffect(() => {
     console.log("Auth state in Login component:", { isAuthenticated, userRole });
     
-    // If authentication becomes true after login success, handle redirect heres
+    // If authentication becomes true after login success, handle redirect here
     if (isAuthenticated && loginSuccess) {
       console.log("Auth state changed to authenticated, redirecting...");
       redirectToDashboard();
     }
-  }, [isAuthenticated, userRole, loginSuccess, redirectToDashboard]);
+  }, [isAuthenticated, userRole, loginSuccess]);
 
   // Separate function for redirection
   const redirectToDashboard = useCallback(() => {
     console.log("Attempting redirection to dashboard...");
-    setTimeout(() => {
-      // Use the full path with the basename
-      const fullPath = "/admin/dashboard"; // Do not include basename, React Router handles it
-      console.log(`Redirecting to: ${fullPath}`);
-      history.push(fullPath);
-    }, 500); // Small delay to ensure state updates are processed
+    
+    // Use the basename from environment variable if available
+    const basePath = process.env.REACT_APP_BASE_URL || '';
+    const fullPath = `${basePath}/admin/dashboard`;
+    
+    console.log(`Redirecting to: ${fullPath}`);
+    history.push('/admin/dashboard'); // Keep this simple - React Router will handle the basename
   }, [history]);
-
-  // Handle form submission
+  
+ 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
@@ -73,40 +75,53 @@ const Login = () => {
     setLoading(true);
     
     try {
-      console.log("Submitting login with email:", email);
+      // Use the direct authAPI login method
+      const response = await authAPI.login({ email, password });
       
-      const response = await axios.post('https://server.mfautosfinance.com/auth/login', { email, password });
-                  
-      console.log("Login response:", response.data);
-
       if (response.data && response.data.token) {
         // Save token to localStorage
         localStorage.setItem("token", response.data.token);
-        console.log("Token saved to localStorage");
         
-        // Update all the state in UserContext
-        setUser(response.data.user);
-        console.log("User set in context:", response.data.user);
-        
-        setIsAuthenticated(true);
-        console.log("isAuthenticated set to true");
-        
-        setUserRole(response.data.user.role);
-        console.log("userRole set to:", response.data.user.role);
-        
-        // Mark login as successful
-        setLoginSuccess(true);
-        
-        // Instead of redirecting immediately, let the useEffect handle it
-        // This ensures state updates have time to propagate
-        console.log("Login successful, redirection will be handled by useEffect");
+        // Update user context
+        if (response.data.user) {
+          setUser(response.data.user);
+          setIsAuthenticated(true);
+          setUserRole(response.data.user.role);
+          setLoginSuccess(true);
+          
+          // Force redirect immediately
+          const adminPath = '/admin/dashboard';
+          console.log(`Redirecting to: ${adminPath}`);
+          setTimeout(() => {
+            history.push(adminPath);
+          }, 100);
+        } else {
+          setError("Invalid user data received from server");
+        }
       } else {
-        console.log("Invalid credentials");
-        setError("Invalid credentials");
+        setError("Invalid response from server. Please try again.");
       }
     } catch (err) {
       console.error("Login error:", err);
-      setError(err.response?.data?.message || "An error occurred during login. Please try again.");
+      
+      // Specific error handling
+      if (err.response) {
+        const status = err.response.status;
+        
+        if (status === 401) {
+          setError("Invalid credentials. Please check your email and password.");
+        } else if (status === 404) {
+          setError("User not found. Please check your email address.");
+        } else if (status === 500) {
+          setError("Server error. Please try again later.");
+        } else {
+          setError(err.response.data?.message || "Login failed. Please try again.");
+        }
+      } else if (err.request) {
+        setError("Network error. Please check your connection and try again.");
+      } else {
+        setError("An unexpected error occurred. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
@@ -213,6 +228,16 @@ const Login = () => {
                 {loading ? <CircularProgress size={24} /> : "Login"}
               </Button>
             </form>
+            
+            {/* Debug info - Only visible in development */}
+            {process.env.NODE_ENV === 'development' && debugInfo && (
+              <Box sx={{ mt: 3, p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
+                <Typography variant="subtitle2" gutterBottom>Debug Info:</Typography>
+                <pre style={{ overflow: 'auto', maxHeight: '200px' }}>
+                  {JSON.stringify(debugInfo, null, 2)}
+                </pre>
+              </Box>
+            )}
           </CardContent>
         </Card>
         

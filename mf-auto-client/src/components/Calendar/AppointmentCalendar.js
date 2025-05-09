@@ -5,7 +5,7 @@ import { toast } from "react-toastify";
 import { appointmentsAPI,appointmentAPI, clientsAPI } from "../../api";
 import {
   mapStatus,
-  getStatusColor,
+  // getStatusColor,
   shouldCreateInvoice,
 } from "../../utility/statusMapper.js";
 import {

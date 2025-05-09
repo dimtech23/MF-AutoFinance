@@ -1,6 +1,6 @@
 import React, { createContext, useState, useEffect, useCallback } from "react";
 import { decodeToken } from "react-jwt";
-import { authAPI } from "../api";
+import api, { authAPI } from "../api";
 import { toast } from "react-toastify";
 import axios from "axios";
 
@@ -54,31 +54,48 @@ export const UserProvider = ({ children }) => {
 
   useEffect(() => {
     const initializeAuth = async () => {
-      console.log("Initializing authentication...");
-      const storedToken = localStorage.getItem("token");
-      const isValid = await validateToken(storedToken);
+      setIsLoading(true);
 
-      if (isValid) {
-        console.log("Valid token found, setting auth state");
-        const decodedToken = decodeToken(storedToken);
-        setUser(decodedToken);
-        setIsAuthenticated(true);
-        setToken(storedToken);
-        setUserRole(decodedToken.role);
-        setUserName(
-          `${decodedToken.firstName || ""} ${decodedToken.lastName || ""}`
-        );
-        setUserEmail(decodedToken.email);
-        console.log("Auth initialization complete - authenticated");
-      } else {
-        console.log("No valid token found");
-        logout();
+      try {
+        const token = localStorage.getItem("token");
+
+        if (token) {
+          // Verify token is valid by making a test request
+          try {
+            // Use the token to get current user info
+            const response = await api.get("/api/users/me", {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            });
+
+            if (response.data) {
+              setUser(response.data);
+              setIsAuthenticated(true);
+              setUserRole(response.data.role);
+            } else {
+              // Invalid response, clear token
+              localStorage.removeItem("token");
+              setIsAuthenticated(false);
+            }
+          } catch (error) {
+            console.error("Token validation failed:", error);
+            localStorage.removeItem("token");
+            setIsAuthenticated(false);
+          }
+        } else {
+          setIsAuthenticated(false);
+        }
+      } catch (error) {
+        console.error("Auth initialization error:", error);
+        setIsAuthenticated(false);
+      } finally {
+        setIsLoading(false);
       }
-      setIsLoading(false);
     };
 
     initializeAuth();
-  }, [validateToken]);
+  }, []);
 
   const login = async (credentials) => {
     console.log("Login function called with:", credentials.email);
