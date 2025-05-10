@@ -64,20 +64,19 @@ api.interceptors.response.use(
 );
 
 // Auth related API calls - Note: These should NOT include /api prefix since the backend routes don't have it
-export const authAPI = {
-  login: (credentials) => {
-    const loginUrl = process.env.REACT_APP_API_URL 
-      ? `${process.env.REACT_APP_API_URL}/auth/login`
-      : 'https://server.mfautosfinance.com/auth/login';
+  export const authAPI = {
+    login: (credentials) => {
+      // Use hardcoded URL for now to bypass any configuration issues
+      const loginUrl = 'https://server.mfautosfinance.com/auth/login';
       
-    console.log("Login request being sent to:", loginUrl);
-    
-    return axios.post(loginUrl, credentials, {
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      withCredentials: true
-    });
+      console.log("Login request being sent to:", loginUrl);
+      
+      return axios.post(loginUrl, credentials, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        withCredentials: true
+      });
   },
   logout: () => api.post('/auth/logout'),
   resetPassword: (email) => api.post('/auth/reset', { email }),
