@@ -1,11 +1,10 @@
-import React, { useContext, useState, useEffect } from "react";
+import React, { useContext, useState, useEffect, useCallback } from "react";
 import { UserContext } from "../../Context/UserContext.js";
 import Header from "components/Headers/Header.js";
 import AppointmentCalendar from "components/Calendar/AppointmentCalendar.js";
 // import QuickActionsWidget from '../../components/QuickActionsWidget.js';
 import axios from "axios";
 import { 
-  // Wallet, 
   CreditCard, 
   TrendingUp, 
   FileText, 
@@ -13,12 +12,8 @@ import {
   ArrowDown, 
   Calendar, 
   DollarSign, 
-  // Percent, 
   Tool, 
-  // Users, 
-  // Truck, 
   Clock,
-  // AlertTriangle,
   Activity
 } from "react-feather";
 import {
@@ -42,18 +37,15 @@ import {
   TableCell,
   Paper,
   Chip,
-  IconButton,
   FormControl,
   InputLabel,
   MenuItem,
   Select,
   Avatar,
-  Divider,
   LinearProgress,
   List,
   ListItem,
   ListItemText,
-  ListItemIcon,
   ListItemAvatar
 } from "@mui/material";
 import {
@@ -69,8 +61,6 @@ import {
   PieChart,
   Pie,
   Cell,
-  LineChart,
-  Line,
   AreaChart,
   Area,
 } from "recharts";
@@ -97,19 +87,20 @@ const CAR_COLORS = {
 };
 
 const Dashboard = () => {
-  const { token } = useContext(UserContext);
-  const [dashboardStats, setDashboardStats] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [timeRange, setTimeRange] = useState("month");
-  const [recentTransactions, setRecentTransactions] = useState([]);
-  const [upcomingAppointments, setUpcomingAppointments] = useState([]);
-  const [ setInventoryAlerts] = useState([]);
-  const [activeTab, setActiveTab] = useState(0);
-  const [clients, setClients] = useState([]);
-  const [invoices, setInvoices] = useState([]);
+const { token, isAuthenticated, isLoading } = useContext(UserContext);
+const [dashboardStats, setDashboardStats] = useState(null);
+const [loading, setLoading] = useState(true);
+const [error, setError] = useState(null);
+const [timeRange, setTimeRange] = useState("month");
+const [recentTransactions, setRecentTransactions] = useState([]);
+const [upcomingAppointments, setUpcomingAppointments] = useState([]);
+const [ setInventoryAlerts] = useState([]);
+const [activeTab, setActiveTab] = useState(0);
+const [clients, setClients] = useState([]);
+const [invoices, setInvoices] = useState([]);
+const [dataInitialized, setDataInitialized] = useState(false);
 
-  // Utility functions
+  // Utility functionsfe
   const formatChartDate = (dateStr) => {
     if (!dateStr) return "";
     return dateStr;
@@ -144,8 +135,15 @@ const Dashboard = () => {
   };
 
   // Fetch data functions
-  const fetchClients = async () => {
+  const fetchClients = useCallback(async () => {
     try {
+      console.log("Fetching clients with token:", token ? "Available" : "Not available");
+      
+      if (!token) {
+        console.log("Token not available yet, skipping clients fetch");
+        return [];
+      }
+      
       const response = await axios.get(
         `${process.env.REACT_APP_API_URL}/api/clients`,
         {
@@ -157,16 +155,24 @@ const Dashboard = () => {
         }
       );
       
+      console.log("Clients fetched successfully:", response.data.length);
       setClients(response.data);
       return response.data;
     } catch (error) {
       console.error("Error fetching clients:", error);
       throw error;
     }
-  };
+  }, [token]);
 
-  const fetchInvoices = async () => {
+  const fetchInvoices = useCallback(async () => {
     try {
+      console.log("Fetching invoices with token:", token ? "Available" : "Not available");
+      
+      if (!token) {
+        console.log("Token not available yet, skipping invoices fetch");
+        return [];
+      }
+      
       const response = await axios.get(
         `${process.env.REACT_APP_API_URL}/api/invoices`,
         {
@@ -178,16 +184,24 @@ const Dashboard = () => {
         }
       );
       
+      console.log("Invoices fetched successfully:", response.data.length);
       setInvoices(response.data);
       return response.data;
     } catch (error) {
       console.error("Error fetching invoices:", error);
       throw error;
     }
-  };
+  }, [token]);
   
-  const fetchDashboardStats = async () => {
+  const fetchDashboardStats = useCallback(async () => {
     try {
+      console.log("Fetching dashboard stats with token:", token ? "Available" : "Not available");
+      
+      if (!token) {
+        console.log("Token not available yet, skipping dashboard stats fetch");
+        return null;
+      }
+      
       setLoading(true);
       
       // Fetch dashboard statistics
@@ -202,6 +216,7 @@ const Dashboard = () => {
         }
       );
       
+      console.log("Dashboard stats fetched successfully");
       setDashboardStats(statsResponse.data);
       
       // Fetch recent transactions
@@ -216,6 +231,7 @@ const Dashboard = () => {
         }
       );
       
+      console.log("Transactions fetched successfully");
       setRecentTransactions(transactionsResponse.data);
       
       // Fetch upcoming appointments
@@ -230,6 +246,7 @@ const Dashboard = () => {
         }
       );
       
+      console.log("Appointments fetched successfully");
       setUpcomingAppointments(appointmentsResponse.data);
       
       // Fetch inventory alerts
@@ -244,22 +261,28 @@ const Dashboard = () => {
         }
       );
       
+      console.log("Inventory alerts fetched successfully");
       setInventoryAlerts(inventoryResponse.data);
       
       setError(null);
       setLoading(false);
+      
+      return statsResponse.data;
     } catch (error) {
       console.error("Error fetching dashboard stats:", error);
       
       // If backend is not ready, use fallback data for development
       if (process.env.NODE_ENV === 'development') {
+        console.log("Using fallback data in development mode");
         loadFallbackData();
       } else {
         setError("Failed to load dashboard data. Please try again later.");
         setLoading(false);
       }
+      
+      return null;
     }
-  };
+  }, [token, timeRange])
 
   // Fallback data for development
   const loadFallbackData = () => {
@@ -361,13 +384,14 @@ const Dashboard = () => {
     setLoading(false);
   };
 
-  // Initialize data
-  useEffect(() => {
-    const fetchAllData = async () => {
+    // Initialize data
+    const fetchAllData = useCallback(async () => {
       setLoading(true);
       setError(null);
       
       try {
+        console.log("Starting to fetch all dashboard data");
+        
         // Fetch clients
         await fetchClients();
         
@@ -377,16 +401,43 @@ const Dashboard = () => {
         // Fetch dashboard stats
         await fetchDashboardStats();
         
+        console.log("All dashboard data fetched successfully");
         setLoading(false);
       } catch (err) {
         console.error("Error loading dashboard data:", err);
         setError("Failed to load dashboard data. Please try again.");
         setLoading(false);
       }
-    };
+    }, [fetchClients, fetchInvoices, fetchDashboardStats]); 
+
+  // Wait for authentication to be initialized before fetching data
+  useEffect(() => {
+    console.log("Auth state changed in Dashboard:", { 
+      isAuthenticated, 
+      token: token ? "Available" : "Not available",
+      isLoading 
+    });
     
-    fetchAllData();
-  }, [token, timeRange]);
+    // Force proceed after a short delay even if auth isn't fully ready
+    // This ensures we don't get stuck in loading state
+    if ((!isLoading && isAuthenticated && token && !dataInitialized) || 
+        (token && !dataInitialized)) {
+      console.log("Auth is ready or token available, initializing dashboard data");
+      setDataInitialized(true);
+      fetchAllData();
+    }
+  }, [isLoading, isAuthenticated, token, dataInitialized, fetchAllData]);
+
+
+  // Handle time range changes
+  useEffect(() => {
+    if (dataInitialized && isAuthenticated && token) {
+      console.log("Time range changed, fetching new data");
+      fetchDashboardStats();
+    }
+  }, [timeRange, dataInitialized, isAuthenticated, token, fetchDashboardStats]);
+
+
 
   // Custom tooltip for charts
   const customTooltip = ({ active, payload, label }) => {
@@ -834,72 +885,6 @@ const Dashboard = () => {
     );
   };
 
-  // const renderInventoryAlerts = () => {
-  //   if (!inventoryAlerts || !inventoryAlerts.length) return null;
-
-  //   return (
-  //     <Card sx={{ height: "100%" }}>
-  //       <CardHeader
-  //         title={
-  //           <Box sx={{ display: 'flex', alignItems: 'center' }}>
-  //             <AlertTriangle size={20} style={{ marginRight: '8px' }} />
-  //             <Typography variant="h6">Inventory Alerts</Typography>
-  //           </Box>
-  //         }
-  //         action={
-  //           <Button
-  //             color="primary"
-  //             variant="outlined"
-  //             size="small"
-  //             href="/inventory"
-  //           >
-  //             View Inventory
-  //           </Button>
-  //         }
-  //       />
-  //       <CardContent>
-  //         <List>
-  //           {inventoryAlerts.map((alert) => (
-  //             <ListItem
-  //               key={alert.id}
-  //               sx={{ 
-  //                 borderLeft: 3, 
-  //                 borderColor: 'error.main',
-  //                 mb: 1,
-  //                 bgcolor: 'background.paper',
-  //                 boxShadow: 1,
-  //                 borderRadius: 1,
-  //               }}
-  //             >
-  //               <ListItemIcon>
-  //                 <AlertTriangle size={20} color="#f5365c" />
-  //               </ListItemIcon>
-  //               <ListItemText
-  //                 primary={alert.part}
-  //                 secondary={
-  //                   <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.5 }}>
-  //                     <Typography variant="body2" component="span" sx={{ mr: 1 }}>
-  //                       Current Stock: {alert.currentStock}
-  //                     </Typography>
-  //                     <Typography variant="body2" component="span" color="error">
-  //                       (Min: {alert.minRequired})
-  //                     </Typography>
-  //                   </Box>
-  //                 }
-  //               />
-  //               <Box sx={{ display: 'flex', alignItems: 'center' }}>
-  //                 <Button variant="outlined" size="small" color="primary">
-  //                   Order
-  //                 </Button>
-  //               </Box>
-  //             </ListItem>
-  //           ))}
-  //         </List>
-  //       </CardContent>
-  //     </Card>
-  //   );
-  // };
-
   const renderServicePerformanceCard = () => {
     if (!dashboardStats?.appointmentAvailability) return null;
     
@@ -1058,11 +1043,6 @@ const Dashboard = () => {
           </Grid>
         </Grid>
 
-         {/* Quick Actions */}
-      {/* <Grid item xs={12} lg={3}>
-        <QuickActionsWidget />
-      </Grid> */}
-
         {/* Services & Vehicles Section */}
         <Grid container spacing={3} sx={{ mb: 4 }}>
           <Grid item xs={12} md={12}>
@@ -1103,31 +1083,54 @@ const Dashboard = () => {
   };
 
   // Render loading state
-  if (loading && !dashboardStats) {
-    return (
-      <>
-        <Header />
-        <Container
-          maxWidth={false}
-          sx={{
-            minHeight: "calc(100vh - 64px)",
-            py: 4,
-            px: { xs: 2, sm: 3, md: 4 },
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            bgcolor: "#f5f5f5",
-          }}
-        >
-          <CircularProgress />
-          <Typography variant="h6" sx={{ mt: 2 }}>
-            Loading dashboard data...
-          </Typography>
-        </Container>
-      </>
-    );
+// Render loading state, but add a timeout to prevent infinite loading
+const [loadingTimeout, setLoadingTimeout] = useState(false);
+
+// Add this useEffect right after your state declarations
+useEffect(() => {
+  // Set a timeout to force-exit loading state after 5 seconds
+  if ((isLoading || (loading && !dashboardStats)) && !loadingTimeout) {
+    const timer = setTimeout(() => {
+      console.log("Loading timeout reached - forcing exit from loading state");
+      setLoadingTimeout(true);
+      setLoading(false);
+      
+      // Load fallback data if we have nothing yet
+      if (!dashboardStats) {
+        loadFallbackData();
+      }
+    }, 5000); // 5 seconds timeout
+    
+    return () => clearTimeout(timer);
   }
+}, [isLoading, loading, dashboardStats, loadingTimeout]);
+
+// Then modify your loading check:
+if ((isLoading || (loading && !dashboardStats)) && !loadingTimeout) {
+  return (
+    <>
+      <Header />
+      <Container
+        maxWidth={false}
+        sx={{
+          minHeight: "calc(100vh - 64px)",
+          py: 4,
+          px: { xs: 2, sm: 3, md: 4 },
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          bgcolor: "#f5f5f5",
+        }}
+      >
+        <CircularProgress />
+        <Typography variant="h6" sx={{ mt: 2 }}>
+          {isLoading ? "Initializing authentication..." : "Loading dashboard data..."}
+        </Typography>
+      </Container>
+    </>
+  );
+}
 
   // Render error state
   if (error) {
@@ -1138,6 +1141,15 @@ const Dashboard = () => {
           <Alert severity="error" sx={{ mt: 4 }}>
             {error}
           </Alert>
+          <Box sx={{ mt: 2, display: 'flex', justifyContent: 'center' }}>
+            <Button 
+              variant="contained" 
+              color="primary" 
+              onClick={fetchAllData}
+            >
+              Retry Loading Data
+            </Button>
+          </Box>
         </Container>
       </>
     );
