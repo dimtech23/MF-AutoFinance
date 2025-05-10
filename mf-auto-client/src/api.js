@@ -64,22 +64,18 @@ api.interceptors.response.use(
 );
 
 // Auth related API calls - Note: These should NOT include /api prefix since the backend routes don't have it
-  export const authAPI = {
-    login: (credentials) => {
-      // Use hardcoded URL for now to bypass any configuration issues
-      const loginUrl = 'https://server.mfautosfinance.com/auth/login';
-      
-      console.log("Login request being sent to:", loginUrl);
-      
-      return axios.post(loginUrl, credentials, {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        withCredentials: true
-      });
+export const authAPI = {
+  login: (credentials) => {
+    // Hardcode the URL for now to make sure it works
+    return axios.post('https://server.mfautosfinance.com/auth/login', credentials, {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      withCredentials: true
+    });
   },
-  logout: () => api.post('/auth/logout'),
-  resetPassword: (email) => api.post('/auth/reset', { email }),
+  logout: () => axios.post('https://server.mfautosfinance.com/auth/logout'),
+  resetPassword: (email) => axios.post('https://server.mfautosfinance.com/auth/reset', { email }),
   verifyResetCode: (data) => api.post('/auth/verify-reset-code', data),
   resetPasswordWithCode: (data) => api.post('/auth/password-reset', data),
   updateUserInfo: (data) => api.put('/auth/update-info', data)

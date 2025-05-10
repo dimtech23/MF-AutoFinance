@@ -8,54 +8,56 @@ import User, { UserDocument } from '../models/User';
 export const loginUser = async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
-
-    // Add debugging to help identify issues
-    console.log("Login attempt for email:", email);
+    
+    // Log the login attempt
+    console.log(`Login attempt for: ${email}`);
 
     const user = await User.findOne({ email }).collation({ locale: 'en', strength: 2 });
 
     if (!user) {
-      console.log("No user found with this email");
-      return res.status(404).json({ message: 'No account associated with this email.' });
+      console.log(`Login failed: No user found with email ${email}`);
+      return res.status(404).json({ message: 'No account associated with this email. Please check the email entered or register.' });
     }
 
     const passwordMatch = await bcrypt.compare(password, user.password);
 
     if (!passwordMatch) {
-      console.log("Password mismatch");
-      return res.status(401).json({ message: 'Incorrect password.' });
+      console.log(`Login failed: Incorrect password for ${email}`);
+      return res.status(401).json({ message: 'Incorrect password. Please try again' });
     }
-
-    // Create a consistent user object for the frontend
-    const userForResponse = {
-      id: user._id,
-      role: user.role,
-      email: user.email,
-      firstName: user.firstName,
-      lastName: user.lastName
-    };
 
     const token = jwt.sign(
       { userId: user._id, role: user.role },
-      process.env.JWT_SECRET || 'default_secret',
+      process.env.JWT_SECRET as string,
       { expiresIn: '24h' }
     );
 
     // Log successful login
-    console.log("Login successful for:", email);
-    console.log("Token generated successfully");
+    console.log(`Login successful for ${email}`);
+
+    // Ensure these CORS headers are set for the login response
+    const origin = req.headers.origin;
+    if (origin) {
+      res.header('Access-Control-Allow-Origin', origin);
+      res.header('Access-Control-Allow-Credentials', 'true');
+    }
 
     res.status(200).json({ 
       message: 'Login successful', 
       token,
-      user: userForResponse
+      user: {
+        id: user._id,
+        role: user.role,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName
+      }
     });
   } catch (error) {
     console.error("Login error:", error);
-    res.status(500).json({ error: 'Internal Server Error', message: 'An unexpected error occurred during login.' });
+    res.status(500).json({ error: 'Internal Server Error' });
   }
 };
-
 const generateCode = (length: number) => {
   const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"; 
   const charLen = characters.length;
