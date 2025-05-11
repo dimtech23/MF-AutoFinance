@@ -1,13 +1,12 @@
 {
   "files": {
-    "main.css": "/static/css/main.45f8be55.css",
-    "main.js": "/static/js/main.6a514085.js",
+    "main.css": "/static/css/main.7e1ce99f.css",
+    "main.js": "/static/js/main.f6308fe3.js",
     "static/media/fa-solid-900.svg": "/static/media/fa-solid-900.13de59f1a36b6cb4bca0.svg",
     "static/media/fa-brands-400.svg": "/static/media/fa-brands-400.216edb96b562c79adc09.svg",
     "static/media/mfautos-logo.jpg": "/static/media/mfautos-logo.e29ba08dd02fc4cb36e8.jpg",
     "static/media/fa-solid-900.eot": "/static/media/fa-solid-900.efbd5d20e407bbf85f2b.eot",
     "static/media/fa-solid-900.ttf": "/static/media/fa-solid-900.07c3313b24f7b1ca85ee.ttf",
-    "static/media/team-1-800x800.jpg": "/static/media/team-1-800x800.fa5a7ac2c81a43925586.jpg",
     "static/media/fa-regular-400.svg": "/static/media/fa-regular-400.19e27d348fefc21941e0.svg",
     "static/media/fa-brands-400.eot": "/static/media/fa-brands-400.89a52ae1d02b86d61439.eot",
     "static/media/fa-brands-400.ttf": "/static/media/fa-brands-400.9e138496e8f1719c6ebf.ttf",
@@ -25,11 +24,11 @@
     "static/media/nucleo-icons.woff": "/static/media/nucleo-icons.c82c9b7c40130b7116d3.woff",
     "static/media/nucleo-icons.woff2": "/static/media/nucleo-icons.cba267483aa6a7cb6e33.woff2",
     "index.html": "/index.html",
-    "main.45f8be55.css.map": "/static/css/main.45f8be55.css.map",
-    "main.6a514085.js.map": "/static/js/main.6a514085.js.map"
+    "main.7e1ce99f.css.map": "/static/css/main.7e1ce99f.css.map",
+    "main.f6308fe3.js.map": "/static/js/main.f6308fe3.js.map"
   },
   "entrypoints": [
-    "static/css/main.45f8be55.css",
-    "static/js/main.6a514085.js"
+    "static/css/main.7e1ce99f.css",
+    "static/js/main.f6308fe3.js"
   ]
 }
