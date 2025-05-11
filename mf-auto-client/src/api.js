@@ -1,11 +1,9 @@
 // api.js
 import axios from 'axios';
+import { toast } from 'react-toastify';
 
-// Get API URL and BASE_URL from environment variables with proper defaults
-const API_URL = process.env.REACT_APP_API_URL 
-  ? `${process.env.REACT_APP_API_URL}/api`
-  : 'https://server.mfautosfinance.com/api';
-
+// Get API URL from environment variables with proper fallback
+const API_URL = process.env.REACT_APP_API_URL || 'https://server.mfautosfinance.com';
 const BASE_PATH = process.env.REACT_APP_BASE_URL || '/mf-autofinance';
 
 // Debug configuration details
@@ -17,11 +15,12 @@ console.log('API Configuration:', {
 
 // Create axios instance with base settings
 const api = axios.create({
-  baseURL: process.env.REACT_APP_API_URL || 'https://server.mfautosfinance.com',
+  baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json',
   },
   withCredentials: true,
+  timeout: 10000, // Add timeout
 });
 
 // Add request interceptor to include auth token
@@ -30,10 +29,13 @@ api.interceptors.request.use(
     const token = localStorage.getItem('token');
     
     // Add debugging
-    console.log(`API Request to: ${config.url}`);
+    console.log(`API Request to: ${config.url}`, {
+      method: config.method,
+      baseURL: config.baseURL,
+      headers: config.headers
+    });
     
     if (token) {
-      // Ensure Authorization header is added properly
       config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
@@ -46,42 +48,51 @@ api.interceptors.request.use(
 
 // Add response interceptor for error handling
 api.interceptors.response.use(
-  (response) => {
-    return response;
-  },
+  (response) => response,
   (error) => {
-    console.error("API response error:", error.message);
+    // Enhanced error logging
+    console.error("API Error:", {
+      message: error.message,
+      status: error.response?.status,
+      data: error.response?.data,
+      config: {
+        url: error.config?.url,
+        method: error.config?.method,
+        baseURL: error.config?.baseURL
+      }
+    });
     
-    // Check for authentication errors
-    if (error.response && error.response.status === 401) {
+    // Handle specific error cases
+    if (error.code === 'ERR_NETWORK') {
+      console.error("Network error - Is the server running?");
+      toast.error("Cannot connect to server. Please check if the server is running.");
+    } else if (error.response?.status === 401) {
       // Clear token and auth state on 401 errors
       localStorage.removeItem('token');
-      // You might need to add logic here to reset your auth context
+      // Redirect to login if not already there
+      if (!window.location.pathname.includes('/auth/login')) {
+        window.location.href = '/auth/login';
+      }
+    } else if (error.response?.status === 500) {
+      toast.error("Server error. Please try again later.");
     }
     
     return Promise.reject(error);
   }
 );
 
-// Auth related API calls - Note: These should NOT include /api prefix since the backend routes don't have it
+// Auth related API calls - Note: These use /auth/* not /api/auth/*
 export const authAPI = {
-  login: (credentials) => {
-    // Hardcode the URL for now to make sure it works
-    return axios.post('https://server.mfautosfinance.com/auth/login', credentials, {
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      withCredentials: true
-    });
-  },
-  logout: () => axios.post('https://server.mfautosfinance.com/auth/logout'),
-  resetPassword: (email) => axios.post('https://server.mfautosfinance.com/auth/reset', { email }),
+  login: (credentials) => api.post('/auth/login', credentials),
+  logout: () => api.post('/auth/logout'),
+  resetPassword: (email) => api.post('/auth/reset', { email }),
   verifyResetCode: (data) => api.post('/auth/verify-reset-code', data),
   resetPasswordWithCode: (data) => api.post('/auth/password-reset', data),
-  updateUserInfo: (data) => api.put('/auth/update-info', data)
+  updateUserInfo: (data) => api.put('/auth/update-info', data),
+  checkStatus: () => api.get('/auth/status')
 };
 
-// All other API calls - These SHOULD include /api prefix
+// All other API calls - These use /api prefix
 // Transaction API methods
 export const transactionAPI = {
   // Get all transactions (we'll use budget entries as transactions)
@@ -290,20 +301,18 @@ export const clientsAPI = {
   create: (data) => api.post('/api/clients', data),
   update: (id, data) => api.put(`/api/clients/${id}`, data),
   delete: (id) => api.delete(`/api/clients/${id}`),
-  updateStatus: (clientId, status) => {
-    if (!clientId) {
-      console.error("Client updateStatus called with undefined ID");
-      return Promise.reject(new Error("Cannot update status: Client ID is required"));
-    }
-    return api.patch(`/api/clients/${clientId}/status`, { status });
-  },
-  updatePayment: (clientId, paymentData) => {
-    if (!clientId) {
-      console.error("Client updatePayment called with undefined ID");
-      return Promise.reject(new Error("Cannot update payment: Client ID is required"));
-    }
-    return api.patch(`/api/clients/${clientId}/payment`, paymentData);
+  updateStatus: (clientId, status) => api.patch(`/api/clients/${clientId}/status`, { status }),
+  updatePayment: (clientId, paymentData) => api.patch(`/api/clients/${clientId}/payment`, paymentData)
+};
+
+// Add error handler function
+const handleApiError = (error) => {
+  console.error("API Error:", error);
+  if (error.response?.status === 401) {
+    localStorage.removeItem('token');
+    window.location.href = '/auth/login';
   }
+  throw error;
 };
 
 // Invoice related API calls
@@ -312,7 +321,19 @@ export const invoicesAPI = {
   getById: (id) => api.get(`/api/invoices/${id}`),
   create: (data) => api.post('/api/invoices', data),
   update: (id, data) => api.put(`/api/invoices/${id}`, data),
-  delete: (id) => api.delete(`/api/invoices/${id}`)
+  delete: (id) => api.delete(`/api/invoices/${id}`),
+  exportExcel: async (params = {}) => {
+    try {
+      const response = await api.get('/api/invoices/export/excel', {
+        params,
+        responseType: 'blob'
+      });
+      return response;
+    } catch (error) {
+      handleApiError(error);
+      throw error;
+    }
+  }
 };
 
 // User related API calls

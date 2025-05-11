@@ -14,7 +14,5 @@ router.get('/transactions/recent', authenticateToken, getTransactions);
 // Get upcoming appointments
 router.get('/appointments/upcoming', authenticateToken, getAppointments);
 
-// Get inventory alerts
-router.get('/inventory/alerts', authenticateToken, getInventoryAlerts);
 
 export { router as dashboardRouter };

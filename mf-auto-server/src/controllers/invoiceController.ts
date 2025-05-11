@@ -3,6 +3,9 @@ import Invoice from '../models/Invoice';
 import Client from '../models/Client';
 import { UserRole } from '../constants/roles';
 import mongoose from 'mongoose';
+import PDFDocument from 'pdfkit';
+import { format } from 'date-fns';
+import ExcelJS from 'exceljs';
 
 // Get all invoices
 export const getAllInvoices = async (req: Request, res: Response) => {
@@ -383,16 +386,207 @@ export const generatePDF = async (req: Request, res: Response) => {
     if (!invoice) {
       return res.status(404).json({ message: 'Invoice not found' });
     }
+
+    // Create a PDF document
+    const doc = new PDFDocument({ size: 'A4', margin: 50 });
     
-    // In a real application, you would use a PDF generation library like PDFKit or html-pdf
-    // For now, we'll just return the invoice data
+    // Set response headers
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=invoice-${invoice.invoiceNumber}.pdf`);
     
-    res.status(200).json({
-      message: 'PDF generation would happen here in a production environment',
-      invoiceData: invoice
+    // Pipe the PDF to the response
+    doc.pipe(res);
+
+    // Add company logo and header
+    doc.fontSize(20).text('Auto Garage', { align: 'left' });
+    doc.fontSize(10).text('123 Repair Street', { align: 'left' });
+    doc.text('Automotive City, AC 12345');
+    doc.text('Phone: (555) 123-4567');
+    doc.text('Email: service@autogarage.com');
+    
+    // Add invoice title and number
+    doc.moveDown(2);
+    doc.fontSize(16).text('INVOICE', { align: 'right' });
+    doc.fontSize(10).text(`Invoice #: ${invoice.invoiceNumber}`, { align: 'right' });
+    doc.text(`Date: ${format(new Date(invoice.issueDate), 'MMMM d, yyyy')}`, { align: 'right' });
+    doc.text(`Due Date: ${format(new Date(invoice.dueDate), 'MMMM d, yyyy')}`, { align: 'right' });
+    
+    // Add customer information
+    doc.moveDown(2);
+    doc.fontSize(12).text('BILL TO:', { underline: true });
+    doc.fontSize(10).text(invoice.customerInfo.name);
+    if (invoice.customerInfo.address) doc.text(invoice.customerInfo.address);
+    if (invoice.customerInfo.phone) doc.text(`Phone: ${invoice.customerInfo.phone}`);
+    if (invoice.customerInfo.email) doc.text(`Email: ${invoice.customerInfo.email}`);
+    
+    // Add vehicle information
+    doc.moveDown(1);
+    doc.fontSize(12).text('VEHICLE INFORMATION:', { underline: true });
+    doc.fontSize(10).text(
+      `${invoice.vehicleInfo.year} ${invoice.vehicleInfo.make} ${invoice.vehicleInfo.model}`
+    );
+    if (invoice.vehicleInfo.licensePlate) {
+      doc.text(`License Plate: ${invoice.vehicleInfo.licensePlate}`);
+    }
+    if (invoice.vehicleInfo.vin) {
+      doc.text(`VIN: ${invoice.vehicleInfo.vin}`);
+    }
+    
+    // Add items table
+    doc.moveDown(2);
+    doc.fontSize(12).text('ITEMS:', { underline: true });
+    
+    // Table headers
+    const tableTop = doc.y;
+    doc.fontSize(10);
+    doc.text('Description', 50, tableTop);
+    doc.text('Type', 250, tableTop);
+    doc.text('Qty', 350, tableTop);
+    doc.text('Price', 400, tableTop);
+    doc.text('Total', 500, tableTop);
+    
+    // Table rows
+    let y = tableTop + 20;
+    invoice.items.forEach((item: any) => {
+      if (y > 700) { // Check if we need a new page
+        doc.addPage();
+        y = 50;
+      }
+      
+      const itemTotal = item.type === 'service' 
+        ? (item.laborHours * item.laborRate) + (item.quantity * item.unitPrice)
+        : (item.quantity * item.unitPrice);
+      
+      doc.text(item.description, 50, y);
+      doc.text(item.type.charAt(0).toUpperCase() + item.type.slice(1), 250, y);
+      doc.text(item.quantity.toString(), 350, y);
+      doc.text(item.unitPrice.toFixed(2), 400, y);
+      doc.text(itemTotal.toFixed(2), 500, y);
+      
+      y += 20;
     });
+    
+    // Add totals
+    doc.moveDown(2);
+    doc.text(`Subtotal: ${invoice.subtotal.toFixed(2)}`, { align: 'right' });
+    doc.text(`Tax (${invoice.taxRate}%): ${invoice.tax.toFixed(2)}`, { align: 'right' });
+    doc.fontSize(12).text(`Total: ${invoice.total.toFixed(2)}`, { align: 'right' });
+    
+    // Add notes and terms
+    if (invoice.notes) {
+      doc.moveDown(2);
+      doc.fontSize(12).text('Notes:', { underline: true });
+      doc.fontSize(10).text(invoice.notes);
+    }
+    
+    if (invoice.terms) {
+      doc.moveDown(1);
+      doc.fontSize(12).text('Terms & Conditions:', { underline: true });
+      doc.fontSize(10).text(invoice.terms);
+    }
+    
+    // Add footer
+    doc.fontSize(8).text(
+      'Thank you for your business!',
+      50,
+      700,
+      { align: 'center', width: 500 }
+    );
+    
+    // Finalize the PDF
+    doc.end();
   } catch (error) {
     console.error('Error generating PDF:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Export invoices to Excel
+export const exportToExcel = async (req: Request, res: Response) => {
+  try {
+    const { startDate, endDate, status, type } = req.query;
+    
+    // Build query
+    const query: any = {};
+    if (startDate && endDate) {
+      query.issueDate = {
+        $gte: new Date(startDate as string),
+        $lte: new Date(endDate as string)
+      };
+    }
+    if (status) query.status = status;
+    if (type) query.type = type;
+    
+    // Fetch invoices
+    const invoices = await Invoice.find(query).sort({ issueDate: -1 });
+    
+    // Create workbook
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Invoices');
+    
+    // Add headers
+    worksheet.columns = [
+      { header: 'Invoice #', key: 'invoiceNumber', width: 15 },
+      { header: 'Date', key: 'date', width: 15 },
+      { header: 'Due Date', key: 'dueDate', width: 15 },
+      { header: 'Customer', key: 'customer', width: 30 },
+      { header: 'Vehicle', key: 'vehicle', width: 30 },
+      { header: 'Status', key: 'status', width: 12 },
+      { header: 'Subtotal', key: 'subtotal', width: 15 },
+      { header: 'Tax', key: 'tax', width: 15 },
+      { header: 'Total', key: 'total', width: 15 },
+      { header: 'Payment Method', key: 'paymentMethod', width: 15 },
+      { header: 'Payment Date', key: 'paymentDate', width: 15 }
+    ];
+    
+    // Style the header row
+    worksheet.getRow(1).font = { bold: true };
+    worksheet.getRow(1).fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFE0E0E0' }
+    };
+    
+    // Add data rows
+    invoices.forEach(invoice => {
+      worksheet.addRow({
+        invoiceNumber: invoice.invoiceNumber,
+        date: format(new Date(invoice.issueDate), 'yyyy-MM-dd'),
+        dueDate: format(new Date(invoice.dueDate), 'yyyy-MM-dd'),
+        customer: invoice.customerInfo.name,
+        vehicle: `${invoice.vehicleInfo.year} ${invoice.vehicleInfo.make} ${invoice.vehicleInfo.model}`,
+        status: invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1),
+        subtotal: invoice.subtotal.toFixed(2),
+        tax: invoice.tax.toFixed(2),
+        total: invoice.total.toFixed(2),
+        paymentMethod: invoice.paymentMethod || 'N/A',
+        paymentDate: invoice.paymentDate ? format(new Date(invoice.paymentDate), 'yyyy-MM-dd') : 'N/A'
+      });
+    });
+    
+    // Add totals row
+    const lastRow = worksheet.rowCount;
+    worksheet.addRow({
+      invoiceNumber: 'TOTAL',
+      total: invoices.reduce((sum, inv) => sum + inv.total, 0).toFixed(2)
+    });
+    worksheet.getRow(lastRow + 1).font = { bold: true };
+    
+    // Set response headers
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    );
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename=invoices-${format(new Date(), 'yyyy-MM-dd')}.xlsx`
+    );
+    
+    // Write to response
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (error) {
+    console.error('Error exporting to Excel:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };

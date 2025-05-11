@@ -4,42 +4,26 @@ import PropTypes from "prop-types";
 import { UserContext } from 'Context/UserContext';
 import {
     Button,
-    Card,
-    CardHeader,
-    CardBody,
-    CardTitle,
     Collapse,
-    DropdownMenu,
-    DropdownItem,
-    UncontrolledDropdown,
-    DropdownToggle,
-    FormGroup,
-    Form,
-    Input,
-    InputGroupAddon,
-    InputGroupText,
-    InputGroup,
-    Media,
     NavbarBrand,
     Navbar,
     NavItem,
     NavLink,
     Nav,
-    Progress,
-    Table,
-    Container,
     Row,
-    Col
+    Col,
+    Container,
+    InputGroupAddon,
+    InputGroupText,
+    InputGroup,
+    Input,
+    Form,
 } from "reactstrap";
 
 const Sidebar = ({ bgColor, routes = [], logo, closeCollapse }) => {
     const { userRole } = useContext(UserContext);
     const [collapseOpen, setCollapseOpen] = useState(false);
     const location = useLocation();
-
-    const activeRoute = (routeName) => {
-        return location.pathname.indexOf(routeName) > -1 ? "active" : "";
-    };
 
     const toggleCollapse = () => {
         setCollapseOpen((data) => !data);
@@ -50,7 +34,6 @@ const Sidebar = ({ bgColor, routes = [], logo, closeCollapse }) => {
     };
 
     const createLinks = (routes) => {
-        console.log("Routes in Sidebar: ", routes);
         return routes
             .filter(route => Array.isArray(route.roles) && route.roles.includes(userRole))
             .map((prop, key) => (
@@ -87,16 +70,18 @@ const Sidebar = ({ bgColor, routes = [], logo, closeCollapse }) => {
                 <button className="navbar-toggler" type="button" onClick={toggleCollapse}>
                     <span className="navbar-toggler-icon" />
                 </button>
-                <NavbarBrand className="pt-0" {...navbarBrandProps}>
-    <img
-        alt="MF-Autos Garage Logo"
-        className="navbar-brand-img"
-        src="https://i.ibb.co/PGLYCzRD/MF-Autos-Social-Media.jpg"
-        style={{ maxHeight: '100%', maxWidth: '75%', height: 'auto' }}
-    />
-</NavbarBrand>
 
-                <Nav className="align-items-center d-md-none">
+                <NavbarBrand className="pt-0" {...navbarBrandProps}>
+                    <img
+                        alt="Logo"
+                        className="navbar-brand-img"
+                        src="https://i.ibb.co/PGLYCzRD/MF-Autos-Social-Media.jpg"
+                        style={{ maxHeight: '100%', maxWidth: '75%', height: 'auto' }}
+                    />
+                </NavbarBrand>
+
+                {/* Mobile Header: Bell icon and User Profile */}
+                {/* <Nav className="align-items-center d-md-none">
                     <UncontrolledDropdown nav>
                         <DropdownToggle nav className="nav-link-icon">
                             <i className="ni ni-bell-55" />
@@ -108,11 +93,12 @@ const Sidebar = ({ bgColor, routes = [], logo, closeCollapse }) => {
                             <DropdownItem>Something else here</DropdownItem>
                         </DropdownMenu>
                     </UncontrolledDropdown>
+
                     <UncontrolledDropdown nav>
                         <DropdownToggle nav>
                             <Media className="align-items-center">
                                 <span className="avatar avatar-sm rounded-circle">
-                                    <img alt="..." src={require("../../assets/img/theme/team-1-800x800.jpg")} />
+                                    <img alt="User" src={require("../../assets/img/theme/team-1-800x800.jpg")} />
                                 </span>
                             </Media>
                         </DropdownToggle>
@@ -143,23 +129,12 @@ const Sidebar = ({ bgColor, routes = [], logo, closeCollapse }) => {
                             </DropdownItem>
                         </DropdownMenu>
                     </UncontrolledDropdown>
-                </Nav>
+                </Nav> */}
+
+                {/* Sidebar Collapse for mobile */}
                 <Collapse navbar isOpen={collapseOpen}>
                     <div className="navbar-collapse-header d-md-none">
                         <Row>
-                            {logo ? (
-                                <Col className="collapse-brand" xs="6">
-                                    {logo.innerLink ? (
-                                        <Link to={logo.innerLink}>
-                                            <img alt={logo.imgAlt} src={logo.imgSrc} />
-                                        </Link>
-                                    ) : (
-                                        <a href={logo.outterLink}>
-                                            <img alt={logo.imgAlt} src={logo.imgSrc} />
-                                        </a>
-                                    )}
-                                </Col>
-                            ) : null}
                             <Col className="collapse-close" xs="6">
                                 <button className="navbar-toggler" type="button" onClick={toggleCollapse}>
                                     <span />
@@ -168,6 +143,7 @@ const Sidebar = ({ bgColor, routes = [], logo, closeCollapse }) => {
                             </Col>
                         </Row>
                     </div>
+
                     <Form className="mt-4 mb-3 d-md-none">
                         <InputGroup className="input-group-rounded input-group-merge">
                             <Input
@@ -183,6 +159,8 @@ const Sidebar = ({ bgColor, routes = [], logo, closeCollapse }) => {
                             </InputGroupAddon>
                         </InputGroup>
                     </Form>
+
+                    {/* Sidebar Links */}
                     <Nav navbar>{createLinks(routes)}</Nav>
                     <hr className="my-3" />
                 </Collapse>

@@ -129,6 +129,13 @@ const Budget = () => {
   });
   const [isEditMode, setIsEditMode] = useState(false);
 
+  const [transactions, setTransactions] = useState([]);
+  const [transactionFilter, setTransactionFilter] = useState('all');
+  const [dateRange, setDateRange] = useState({
+    startDate: new Date(new Date().setMonth(new Date().getMonth() - 1)),
+    endDate: new Date()
+  });
+
   useEffect(() => {
     const fetchBudgets = async () => {
       setLoading(true);
@@ -136,15 +143,22 @@ const Budget = () => {
       try {
         const response = await budgetAPI.getAll();
         if (response && response.data) {
-          setBudgets(response.data);
-          setFilteredBudgets(response.data);
+          // Process budgets to ensure consistent ID field
+          const processedBudgets = response.data.map(budget => ({
+            ...budget,
+            id: budget._id || budget.id, // Use _id if available, fallback to id
+            status: determineBudgetStatus(new Date(budget.startDate), new Date(budget.endDate))
+          }));
+          
+          setBudgets(processedBudgets);
+          setFilteredBudgets(processedBudgets);
 
           // Set active budget to first active one or first one if none are active
-          const activeBudget = response.data.find((b) => b.status === "active");
-          if (activeBudget) {
-            setActiveBudgetPeriod(activeBudget.id.toString());
-          } else if (response.data.length > 0) {
-            setActiveBudgetPeriod(response.data[0].id.toString());
+          const activeBudget = processedBudgets.find((b) => b.status === "active");
+          if (activeBudget && activeBudget.id) {
+            setActiveBudgetPeriod(activeBudget.id);
+          } else if (processedBudgets.length > 0 && processedBudgets[0].id) {
+            setActiveBudgetPeriod(processedBudgets[0].id);
           }
         } else {
           throw new Error("No data received from server");
@@ -180,6 +194,34 @@ const Budget = () => {
 
     setFilteredBudgets(filtered);
   }, [budgets, searchTerm, budgetFilter]);
+
+  useEffect(() => {
+    const fetchTransactions = async () => {
+      try {
+        const response = await budgetAPI.getAll();
+        if (response && response.data) {
+          // Extract transactions from budgets
+          const allTransactions = response.data.reduce((acc, budget) => {
+            const budgetTransactions = budget.transactions || [];
+            return [...acc, ...budgetTransactions.map(t => ({
+              ...t,
+              budgetName: budget.name,
+              budgetPeriod: `${format(new Date(budget.startDate), 'MMM d, yyyy')} - ${format(new Date(budget.endDate), 'MMM d, yyyy')}`
+            }))];
+          }, []);
+          
+          setTransactions(allTransactions);
+        }
+      } catch (error) {
+        console.error("Error fetching transactions:", error);
+        toast.error("Failed to load transactions");
+      }
+    };
+
+    if (token) {
+      fetchTransactions();
+    }
+  }, [token]);
 
   const handleOpenDialog = (budget = null) => {
     if (budget) {
@@ -249,6 +291,22 @@ const Budget = () => {
     return formData.categories.reduce((acc, category) => {
       return acc + (parseFloat(category.allocated) || 0);
     }, 0);
+  };
+
+  const validateBudgetEntry = (entry) => {
+    if (!entry.amount || entry.amount <= 0) {
+      toast.error("Please enter a valid amount");
+      return false;
+    }
+    if (!entry.category) {
+      toast.error("Please select a category");
+      return false;
+    }
+    if (!entry.date) {
+      toast.error("Please select a date");
+      return false;
+    }
+    return true;
   };
 
   const validateForm = () => {
@@ -402,40 +460,60 @@ const Budget = () => {
   const renderCategoryAllocationChart = (budget) => {
     if (!budget) return null;
 
+    const data = budget.categories.map(category => ({
+      name: category.name,
+      value: category.allocated,
+      fullName: category.name
+    }));
+
     return (
       <ResponsiveContainer width="100%" height={300}>
         <PieChart>
           <Pie
-            data={budget.categories}
+            data={data}
             cx="50%"
             cy="50%"
-            labelLine={false}
+            labelLine={true}
             outerRadius={100}
             fill="#8884d8"
-            dataKey="allocated"
+            dataKey="value"
             nameKey="name"
-            label={({ name, percent }) =>
-              `${name}: ${(percent * 100).toFixed(0)}%`
-            }
+            label={({ name, percent }) => {
+              // Only show label if percentage is significant
+              return percent > 0.05 ? `${name}: ${(percent * 100).toFixed(0)}%` : '';
+            }}
           >
-            {budget.categories.map((entry, index) => (
+            {data.map((entry, index) => (
               <Cell
                 key={`cell-${index}`}
                 fill={COLORS[index % COLORS.length]}
               />
             ))}
           </Pie>
-              <RechartsTooltip
-          formatter={(value, name, props) => {
-            const item = props.payload;
-            return [formatCurrency(value), `${item.fullName} - ${name}`];
-          }}
-          contentStyle={{
-            backgroundColor: "rgba(255, 255, 255, 0.9)",
-            border: "1px solid #ccc",
-            borderRadius: "4px",
-          }}
-        />
+          <Legend
+            layout="vertical"
+            verticalAlign="middle"
+            align="right"
+            formatter={(value, entry) => (
+              <span style={{ fontSize: '12px' }}>{value}</span>
+            )}
+          />
+          <RechartsTooltip
+            formatter={(value, name, props) => {
+              const item = props.payload;
+              return [
+                formatCurrency(value),
+                `${item.fullName} (${((value / budget.total) * 100).toFixed(1)}%)`
+              ];
+            }}
+            contentStyle={{
+              backgroundColor: "rgba(255, 255, 255, 0.9)",
+              border: "1px solid #ccc",
+              borderRadius: "4px",
+              padding: "8px",
+              fontSize: "12px"
+            }}
+          />
         </PieChart>
       </ResponsiveContainer>
     );
@@ -445,10 +523,7 @@ const Budget = () => {
     if (!budget) return null;
 
     const data = budget.categories.map((category) => ({
-      name:
-        category.name.length > 12
-          ? category.name.substring(0, 12) + "..."
-          : category.name,
+      name: category.name,
       allocated: category.allocated,
       spent: category.spent,
       remaining: category.allocated - category.spent,
@@ -459,32 +534,61 @@ const Budget = () => {
       <ResponsiveContainer width="100%" height={400}>
         <BarChart
           data={data}
-          margin={{ top: 20, right: 30, left: 20, bottom: 80 }}
+          margin={{ top: 20, right: 30, left: 20, bottom: 100 }}
         >
           <CartesianGrid strokeDasharray="3 3" />
           <XAxis
             dataKey="name"
             angle={-45}
             textAnchor="end"
-            height={70}
-            fontSize={11}
+            height={100}
             interval={0}
+            tick={{ fontSize: 12 }}
+            tickFormatter={(value) => {
+              // Truncate long names and add ellipsis
+              return value.length > 15 ? `${value.substring(0, 15)}...` : value;
+            }}
           />
-          <YAxis tickFormatter={(value) => `D${value}`} width={80} />
-               <RechartsTooltip
-           formatter={(value, name, props) => {
-             const item = props.payload;
-             return [formatCurrency(value), `${item.fullName} - ${name}`];
-           }}
-           contentStyle={{
-             backgroundColor: "rgba(255, 255, 255, 0.9)",
-             border: "1px solid #ccc",
-             borderRadius: "4px",
-           }}
-         />
-          <Legend verticalAlign="top" height={40} />
-          <Bar dataKey="allocated" name="Allocated" fill="#8884d8" />
-          <Bar dataKey="spent" name="Spent" fill="#82ca9d" />
+          <YAxis
+            tickFormatter={(value) => formatCurrency(value)}
+            width={100}
+            tick={{ fontSize: 12 }}
+          />
+          <RechartsTooltip
+            formatter={(value, name, props) => {
+              const item = props.payload;
+              return [
+                formatCurrency(value),
+                `${item.fullName} - ${name === 'allocated' ? 'Allocated' : 'Spent'}`
+              ];
+            }}
+            contentStyle={{
+              backgroundColor: "rgba(255, 255, 255, 0.9)",
+              border: "1px solid #ccc",
+              borderRadius: "4px",
+              padding: "8px",
+              fontSize: "12px"
+            }}
+          />
+          <Legend
+            verticalAlign="top"
+            height={40}
+            formatter={(value) => (
+              <span style={{ fontSize: '12px' }}>{value}</span>
+            )}
+          />
+          <Bar
+            dataKey="allocated"
+            name="Allocated"
+            fill="#8884d8"
+            radius={[4, 4, 0, 0]}
+          />
+          <Bar
+            dataKey="spent"
+            name="Spent"
+            fill="#82ca9d"
+            radius={[4, 4, 0, 0]}
+          />
         </BarChart>
       </ResponsiveContainer>
     );
@@ -498,12 +602,12 @@ const Budget = () => {
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell>Category</TableCell>
-              <TableCell align="right">Allocated</TableCell>
-              <TableCell align="right">Spent</TableCell>
-              <TableCell align="right">Remaining</TableCell>
-              <TableCell align="right">% Used</TableCell>
-              <TableCell>Progress</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>Category</TableCell>
+              <TableCell align="right" sx={{ fontWeight: 'bold' }}>Allocated</TableCell>
+              <TableCell align="right" sx={{ fontWeight: 'bold' }}>Spent</TableCell>
+              <TableCell align="right" sx={{ fontWeight: 'bold' }}>Remaining</TableCell>
+              <TableCell align="right" sx={{ fontWeight: 'bold' }}>% Used</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>Progress</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -519,7 +623,9 @@ const Budget = () => {
 
               return (
                 <TableRow key={category.id}>
-                  <TableCell>{category.name}</TableCell>
+                  <TableCell sx={{ maxWidth: '200px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {category.name}
+                  </TableCell>
                   <TableCell align="right">
                     {formatCurrency(category.allocated)}
                   </TableCell>
@@ -529,14 +635,26 @@ const Budget = () => {
                   <TableCell align="right">
                     {formatCurrency(category.allocated - category.spent)}
                   </TableCell>
-                  <TableCell align="right">{percentUsed.toFixed(1)}%</TableCell>
+                  <TableCell align="right">
+                    {percentUsed.toFixed(1)}%
+                  </TableCell>
                   <TableCell>
-                    <LinearProgress
-                      variant="determinate"
-                      value={Math.min(percentUsed, 100)}
-                      color={progressColor}
-                      sx={{ height: 10, borderRadius: 5 }}
-                    />
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <LinearProgress
+                        variant="determinate"
+                        value={Math.min(percentUsed, 100)}
+                        color={progressColor}
+                        sx={{ 
+                          height: 10, 
+                          borderRadius: 5,
+                          flexGrow: 1,
+                          minWidth: '100px'
+                        }}
+                      />
+                      <Typography variant="caption" color="textSecondary">
+                        {percentUsed.toFixed(1)}%
+                      </Typography>
+                    </Box>
                   </TableCell>
                 </TableRow>
               );
@@ -582,26 +700,45 @@ const Budget = () => {
                       0
                     )) *
                   100
-                ).toFixed(1)}
-                %
+                ).toFixed(1)}%
               </TableCell>
               <TableCell>
-                <LinearProgress
-                  variant="determinate"
-                  value={
-                    (budget.categories.reduce(
-                      (sum, category) => sum + category.spent,
-                      0
-                    ) /
-                      budget.categories.reduce(
-                        (sum, category) => sum + category.allocated,
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <LinearProgress
+                    variant="determinate"
+                    value={
+                      (budget.categories.reduce(
+                        (sum, category) => sum + category.spent,
                         0
-                      )) *
-                    100
-                  }
-                  color="primary"
-                  sx={{ height: 10, borderRadius: 5 }}
-                />
+                      ) /
+                        budget.categories.reduce(
+                          (sum, category) => sum + category.allocated,
+                          0
+                        )) *
+                      100
+                    }
+                    color="primary"
+                    sx={{ 
+                      height: 10, 
+                      borderRadius: 5,
+                      flexGrow: 1,
+                      minWidth: '100px'
+                    }}
+                  />
+                  <Typography variant="caption" color="textSecondary">
+                    {(
+                      (budget.categories.reduce(
+                        (sum, category) => sum + category.spent,
+                        0
+                      ) /
+                        budget.categories.reduce(
+                          (sum, category) => sum + category.allocated,
+                          0
+                        )) *
+                      100
+                    ).toFixed(1)}%
+                  </Typography>
+                </Box>
               </TableCell>
             </TableRow>
           </TableBody>
@@ -668,6 +805,166 @@ const Budget = () => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const calculateBudgetInsights = (budget) => {
+    if (!budget) return null;
+
+    const totalIncome = transactions
+      .filter(t => t.budgetId === budget.id && t.type === 'income')
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    const totalExpenses = transactions
+      .filter(t => t.budgetId === budget.id && t.type === 'expense')
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    const netIncome = totalIncome - totalExpenses;
+    const profitMargin = totalIncome > 0 ? (netIncome / totalIncome) * 100 : 0;
+
+    const categoryBreakdown = budget.categories.map(category => {
+      const categoryTransactions = transactions.filter(
+        t => t.budgetId === budget.id && t.category === category.name
+      );
+      
+      const categoryTotal = categoryTransactions.reduce(
+        (sum, t) => sum + (t.type === 'income' ? t.amount : -t.amount),
+        0
+      );
+
+      return {
+        ...category,
+        actualTotal: categoryTotal,
+        variance: category.allocated - categoryTotal
+      };
+    });
+
+    return {
+      totalIncome,
+      totalExpenses,
+      netIncome,
+      profitMargin,
+      categoryBreakdown
+    };
+  };
+
+  const renderTransactionList = () => {
+    const filteredTransactions = transactions.filter(t => {
+      const matchesFilter = transactionFilter === 'all' || t.type === transactionFilter;
+      const matchesDateRange = new Date(t.date) >= dateRange.startDate && 
+                             new Date(t.date) <= dateRange.endDate;
+      return matchesFilter && matchesDateRange;
+    });
+
+    return (
+      <TableContainer component={Paper}>
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableCell>Date</TableCell>
+              <TableCell>Description</TableCell>
+              <TableCell>Category</TableCell>
+              <TableCell>Budget Period</TableCell>
+              <TableCell align="right">Amount</TableCell>
+              <TableCell>Type</TableCell>
+              <TableCell>Status</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {filteredTransactions.map((transaction, index) => (
+              <TableRow key={index}>
+                <TableCell>{format(new Date(transaction.date), 'MMM d, yyyy')}</TableCell>
+                <TableCell>{transaction.description}</TableCell>
+                <TableCell>{transaction.category}</TableCell>
+                <TableCell>{transaction.budgetPeriod}</TableCell>
+                <TableCell align="right" sx={{
+                  color: transaction.type === 'income' ? 'success.main' : 'error.main'
+                }}>
+                  {formatCurrency(transaction.amount)}
+                </TableCell>
+                <TableCell>
+                  <Chip
+                    label={transaction.type === 'income' ? 'Income' : 'Expense'}
+                    color={transaction.type === 'income' ? 'success' : 'error'}
+                    size="small"
+                  />
+                </TableCell>
+                <TableCell>
+                  <Chip
+                    label={transaction.status}
+                    color={transaction.status === 'approved' ? 'success' : 'warning'}
+                    size="small"
+                  />
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+    );
+  };
+
+  const renderBudgetInsights = (budget) => {
+    const insights = calculateBudgetInsights(budget);
+    if (!insights) return null;
+
+    return (
+      <Grid container spacing={3} sx={{ mt: 2 }}>
+        <Grid item xs={12} md={3}>
+          <Card>
+            <CardContent>
+              <Typography color="textSecondary" gutterBottom>
+                Total Income
+              </Typography>
+              <Typography variant="h5" color="success.main">
+                {formatCurrency(insights.totalIncome)}
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} md={3}>
+          <Card>
+            <CardContent>
+              <Typography color="textSecondary" gutterBottom>
+                Total Expenses
+              </Typography>
+              <Typography variant="h5" color="error.main">
+                {formatCurrency(insights.totalExpenses)}
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} md={3}>
+          <Card>
+            <CardContent>
+              <Typography color="textSecondary" gutterBottom>
+                Net Income
+              </Typography>
+              <Typography 
+                variant="h5" 
+                color={insights.netIncome >= 0 ? 'success.main' : 'error.main'}
+              >
+                {formatCurrency(insights.netIncome)}
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} md={3}>
+          <Card>
+            <CardContent>
+              <Typography color="textSecondary" gutterBottom>
+                Profit Margin
+              </Typography>
+              <Typography 
+                variant="h5" 
+                color={insights.profitMargin >= 0 ? 'success.main' : 'error.main'}
+              >
+                {insights.profitMargin.toFixed(1)}%
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+    );
   };
 
   if (loading) {
@@ -898,6 +1195,14 @@ const Budget = () => {
                     </Card>
                   </Grid>
                 </Grid>
+
+                {/* Add Budget Insights section */}
+                <Box sx={{ mt: 4 }}>
+                  <Typography variant="h5" gutterBottom>
+                    Budget Insights
+                  </Typography>
+                  {renderBudgetInsights(activeBudget)}
+                </Box>
               </>
             ) : (
               <Alert severity="info" sx={{ mt: 2 }}>
@@ -1067,6 +1372,78 @@ const Budget = () => {
             )}
           </>
         )}
+
+        {/* Add Transactions section */}
+        <Box sx={{ mt: 4 }}>
+          <Typography variant="h5" gutterBottom>
+            Transaction History
+          </Typography>
+          <Paper sx={{ p: 2, mb: 2 }}>
+            <Grid container spacing={2} alignItems="center">
+              <Grid item xs={12} md={4}>
+                <DatePicker
+                  selected={dateRange.startDate}
+                  onChange={date => setDateRange(prev => ({ ...prev, startDate: date }))}
+                  selectsStart
+                  startDate={dateRange.startDate}
+                  endDate={dateRange.endDate}
+                  customInput={
+                    <TextField
+                      label="Start Date"
+                      fullWidth
+                      size="small"
+                    />
+                  }
+                />
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <DatePicker
+                  selected={dateRange.endDate}
+                  onChange={date => setDateRange(prev => ({ ...prev, endDate: date }))}
+                  selectsEnd
+                  startDate={dateRange.startDate}
+                  endDate={dateRange.endDate}
+                  minDate={dateRange.startDate}
+                  customInput={
+                    <TextField
+                      label="End Date"
+                      fullWidth
+                      size="small"
+                    />
+                  }
+                />
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                  <Button
+                    variant={transactionFilter === 'all' ? 'contained' : 'outlined'}
+                    onClick={() => setTransactionFilter('all')}
+                    size="small"
+                  >
+                    All
+                  </Button>
+                  <Button
+                    variant={transactionFilter === 'income' ? 'contained' : 'outlined'}
+                    onClick={() => setTransactionFilter('income')}
+                    size="small"
+                    color="success"
+                  >
+                    Income
+                  </Button>
+                  <Button
+                    variant={transactionFilter === 'expense' ? 'contained' : 'outlined'}
+                    onClick={() => setTransactionFilter('expense')}
+                    size="small"
+                    color="error"
+                  >
+                    Expenses
+                  </Button>
+                </Box>
+              </Grid>
+            </Grid>
+          </Paper>
+          {renderTransactionList()}
+        </Box>
 
         {/* Budget Form Dialog */}
         <Dialog

@@ -882,6 +882,17 @@ const handleUpdatePayment = async (clientId, newPaymentStatus, amount = 0) => {
     return format(new Date(date), "MMM d, yyyy");
   };
 
+  const handleSendDocuments = async (client) => {
+    try {
+      const documentUrls = await clientsAPI.getClientDocuments(client.id);
+      await clientsAPI.sendDocuments(client.id, documentUrls);
+      toast.success("Documents sent successfully");
+    } catch (error) {
+      console.error("Error sending documents:", error);
+      toast.error("Failed to send documents");
+    }
+  };
+
   if (isLoading) {
     return (
       <>

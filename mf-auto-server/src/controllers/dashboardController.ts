@@ -271,7 +271,8 @@ const calculateServicesByType = (invoices: any[]): ServiceType[] => {
     if (invoice.items && Array.isArray(invoice.items)) {
       invoice.items.forEach((item: any) => {
         if (item.type === 'service') {
-          const serviceName = item.description.split(' ')[0]; // Simple way to categorize
+          // Categorize service by first word of description
+          const serviceName = item.description.split(' ')[0];
           const amount = item.quantity * item.unitPrice;
           
           if (serviceTypes[serviceName]) {

@@ -1,6 +1,6 @@
 import Dashboard from "views/pages/Dashboard.js";
 import Clients from "views/pages/Clients.js";
-// import Budget from "views/pages/Budget.js";
+import Budget from "views/pages/Budget.js";
 import Reports from "views/pages/Reports.js";
 import Invoices from "views/pages/Invoices.js";
 import UserManagement from "views/pages/UserManagement.js";
@@ -24,14 +24,14 @@ const routes = [
     layout: "/admin",
     roles: ["Accountant", "Admin"]
   },
-  // {
-  //   path: "/budget",
-  //   name: "Budget",
-  //   icon: "ni ni-chart-pie-35 text-orange",
-  //   component: Budget,
-  //   layout: "/admin",
-  //   roles: ["Manager", "Admin"]
-  // },
+  {
+    path: "/budget",
+    name: "Budget",
+    icon: "ni ni-chart-pie-35 text-orange",
+    component: Budget,
+    layout: "/admin",
+    roles: ["Admin", "Accountant", "Manager"]
+  },
   {
     path: "/reports",
     name: "Reports",

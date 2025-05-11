@@ -33,7 +33,6 @@ import {
   Alert,
   CircularProgress,
   Autocomplete,
-  Paper,
 } from "@mui/material";
 import {
   Calendar,
@@ -48,7 +47,6 @@ import {
   Truck,
   DollarSign,
   FileText,
-  AlertTriangle,
   Camera,
 } from "react-feather";
 import {
@@ -105,6 +103,7 @@ const AppointmentCalendar = ({
   clients = [],
   invoices = [],
   onCreateInvoiceFromAppointment = null,
+  onError = null
 }) => {
   const { token } = useContext(UserContext);
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -138,6 +137,75 @@ const AppointmentCalendar = ({
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
 
+  // Add error handling wrapper for API calls
+  const handleApiError = (error, context) => {
+    console.error(`Error in ${context}:`, error);
+    // Don't set error state for 404 or when no clients exist
+    if (error?.response?.status === 404 || error?.response?.status === 504) {
+      console.log(`No ${context} available`);
+      return null;
+    }
+    const errorMessage = error?.response?.data?.message || error?.message || `Failed to ${context}`;
+    setError(errorMessage);
+    if (onError) {
+      onError(new Error(errorMessage));
+    }
+    return null;
+  };
+
+  // Filter appointments based on active filters
+  const filterAppointments = useCallback(
+    (allAppointments, status, type, date, showAll) => {
+      if (!allAppointments || allAppointments.length === 0) {
+        console.log("No appointments to filter");
+        setFilteredAppointments([]);
+        return;
+      }
+
+      console.log("Filtering appointments:", {
+        total: allAppointments.length,
+        status,
+        type,
+        date: date ? format(date, "yyyy-MM-dd") : null,
+        showAll,
+      });
+
+      let filtered = [...allAppointments];
+
+      // Filter by status if not "all"
+      if (status !== "all") {
+        filtered = filtered.filter(
+          (appointment) => appointment.status === status
+        );
+      }
+
+      // Filter by type if not "all"
+      if (type !== "all") {
+        filtered = filtered.filter((appointment) => appointment.type === type);
+      }
+
+      // Filter by selected date if not showing all
+      if (!showAll && date) {
+        filtered = filtered.filter((appointment) => {
+          if (!appointment.date) return false;
+
+          const appointmentDate = new Date(appointment.date);
+          // Compare only the year, month, and day components
+          const result =
+            appointmentDate.getFullYear() === date.getFullYear() &&
+            appointmentDate.getMonth() === date.getMonth() &&
+            appointmentDate.getDate() === date.getDate();
+
+          return result;
+        });
+      }
+
+      console.log(`Filtered to ${filtered.length} appointments`);
+      setFilteredAppointments(filtered);
+    },
+    []
+  );
+
   // Format client options from props
   const formatClientOptions = useCallback((clientsList) => {
     if (!clientsList || !clientsList.length) return [];
@@ -154,28 +222,6 @@ const AppointmentCalendar = ({
       repairStatus: client.repairStatus || "waiting",
     }));
   }, []);
-
-  // Fetch clients data from API if not provided via props
-  const fetchClients = useCallback(async () => {
-    try {
-      console.log("Fetching clients data...");
-      const response = await axios.get("/api/clients", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: "application/json",
-          "Content-Type": "application/json",
-        },
-      });
-
-      // Format client options for autocomplete
-      const options = formatClientOptions(response.data);
-      setClientOptions(options);
-      return options;
-    } catch (error) {
-      console.error("Error fetching clients:", error);
-      throw error;
-    }
-  }, [token, formatClientOptions]);
 
   // Generate appointments from clients and invoices data
   const generateAppointmentsFromData = useCallback(
@@ -307,77 +353,77 @@ const AppointmentCalendar = ({
     []
   );
 
-  // Filter appointments based on active filters
-  const filterAppointments = useCallback(
-    (allAppointments, status, type, date, showAll) => {
-      if (!allAppointments || allAppointments.length === 0) {
-        console.log("No appointments to filter");
-        setFilteredAppointments([]);
-        return;
+  // Fetch clients data from API if not provided via props
+  const fetchClients = useCallback(async () => {
+    try {
+      console.log("Fetching clients data...");
+      
+      if (!token) {
+        console.log("Token not available yet, skipping clients fetch");
+        return [];
       }
-
-      console.log("Filtering appointments:", {
-        total: allAppointments.length,
-        status,
-        type,
-        date: date ? format(date, "yyyy-MM-dd") : null,
-        showAll,
+      
+      const response = await axios.get("/api/clients", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+      }).catch(error => {
+        // Handle 404 and 504 gracefully
+        if (error?.response?.status === 404 || error?.response?.status === 504) {
+          console.log("No clients available or server timeout");
+          return { data: [] };
+        }
+        throw handleApiError(error, 'fetch clients');
       });
-
-      let filtered = [...allAppointments];
-
-      // Filter by status if not "all"
-      if (status !== "all") {
-        filtered = filtered.filter(
-          (appointment) => appointment.status === status
-        );
+      
+      if (!response) return []; // Error was handled
+      
+      if (response.data && response.data.length > 0) {
+        console.log(`Fetched ${response.data.length} clients successfully`);
+        setClientOptions(formatClientOptions(response.data));
+        return response.data;
+      } else {
+        console.log("No clients found in the response");
+        setClientOptions([]);
+        return [];
       }
-
-      // Filter by type if not "all"
-      if (type !== "all") {
-        filtered = filtered.filter((appointment) => appointment.type === type);
-      }
-
-      // Filter by selected date if not showing all
-      if (!showAll && date) {
-        filtered = filtered.filter((appointment) => {
-          if (!appointment.date) return false;
-
-          const appointmentDate = new Date(appointment.date);
-          // Compare only the year, month, and day components
-          const result =
-            appointmentDate.getFullYear() === date.getFullYear() &&
-            appointmentDate.getMonth() === date.getMonth() &&
-            appointmentDate.getDate() === date.getDate();
-
-          return result;
-        });
-      }
-
-      console.log(`Filtered to ${filtered.length} appointments`);
-      setFilteredAppointments(filtered);
-    },
-    []
-  );
+    } catch (error) {
+      console.error("Error in fetchClients:", error);
+      handleApiError(error, 'fetch clients');
+      return [];
+    }
+  }, [token, formatClientOptions, onError]);
 
   // Fetch appointments from the API
   const fetchAppointments = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
-      console.log(
-        `Fetching appointments for ${format(currentMonth, "MMMM yyyy")}`
-      );
+      console.log(`Fetching appointments for ${format(currentMonth, "MMMM yyyy")}`);
 
       // Get the first day of the month
       const firstDay = startOfMonth(currentMonth);
       // Get the last day of the month
       const lastDay = endOfMonth(currentMonth);
 
+      // Log the API request details
+      console.log('Appointment API Request:', {
+        startDate: firstDay.toISOString(),
+        endDate: lastDay.toISOString(),
+        token: token ? 'Present' : 'Missing'
+      });
+
       // Use appointmentAPI instead of direct axios call
       const response = await appointmentAPI.getAll({
         startDate: firstDay.toISOString(),
         endDate: lastDay.toISOString(),
+      }).catch(error => {
+        throw handleApiError(error, 'fetch appointments');
       });
+
+      if (!response) return; // Error was handled
 
       // Format appointments
       let fetchedAppointments = [];
@@ -407,9 +453,7 @@ const AppointmentCalendar = ({
         fetchedAppointments = generateAppointmentsFromData(clients, invoices);
       }
 
-      console.log(
-        `Total appointments processed: ${fetchedAppointments.length}`
-      );
+      console.log(`Total appointments processed: ${fetchedAppointments.length}`);
       setAppointments(fetchedAppointments);
 
       // Filter for the selected date
@@ -424,28 +468,10 @@ const AppointmentCalendar = ({
       setLoading(false);
       return fetchedAppointments;
     } catch (error) {
-      console.error("Error fetching appointments:", error);
-
-      // Fall back to generating appointments from data if API fails
-      console.log("API failed, falling back to generated data");
-      const generatedAppointments = generateAppointmentsFromData(
-        clients,
-        invoices
-      );
-
-      setAppointments(generatedAppointments);
-
-      // Filter for the selected date
-      filterAppointments(
-        generatedAppointments,
-        statusFilter,
-        typeFilter,
-        selectedDate,
-        showAllAppointments
-      );
-
+      console.error("Error in fetchAppointments:", error);
+      handleApiError(error, 'fetch appointments');
       setLoading(false);
-      return generatedAppointments;
+      return [];
     }
   }, [
     currentMonth,
@@ -458,6 +484,7 @@ const AppointmentCalendar = ({
     showAllAppointments,
     filterAppointments,
     generateAppointmentsFromData,
+    onError
   ]);
 
   // Fetch initial data on component mount
@@ -486,7 +513,10 @@ const AppointmentCalendar = ({
         setLoading(false);
       } catch (err) {
         console.error("Error initializing appointment calendar:", err);
-        setError("Failed to load calendar data. Please try again.");
+        // Only set error if it's not a "no data" case
+        if (err?.response?.status !== 404 && err?.response?.status !== 504) {
+          setError("Failed to load calendar data. Please try again.");
+        }
         setLoading(false);
       }
     };
@@ -494,14 +524,7 @@ const AppointmentCalendar = ({
     if (!initialLoadComplete) {
       fetchInitialData();
     }
-  }, [
-    clients,
-    token,
-    fetchClients,
-    fetchAppointments,
-    formatClientOptions,
-    initialLoadComplete,
-  ]);
+  }, [clients, token, fetchClients, fetchAppointments, formatClientOptions, initialLoadComplete]);
 
   // Update appointments when currentMonth changes
   useEffect(() => {
@@ -1030,7 +1053,7 @@ const AppointmentCalendar = ({
     }
   };
 
-  const handleStatusChange = async (appointmentId, newStatus) => {
+  const handleStatusChange = useCallback(async (appointmentId, newStatus) => {
     try {
       setLoading(true);
   
@@ -1112,7 +1135,7 @@ const AppointmentCalendar = ({
       setError("Failed to update appointment status");
       setLoading(false);
     }
-  };
+  }, [handleApiError, appointments, statusFilter, typeFilter, selectedDate, showAllAppointments, filterAppointments, appointmentsAPI, clientsAPI, onCreateInvoiceFromAppointment]);
 
   // Delete appointment
   const handleDeleteAppointment = async (appointmentId) => {
@@ -1390,8 +1413,61 @@ const AppointmentCalendar = ({
     );
   };
 
+  const handleAppointmentUpdate = async (appointment, newStatus) => {
+    try {
+      // Create new appointment for generated ones to maintain history
+      if (appointment.isGenerated) {
+        const newAppointment = {
+          ...appointment,
+          isGenerated: false,
+          status: newStatus
+        };
+        await appointmentsAPI.create(newAppointment);
+      } else {
+        await appointmentsAPI.updateStatus(appointment.id, newStatus);
+      }
+      await fetchAppointments();
+    } catch (error) {
+      console.error("Error updating appointment:", error);
+      toast.error("Failed to update appointment");
+    }
+  };
+
   return (
     <Container maxWidth={false} sx={{ mt: 4, mb: 4 }}>
+      {error && (
+        <Alert 
+          severity="error" 
+          sx={{ mb: 3 }}
+          action={
+            <Button color="inherit" size="small" onClick={() => {
+              setError(null);
+              fetchAppointments();
+            }}>
+              Retry
+            </Button>
+          }
+        >
+          {error}
+        </Alert>
+      )}
+      
+      {!error && (!clients || clients.length === 0) && !loading && (
+        <Alert 
+          severity="info" 
+          sx={{ mb: 3 }}
+          action={
+            <Button color="inherit" size="small" onClick={() => {
+              fetchClients();
+            }}>
+              Refresh
+            </Button>
+          }
+        >
+          No clients available. You can still create appointments without linking them to clients.
+        </Alert>
+      )}
+      
       <Grid container spacing={3}>
         <Grid item xs={12} md={8}>
           <Card>

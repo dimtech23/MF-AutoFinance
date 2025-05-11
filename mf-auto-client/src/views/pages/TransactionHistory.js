@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useContext } from "react";
 import { UserContext } from "../../Context/UserContext.js";
+import { transactionAPI } from "../../api";
 import Header from "components/Headers/Header.js";
 import { toast } from "react-toastify";
 import { format } from "date-fns";
@@ -7,24 +8,14 @@ import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import Select from "react-select";
 import { 
-  // DollarSign, 
-  // Plus, 
   Filter, 
   Download, 
-  // Edit, 
   Check,
   X,
   Search,
   Calendar,
   FileText,
   Clock
-  // RefreshCw,
-  // Info,
-  // User,
-  // ArrowLeft,
-  // ArrowRight,
-  // ChevronDown,
-  // AlertCircle
 } from "react-feather";
 import {
   Container,
@@ -32,7 +23,6 @@ import {
   Box,
   Grid,
   CircularProgress,
-  // Alert,
   Card,
   CardHeader,
   CardContent,
@@ -48,17 +38,13 @@ import {
   Chip,
   TextField,
   InputAdornment,
-  // IconButton,
   Dialog,
   DialogActions,
   DialogContent,
-  // DialogContentText,
   DialogTitle,
   FormControl,
-  // InputLabel,
   MenuItem,
   Select as MUISelect,
-  // Divider,
   Tooltip,
   Avatar,
   List,
@@ -67,14 +53,8 @@ import {
   ListItemAvatar,
   Badge,
   Tabs,
-   Tab,
-  // Accordion,
-  // AccordionSummary,
-  // AccordionDetails,
+  Tab
 } from "@mui/material";
-// import axios from "axios";
-
-// const baseURL = process.env.REACT_APP_API_URL || "http://localhost:3001/api";
 
 // Car garage specific categories
 const expenseCategories = [
@@ -89,7 +69,7 @@ const expenseCategories = [
   { value: "training", label: "Training & Certifications" },
   { value: "towing", label: "Towing Services" },
   { value: "software", label: "Diagnostic Software" },
-  { value: "other", label: "Other Expenses" },
+  { value: "other", label: "Other Expenses" }
 ];
 
 const incomeCategories = [
@@ -102,18 +82,11 @@ const incomeCategories = [
   { value: "tires", label: "Tire Services" },
   { value: "towing", label: "Towing Services" },
   { value: "detailing", label: "Auto Detailing" },
-  { value: "other", label: "Other Income" },
+  { value: "other", label: "Other Income" }
 ];
 
-// Transaction status options
-// const transactionStatusOptions = [
-//   { value: "pending", label: "Pending Approval" },
-//   { value: "approved", label: "Approved" },
-//   { value: "rejected", label: "Rejected" },
-// ];
-
 const TransactionHistory = () => {
-  const { token} = useContext(UserContext);
+  const { token } = useContext(UserContext);
   const [transactions, setTransactions] = useState([]);
   const [filteredTransactions, setFilteredTransactions] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -143,31 +116,50 @@ const TransactionHistory = () => {
   // Report date range
   const [reportPeriod, setReportPeriod] = useState('month');
   
-  // Monthly data for charts
-  const [setMonthlyData] = useState([]);
-  
   // Tab state
   const [activeTab, setActiveTab] = useState('all');
 
+  // Fetch transactions when component mounts or when report period changes
   useEffect(() => {
     const fetchTransactionHistory = async () => {
       setIsLoading(true);
       try {
-        // In a real app, this would be an API call
-        // const response = await axios.get(`${baseURL}/transaction-history`, {
-        //   headers: { Authorization: `Bearer ${token}` },
-        // });
-        
-        // Generate sample data
-        const mockTransactions = generateSampleData();
-        setTransactions(mockTransactions);
-        setFilteredTransactions(mockTransactions);
-        calculateSummaryStats(mockTransactions);
-        generateMonthlyData(mockTransactions);
-        
+        // Get transactions using the API
+        const response = await transactionAPI.getAll();
+        if (response && response.data) {
+          // Process the transactions data
+          const processedTransactions = response.data.map(tx => ({
+            ...tx,
+            date: tx.date || tx.createdAt, // Handle both date formats
+            amount: parseFloat(tx.amount) || 0,
+            type: tx.type || 'expense', // Default to expense if not specified
+            status: tx.status || 'pending', // Default to pending if not specified
+            category: tx.category || 'other',
+            description: tx.description || '',
+            reference: tx.reference || '',
+            clientName: tx.clientName || null,
+            vehicleInfo: tx.vehicleInfo || null,
+            createdBy: tx.createdBy || 'System',
+            approvedBy: tx.approvedBy || null,
+            approvedAt: tx.approvedAt || null,
+            rejectionReason: tx.rejectionReason || null,
+            attachments: tx.attachments || [],
+            notes: tx.notes || ''
+          }));
+
+          setTransactions(processedTransactions);
+          setFilteredTransactions(processedTransactions);
+          calculateSummaryStats(processedTransactions);
+        } else {
+          throw new Error("No data received from server");
+        }
       } catch (error) {
         console.error("Error fetching transaction history:", error);
-        toast.error("Failed to load transaction history");
+        toast.error(error.response?.data?.message || "Failed to load transaction history");
+        // Set empty arrays to prevent undefined errors
+        setTransactions([]);
+        setFilteredTransactions([]);
+        calculateSummaryStats([]);
       } finally {
         setIsLoading(false);
       }
@@ -176,160 +168,26 @@ const TransactionHistory = () => {
     if (token) {
       fetchTransactionHistory();
     }
-  }, [token]);
+  }, [token, reportPeriod]);
 
-  // Generate sample data
-  const generateSampleData = () => {
-    return Array(80).fill().map((_, index) => {
-      const isIncome = Math.random() > 0.6; // More expenses than income
-      const category = isIncome ? 
-        incomeCategories[Math.floor(Math.random() * incomeCategories.length)].value : 
-        expenseCategories[Math.floor(Math.random() * expenseCategories.length)].value;
-        
-      // Generate statuses with appropriate distribution
-      let status;
-      const rand = Math.random();
-      if (rand < 0.1) {
-        status = "pending";
-      } else if (rand < 0.9) {
-        status = "approved";
-      } else {
-        status = "rejected";
+  // Update summary stats when report period changes
+  useEffect(() => {
+    const updateSummaryStats = async () => {
+      try {
+        const response = await transactionAPI.getSummary(reportPeriod);
+        if (response && response.data) {
+          setSummaryStats(response.data);
+        }
+      } catch (error) {
+        console.error("Error fetching summary stats:", error);
+        // Don't show error toast as this is a background update
       }
-      
-      let description = "";
-      if (isIncome) {
-        description = `${incomeCategories.find(c => c.value === category)?.label} transaction #${index + 1}`;
-      } else {
-        description = `${expenseCategories.find(c => c.value === category)?.label} expense #${index + 1}`;
-      }
-      
-      // Generate date within the last 6 months
-      const today = new Date();
-      const sixMonthsAgo = new Date();
-      sixMonthsAgo.setMonth(today.getMonth() - 6);
-      const randomDate = new Date(sixMonthsAgo.getTime() + Math.random() * (today.getTime() - sixMonthsAgo.getTime()));
-      
-      return {
-        id: index + 1,
-        date: randomDate,
-        type: isIncome ? "income" : "expense",
-        amount: parseFloat((Math.random() * (isIncome ? 1200 : 800) + 50).toFixed(2)),
-        category: category,
-        description: description,
-        reference: `REF-${Math.floor(Math.random() * 10000)}`,
-        notes: Math.random() > 0.7 ? "Additional notes for this transaction." : "",
-        createdBy: Math.random() > 0.7 ? "Michael Accountant" : "John Manager",
-        status: status,
-        approvedBy: status === "approved" ? "John Manager" : null,
-        approvedAt: status === "approved" ? new Date(randomDate.getTime() + Math.random() * 86400000 * 2) : null, // 1-2 days after creation
-        rejectionReason: status === "rejected" ? "Invoice documentation incomplete" : null,
-        attachments: Math.random() > 0.7 ? [`receipt-${index + 1}.pdf`] : [],
-        clientName: Math.random() > 0.6 ? generateClientName() : null,
-        vehicleInfo: Math.random() > 0.6 ? generateVehicleInfo() : null,
-        createdAt: randomDate,
-      };
-    });
-  };
-  
-  // Helper to generate random client names
-  const generateClientName = () => {
-    const firstNames = ["John", "Mary", "James", "Patricia", "Robert", "Linda", "Michael", "Elizabeth", "William", "Susan"];
-    const lastNames = ["Smith", "Johnson", "Williams", "Jones", "Brown", "Davis", "Miller", "Wilson", "Moore", "Taylor"];
-    
-    return `${firstNames[Math.floor(Math.random() * firstNames.length)]} ${lastNames[Math.floor(Math.random() * lastNames.length)]}`;
-  };
-  
-  // Helper to generate random vehicle info
-  const generateVehicleInfo = () => {
-    const makes = ["Toyota", "Honda", "Ford", "Chevrolet", "Nissan", "BMW", "Mercedes"];
-    const models = {
-      "Toyota": ["Camry", "Corolla", "RAV4", "Highlander"],
-      "Honda": ["Civic", "Accord", "CR-V", "Pilot"],
-      "Ford": ["F-150", "Escape", "Explorer", "Mustang"],
-      "Chevrolet": ["Silverado", "Malibu", "Equinox", "Tahoe"],
-      "Nissan": ["Altima", "Sentra", "Rogue", "Pathfinder"],
-      "BMW": ["3 Series", "5 Series", "X3", "X5"],
-      "Mercedes": ["C-Class", "E-Class", "GLC", "GLE"]
     };
-    
-    const make = makes[Math.floor(Math.random() * makes.length)];
-    const model = models[make][Math.floor(Math.random() * models[make].length)];
-    const year = 2015 + Math.floor(Math.random() * 10);
-    
-    return {
-      make,
-      model,
-      year,
-      licensePlate: `${String.fromCharCode(65 + Math.floor(Math.random() * 26))}${String.fromCharCode(65 + Math.floor(Math.random() * 26))}${Math.floor(Math.random() * 10)}${Math.floor(Math.random() * 10)}${Math.floor(Math.random() * 10)}`
-    };
-  };
-  
-  // Calculate summary statistics
-  const calculateSummaryStats = (data) => {
-    const totalIncome = data
-      .filter(t => t.type === "income" && t.status === "approved")
-      .reduce((sum, t) => sum + t.amount, 0);
-      
-    const totalExpenses = data
-      .filter(t => t.type === "expense" && t.status === "approved")
-      .reduce((sum, t) => sum + t.amount, 0);
-      
-    const pendingCount = data.filter(t => t.status === "pending").length;
-    const approvedCount = data.filter(t => t.status === "approved").length;
-    const rejectedCount = data.filter(t => t.status === "rejected").length;
-    
-    setSummaryStats({
-      totalIncome,
-      totalExpenses,
-      netBalance: totalIncome - totalExpenses,
-      pendingCount,
-      approvedCount,
-      rejectedCount
-    });
-  };
-  
-  // Generate monthly data for charts
-  const generateMonthlyData = (data) => {
-    // Group by month
-    const months = {};
-    
-    data.forEach(transaction => {
-      if (transaction.status !== "approved") return;
-      
-      const date = new Date(transaction.date);
-      const monthKey = `${date.getFullYear()}-${date.getMonth() + 1}`;
-      
-      if (!months[monthKey]) {
-        months[monthKey] = {
-          month: date.toLocaleString('default', { month: 'short' }),
-          year: date.getFullYear(),
-          income: 0,
-          expenses: 0
-        };
-      }
-      
-      if (transaction.type === "income") {
-        months[monthKey].income += transaction.amount;
-      } else {
-        months[monthKey].expenses += transaction.amount;
-      }
-    });
-    
-    // Convert to array and sort by date
-    const monthlyData = Object.values(months)
-      .map(month => ({
-        ...month,
-        balance: month.income - month.expenses,
-        label: `${month.month} ${month.year}`
-      }))
-      .sort((a, b) => {
-        if (a.year !== b.year) return a.year - b.year;
-        return new Date(0, a.month, 0) - new Date(0, b.month, 0);
-      });
-    
-    setMonthlyData(monthlyData);
-  };
+
+    if (token) {
+      updateSummaryStats();
+    }
+  }, [token, reportPeriod]);
 
   // Apply filters when search term, filter type, date range, category, or status changes
   useEffect(() => {
@@ -373,6 +231,8 @@ const TransactionHistory = () => {
     
     // Update filtered transactions
     setFilteredTransactions(result);
+    // Reset to first page when filters change
+    setPage(0);
   }, [transactions, searchTerm, filterType, startDate, endDate, selectedCategory, statusFilter]);
 
   const handleTabChange = (event, newValue) => {
@@ -421,43 +281,35 @@ const TransactionHistory = () => {
     setPage(0);
   };
 
-  const exportToCSV = () => {
-    const headers = ["ID", "Date", "Type", "Category", "Description", "Amount", "Status", "Reference", "Client", "Vehicle"];
-    const csvData = filteredTransactions.map(t => [
-      t.id,
-      format(new Date(t.date), "yyyy-MM-dd"),
-      t.type,
-      t.category,
-      t.description,
-      t.amount.toFixed(2),
-      t.status,
-      t.reference || "",
-      t.clientName || "",
-      t.vehicleInfo ? `${t.vehicleInfo.year} ${t.vehicleInfo.make} ${t.vehicleInfo.model}` : ""
-    ]);
-    
-    // Create CSV content
-    const csvContent = [
-      headers.join(','),
-      ...csvData.map(row => row.join(','))
-    ].join('\n');
-    
-    // Create download link
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `transaction_history_${format(new Date(), 'yyyy-MM-dd')}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    // Cleanup
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-    
-    // Show success message
-    toast.success("Transaction history exported successfully");
+  const exportToCSV = async () => {
+    try {
+      const params = {
+        startDate: startDate ? format(startDate, 'yyyy-MM-dd') : null,
+        endDate: endDate ? format(endDate, 'yyyy-MM-dd') : null,
+        type: filterType !== 'all' ? filterType : null,
+        status: statusFilter ? statusFilter.value : null,
+        category: selectedCategory ? selectedCategory.value : null
+      };
+
+      const response = await transactionAPI.exportCSV(params);
+      
+      // Create download link
+      const url = URL.createObjectURL(response.data);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `transaction_history_${format(new Date(), 'yyyy-MM-dd')}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      
+      // Cleanup
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      toast.success("Transaction history exported successfully");
+    } catch (error) {
+      console.error("Error exporting to CSV:", error);
+      toast.error("Failed to export transaction history");
+    }
   };
 
   const formatCurrency = (amount) => {
@@ -506,6 +358,30 @@ const TransactionHistory = () => {
     { value: 'year', label: 'Last Year' },
     { value: 'all', label: 'All Time' }
   ];
+
+  // Calculate summary statistics
+  const calculateSummaryStats = (data) => {
+    const totalIncome = data
+      .filter(t => t.type === "income" && t.status === "approved")
+      .reduce((sum, t) => sum + t.amount, 0);
+      
+    const totalExpenses = data
+      .filter(t => t.type === "expense" && t.status === "approved")
+      .reduce((sum, t) => sum + t.amount, 0);
+      
+    const pendingCount = data.filter(t => t.status === "pending").length;
+    const approvedCount = data.filter(t => t.status === "approved").length;
+    const rejectedCount = data.filter(t => t.status === "rejected").length;
+    
+    setSummaryStats({
+      totalIncome,
+      totalExpenses,
+      netBalance: totalIncome - totalExpenses,
+      pendingCount,
+      approvedCount,
+      rejectedCount
+    });
+  };
 
   if (isLoading) {
     return (
@@ -1053,7 +929,6 @@ const TransactionHistory = () => {
               </DialogContent>
               <DialogActions>
                 <Button onClick={closeTransactionDetails}>Close</Button>
-                {/* PDF Export button could be added here */}
                 <Button 
                   variant="outlined"
                   color="primary"

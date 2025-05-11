@@ -1,5 +1,4 @@
-import React, { useState, useEffect, useContext } from "react";
-import { UserContext } from "../../Context/UserContext.js";
+import React, { useState, useEffect } from "react";
 import Header from "components/Headers/Header.js";
 import { format, startOfMonth, endOfMonth, subMonths } from "date-fns";
 import DatePicker from "react-datepicker";
@@ -193,28 +192,25 @@ const generateBalanceSheetData = () => {
 
 const Reports = () => {
   // const { token, userRole } = useContext(UserContext);
-  const [ setLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
   const [tabValue, setTabValue] = useState(0);
   const [reportType, setReportType] = useState('income-statement');
   const [dateRange, setDateRange] = useState([startOfMonth(subMonths(new Date(), 2)), endOfMonth(new Date())]);
   const [startDate, endDate] = dateRange;
   const [reportData, setReportData] = useState(null);
   const [exportMenuAnchorEl, setExportMenuAnchorEl] = useState(null);
-  // const [expandedIncomeSummary, setExpandedIncomeSummary] = useState(true);
-  // const [expandedExpenseSummary, setExpandedExpenseSummary] = useState(true);
   const [showPrintDialog, setShowPrintDialog] = useState(false);
   
   // Sample data for the reports
-  const [ setMonthlyData] = useState([]);
-  const [setExpensesData] = useState([]);
-  const [ setIncomeData] = useState([]);
-  const [ setBalanceSheetData] = useState({});
+  const [monthlyData, setMonthlyData] = useState([]);
+  const [expensesData, setExpensesData] = useState([]);
+  const [incomeData, setIncomeData] = useState([]);
+  const [balanceSheetData, setBalanceSheetData] = useState({});
   
   useEffect(() => {
-    // Load sample data
-    const loadSampleData = async () => {
-      setLoading(true);
+    const fetchData = async () => {
       try {
+        setIsLoading(true);
         // Simulate API delay
         await new Promise(resolve => setTimeout(resolve, 800)); // Reduced delay for presentations
         
@@ -259,14 +255,14 @@ const Reports = () => {
         setBalanceSheetData(balanceSheet);
         setReportData(report);
       } catch (error) {
-        console.error("Error loading report data:", error);
+        console.error('Error fetching report data:', error);
       } finally {
-        setLoading(false);
+        setIsLoading(false);
       }
     };
-    
-    loadSampleData();
-  }, [startDate, endDate, reportType]);
+
+    fetchData();
+  }, [startDate, endDate]);
 
   const handleReportTypeChange = (event) => {
     setReportType(event.target.value);
@@ -1247,8 +1243,8 @@ const Reports = () => {
                   variant="outlined" 
                   startIcon={<RefreshCw />}
                   onClick={() => {
-                    setLoading(true);
-                    setTimeout(() => setLoading(false), 1000);
+                    setIsLoading(true);
+                    setTimeout(() => setIsLoading(false), 1000);
                   }}
                 >
                   Refresh

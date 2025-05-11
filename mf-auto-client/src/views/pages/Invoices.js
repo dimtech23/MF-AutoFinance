@@ -143,6 +143,8 @@ const history = useHistory();
   const [invoices, setInvoices] = useState([]);
   const [filteredInvoices, setFilteredInvoices] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState(null);
   const [dateRange, setDateRange] = useState([null, null]);
@@ -947,16 +949,17 @@ const createInvoiceFromClient = async (clientId) => {
       return;
     }
   
-    const { subtotal, tax, total } = calculateInvoiceTotals();
-  
-    const invoiceData = {
-      ...formData,
-      subtotal,
-      tax,
-      total
-    };
-  
+    setIsSubmitting(true);
     try {
+      const { subtotal, tax, total } = calculateInvoiceTotals();
+  
+      const invoiceData = {
+        ...formData,
+        subtotal,
+        tax,
+        total
+      };
+  
       if (editMode && selectedInvoice) {
         const response = await invoicesAPI.update(selectedInvoice.id, invoiceData);
         const updatedInvoices = invoices.map(inv => 
@@ -976,6 +979,8 @@ const createInvoiceFromClient = async (clientId) => {
     } catch (error) {
       console.error("Error saving invoice:", error);
       toast.error(error.response?.data?.message || "Failed to save invoice");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -1050,29 +1055,6 @@ const createInvoiceFromClient = async (clientId) => {
     setClientLookupOpen(false);
   };
 
-  // const handlePayInvoice = async (invoice) => {
-  //   try {
-  //     const response = await invoicesAPI.markAsPaid(invoice.id, invoice.paymentMethod || 'cash');
-  //     const updatedInvoices = invoices.map(inv => {
-  //       if (inv.id === invoice.id) {
-  //         return response.data;
-  //       }
-  //       return inv;
-  //     });
-  
-  //     setInvoices(updatedInvoices);
-  //     toast.success("Invoice marked as paid");
-  //     setSnackbarMessage("Invoice marked as paid");
-  //     setSnackbarOpen(true);
-  
-  //     if (previewOpen) {
-  //       setPreviewOpen(false);
-  //     }
-  //   } catch (error) {
-  //     console.error("Error marking invoice as paid:", error);
-  //     toast.error("Failed to mark invoice as paid");
-  //   }
-  // };
   const openPaymentDialog = (invoice) => {
     setSelectedInvoice(invoice);
     setPaymentDetails({
@@ -1098,8 +1080,8 @@ const createInvoiceFromClient = async (clientId) => {
   const handleProcessPayment = async () => {
     if (!selectedInvoice) return;
     
+    setIsProcessingPayment(true);
     try {
-      setLoading(true);
       const paymentData = {
         amount: parseFloat(paymentDetails.amount) || 0,
         method: paymentDetails.method,
@@ -1127,43 +1109,70 @@ const createInvoiceFromClient = async (clientId) => {
       // If invoice is linked to a client, update client payment status
       if (updatedInvoice.relatedClientId) {
         try {
-          // Determine payment status based on amount
           const paymentStatus = isFullPayment ? 'paid' : 'partial';
-          
-          // Update client payment status
           await clientsAPI.updatePayment(updatedInvoice.relatedClientId, {
             paymentStatus,
             partialPaymentAmount: isFullPayment ? 0 : paymentData.amount
           });
-          
           toast.info(`Client payment status updated to ${paymentStatus}`);
         } catch (err) {
           console.error("Error updating client payment status:", err);
-          // Don't block the invoice update if client update fails
         }
       }
       
       // Create transaction record in budget/transactions
       try {
-        const transactionData = {
-          date: paymentData.date,
-          type: "income",
-          amount: paymentData.amount,
-          category: "invoice_payment",
-          description: `Payment for invoice ${selectedInvoice.invoiceNumber}`,
-          reference: paymentData.reference || selectedInvoice.invoiceNumber,
-          clientName: selectedInvoice.customerInfo?.name,
-          vehicleInfo: selectedInvoice.vehicleInfo ? 
-            `${selectedInvoice.vehicleInfo.year || ""} ${selectedInvoice.vehicleInfo.make || ""} ${selectedInvoice.vehicleInfo.model || ""}`.trim() : 
-            null,
-          status: "approved"
-        };
+        // Get the current active budget
+        const budgetsResponse = await budgetAPI.getAll();
+        const activeBudget = budgetsResponse.data.find(b => b.status === 'active');
         
-        // Create budget entry (which acts as transaction)
-        await budgetAPI.create(transactionData);
+        if (activeBudget) {
+          const transactionData = {
+            date: paymentData.date,
+            type: "income",
+            amount: paymentData.amount,
+            category: "invoice_payment",
+            description: `Payment for invoice ${selectedInvoice.invoiceNumber}`,
+            reference: paymentData.reference || selectedInvoice.invoiceNumber,
+            clientName: selectedInvoice.customerInfo?.name,
+            vehicleInfo: selectedInvoice.vehicleInfo ? 
+              `${selectedInvoice.vehicleInfo.year || ""} ${selectedInvoice.vehicleInfo.make || ""} ${selectedInvoice.vehicleInfo.model || ""}`.trim() : 
+              null,
+            status: "approved",
+            budgetId: activeBudget.id,
+            // Add service category if available
+            serviceCategory: selectedInvoice.items.find(item => item.type === 'service')?.description || 'General Service'
+          };
+          
+          // Create budget transaction
+          await budgetAPI.create(transactionData);
+          
+          // Update budget category spent amount
+          const serviceCategory = activeBudget.categories.find(
+            cat => cat.name === "Auto Parts & Supplies" || 
+                  cat.name === "Mechanics & Staff Wages"
+          );
+          
+          if (serviceCategory) {
+            const updatedBudget = {
+              ...activeBudget,
+              categories: activeBudget.categories.map(cat => {
+                if (cat.id === serviceCategory.id) {
+                  return {
+                    ...cat,
+                    spent: cat.spent + paymentData.amount
+                  };
+                }
+                return cat;
+              })
+            };
+            
+            await budgetAPI.update(activeBudget.id, updatedBudget);
+          }
+        }
       } catch (err) {
-        console.error("Error creating transaction record:", err);
-        // Don't block payment processing if transaction creation fails
+        console.error("Error creating budget transaction:", err);
+        toast.warning("Payment processed but budget update failed");
       }
       
       const message = isFullPayment 
@@ -1171,41 +1180,44 @@ const createInvoiceFromClient = async (clientId) => {
         : "Partial payment recorded successfully";
       
       toast.success(message);
-      setLoading(false);
-      
       closePaymentDialog();
       closeInvoicePreview();
     } catch (error) {
       console.error("Error processing payment:", error);
       toast.error("Failed to process payment");
-      setLoading(false);
+    } finally {
+      setIsProcessingPayment(false);
     }
   };
 
-  const exportToCSV = () => {
-    const headers = ["Invoice #", "Date", "Customer", "Vehicle", "Status", "Amount"];
-    const csvData = filteredInvoices.map(inv => [
-      inv.invoiceNumber,
-      format(new Date(inv.issueDate), "yyyy-MM-dd"),
-      inv.customerInfo.name,
-      `${inv.vehicleInfo.year} ${inv.vehicleInfo.make} ${inv.vehicleInfo.model}`,
-      inv.status,
-      inv.total.toFixed(2)
-    ]);
+  const exportToExcel = async () => {
+    try {
+      const params = {
+        startDate: startDate ? format(startDate, 'yyyy-MM-dd') : null,
+        endDate: endDate ? format(endDate, 'yyyy-MM-dd') : null,
+        status: statusFilter ? statusFilter.value : null,
+        type: activeTab !== 'all' ? activeTab : null
+      };
 
-    const csvContent = [
-      headers.join(','),
-      ...csvData.map(row => row.join(','))
-    ].join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `invoices_${format(new Date(), 'yyyy-MM-dd')}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+      const response = await invoicesAPI.exportExcel(params);
+      
+      // Create download link
+      const url = URL.createObjectURL(response.data);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `invoices_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      
+      // Cleanup
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      toast.success("Invoices exported successfully");
+    } catch (error) {
+      console.error("Error exporting to Excel:", error);
+      toast.error("Failed to export invoices");
+    }
   };
 
   const handlePrintInvoice = async (invoice) => {
@@ -1229,10 +1241,7 @@ const createInvoiceFromClient = async (clientId) => {
 
   const handleEmailInvoice = async (invoice) => {
     try {
-      // This is a placeholder - you need to implement the email API endpoint
-      // await invoicesAPI.sendEmail(invoice.id);
-      
-      // For now, just show a success message
+      await invoicesAPI.sendEmail(invoice.id);
       toast.info(`Invoice sent to ${invoice.customerInfo.email}`);
     } catch (error) {
       console.error("Error emailing invoice:", error);
@@ -1312,102 +1321,6 @@ const createInvoiceFromClient = async (clientId) => {
     const intervalId = setInterval(checkOverdueInvoices, 24 * 60 * 60 * 1000);
     return () => clearInterval(intervalId);
   }, [invoices]);
-
-  // const PaymentDialog = () => (
-  //   <Dialog
-  //     open={paymentDialogOpen}
-  //     onClose={closePaymentDialog}
-  //     maxWidth="sm"
-  //     fullWidth
-  //   >
-  //     <DialogTitle>Process Payment</DialogTitle>
-  //     <DialogContent>
-  //       <Grid container spacing={2} sx={{ mt: 1 }}>
-  //         <Grid item xs={12}>
-  //           <Typography variant="subtitle1" gutterBottom>
-  //             Invoice: {selectedInvoice?.invoiceNumber}
-  //           </Typography>
-  //           <Typography variant="body2" gutterBottom>
-  //             Customer: {selectedInvoice?.customerInfo.name}
-  //           </Typography>
-  //           <Typography variant="body2" gutterBottom>
-  //             Total Due: {formatCurrency(selectedInvoice?.total || 0)}
-  //           </Typography>
-  //         </Grid>
-          
-  //         <Grid item xs={12}>
-  //           <Divider sx={{ my: 1 }} />
-  //         </Grid>
-          
-  //         <Grid item xs={12} md={6}>
-  //           <TextField
-  //             label="Payment Amount"
-  //             fullWidth
-  //             type="number"
-  //             value={paymentDetails.amount}
-  //             onChange={(e) => handlePaymentDetailsChange('amount', e.target.value)}
-  //             InputProps={{
-  //               startAdornment: <InputAdornment position="start">D</InputAdornment>,
-  //               inputProps: { min: 0, step: '0.01' }
-  //             }}
-  //           />
-  //         </Grid>
-          
-  //         <Grid item xs={12} md={6}>
-  //           <FormControl fullWidth>
-  //             <TextField
-  //               select
-  //               label="Payment Method"
-  //               value={paymentDetails.method}
-  //               onChange={(e) => handlePaymentDetailsChange('method', e.target.value)}
-  //             >
-  //               {paymentMethods.map(option => (
-  //                 <MenuItem key={option.value} value={option.value}>
-  //                   {option.label}
-  //                 </MenuItem>
-  //               ))}
-  //             </TextField>
-  //           </FormControl>
-  //         </Grid>
-          
-  //         <Grid item xs={12} md={6}>
-  //           <TextField
-  //             label="Reference Number"
-  //             fullWidth
-  //             value={paymentDetails.reference}
-  //             onChange={(e) => handlePaymentDetailsChange('reference', e.target.value)}
-  //             placeholder="Check #, Transaction ID, etc."
-  //           />
-  //         </Grid>
-          
-  //         <Grid item xs={12} md={6}>
-  //           <DatePicker
-  //             selected={paymentDetails.date}
-  //             onChange={(date) => handlePaymentDetailsChange('date', date)}
-  //             dateFormat="MMMM d, yyyy"
-  //             customInput={
-  //               <TextField 
-  //                 label="Payment Date" 
-  //                 fullWidth
-  //               />
-  //             }
-  //           />
-  //         </Grid>
-  //       </Grid>
-  //     </DialogContent>
-  //     <DialogActions>
-  //       <Button onClick={closePaymentDialog}>Cancel</Button>
-  //       <Button 
-  //         variant="contained" 
-  //         color="primary"
-  //         onClick={handleProcessPayment}
-  //         startIcon={<DollarSign />}
-  //       >
-  //         Process Payment
-  //       </Button>
-  //     </DialogActions>
-  //   </Dialog>
-  // );
 
   if (isLoading) {
     return (
@@ -1524,7 +1437,7 @@ const createInvoiceFromClient = async (clientId) => {
                 <Button 
                   variant="outlined" 
                   startIcon={<Download />}
-                  onClick={exportToCSV}
+                  onClick={exportToExcel}
                 >
                   Export
                 </Button>
@@ -2173,9 +2086,14 @@ const createInvoiceFromClient = async (clientId) => {
             )}
           </DialogContent>
           <DialogActions>
-            <Button onClick={closeInvoiceForm}>Cancel</Button>
+            <Button onClick={closeInvoiceForm} disabled={isSubmitting}>
+              Cancel
+            </Button>
             {currentStep > 0 && (
-              <Button onClick={() => setCurrentStep(currentStep - 1)}>
+              <Button 
+                onClick={() => setCurrentStep(currentStep - 1)}
+                disabled={isSubmitting}
+              >
                 Back
               </Button>
             )}
@@ -2184,6 +2102,7 @@ const createInvoiceFromClient = async (clientId) => {
                 variant="contained" 
                 color="primary"
                 onClick={() => setCurrentStep(currentStep + 1)}
+                disabled={isSubmitting}
               >
                 Next
               </Button>
@@ -2192,8 +2111,10 @@ const createInvoiceFromClient = async (clientId) => {
                 variant="contained" 
                 color="primary"
                 onClick={handleSubmitInvoice}
+                disabled={isSubmitting}
+                startIcon={isSubmitting ? <CircularProgress size={20} /> : null}
               >
-                {editMode ? 'Update' : 'Create'}
+                {isSubmitting ? 'Saving...' : (editMode ? 'Update' : 'Create')}
               </Button>
             )}
           </DialogActions>
@@ -2679,9 +2600,16 @@ const createInvoiceFromClient = async (clientId) => {
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
-          <Button onClick={handleDeleteInvoice} color="error">
-            Delete
+          <Button onClick={() => setDeleteDialogOpen(false)} disabled={isSubmitting}>
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleDeleteInvoice} 
+            color="error"
+            disabled={isSubmitting}
+            startIcon={isSubmitting ? <CircularProgress size={20} /> : <Trash2 />}
+          >
+            {isSubmitting ? 'Deleting...' : 'Delete'}
           </Button>
         </DialogActions>
       </Dialog>
@@ -2853,14 +2781,17 @@ const createInvoiceFromClient = async (clientId) => {
           </Grid>
         </DialogContent>
         <DialogActions>
-          <Button onClick={closePaymentDialog}>Cancel</Button>
+          <Button onClick={closePaymentDialog} disabled={isProcessingPayment}>
+            Cancel
+          </Button>
           <Button 
             variant="contained" 
             color="primary"
             onClick={handleProcessPayment}
-            startIcon={<DollarSign />}
+            disabled={isProcessingPayment}
+            startIcon={isProcessingPayment ? <CircularProgress size={20} /> : <DollarSign />}
           >
-            Process Payment
+            {isProcessingPayment ? 'Processing...' : 'Process Payment'}
           </Button>
         </DialogActions>
       </Dialog>

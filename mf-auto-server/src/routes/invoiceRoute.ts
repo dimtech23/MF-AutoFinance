@@ -7,7 +7,8 @@ import {
   deleteInvoice,
   markAsPaid,
   processPayment,
-  generatePDF
+  generatePDF,
+  exportToExcel
 } from '../controllers/invoiceController';
 import { authenticateToken, authorize } from "../middlewares/authMiddleware";
 import { UserRole } from "../constants/roles";
@@ -37,5 +38,8 @@ router.post('/:id/payment', authenticateToken, authorize([UserRole.ADMIN, UserRo
 
 // Generate PDF of invoice - allow all users to generate PDFs
 router.get('/:id/pdf', authenticateToken, generatePDF);
+
+// Export invoices to Excel - Admin and Accountant only
+router.get('/export/excel', authenticateToken, authorize([UserRole.ADMIN, UserRole.ACCOUNTANT]), exportToExcel);
 
 export { router as invoiceRouter };

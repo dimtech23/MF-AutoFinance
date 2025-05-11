@@ -27,6 +27,7 @@
  "dependencies": {
   "@emailjs/nodejs": "^4.0.4",
   "@types/axios": "^0.14.0",
+  "@types/date-fns": "^2.6.3",
   "@types/express-jwt": "^7.4.2",
   "@types/handlebars": "^4.1.0",
   "@types/morgan": "^1.9.9",
@@ -35,7 +36,9 @@
   "bcrypt": "^5.1.1",
   "cors": "^2.8.5",
   "csv-writer": "^1.6.0",
+  "date-fns": "^4.1.0",
   "dotenv": "^16.4.5",
+  "exceljs": "^4.4.0",
   "express": "^4.18.3",
   "express-validator": "^7.0.1",
   "file-type": "^19.3.0",
@@ -51,6 +54,7 @@
   "nodemailer": "^6.9.15",
   "nodemon": "^3.1.0",
   "pdf-lib": "^1.17.1",
+  "pdfkit": "^0.14.0",
   "sharp": "^0.33.4",
   "supertest": "^7.0.0",
   "xlsx": "^0.18.5"

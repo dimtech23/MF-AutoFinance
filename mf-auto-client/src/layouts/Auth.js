@@ -1,25 +1,33 @@
 import React from "react";
 import { useLocation, Route, Switch, Redirect } from "react-router-dom";
 import { Container, Row } from "reactstrap";
-import AuthNavbar from "components/Navbars/AuthNavbar";
-import AuthFooter from "components/Footers/AuthFooter";
-import authRoutes from "authRoutes";
+
+import AuthNavbar from "../components/Navbars/AuthNavbar";
+import AuthFooter from "../components/Footers/AuthFooter";
+
+import authRoutes from "../authRoutes";
 
 const Auth = () => {
     const mainContent = React.useRef(null);
     const location = useLocation();
-
+    
     React.useEffect(() => {
         document.documentElement.scrollTop = 0;
         document.scrollingElement.scrollTop = 0;
-        mainContent.current.scrollTop = 0;
+        if (mainContent.current) {
+            mainContent.current.scrollTop = 0;
+        }
     }, [location]);
 
-    const getRoutes = (authRoutes) => {
-        return authRoutes.map((prop, key) => {
+    const getRoutes = (routes) => {
+        return routes.map((prop, key) => {
             if (prop.layout === "/auth") {
                 return (
-                    <Route path={prop.layout + prop.path} component={prop.component} key={key} />
+                    <Route 
+                        path={prop.layout + prop.path} 
+                        component={prop.component} 
+                        key={key} 
+                    />
                 );
             } else {
                 return null;
@@ -28,11 +36,10 @@ const Auth = () => {
     };
 
     return (
-        <>
+        <div className="auth-master-wrapper">
             <AuthNavbar />
-            <div className="main-content" ref={mainContent} style={{ marginTop: '20px' }}> {/* Reduced top margin */}
-            
-                <Container fluid>
+            <div className="auth-main-content" ref={mainContent}>
+                <Container className="auth-container py-5">
                     <Row className="justify-content-center">
                         <Switch>
                             {getRoutes(authRoutes)}
@@ -42,7 +49,7 @@ const Auth = () => {
                 </Container>
                 <AuthFooter />
             </div>
-        </>
+        </div>
     );
 };
 

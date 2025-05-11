@@ -1,5 +1,4 @@
-
-import { Container, Row, Col, Nav, NavItem, NavLink } from "reactstrap";
+import { Row, Col, Nav, NavItem, NavLink } from "reactstrap";
 
 const Footer = () => {
   return (
@@ -8,7 +7,7 @@ const Footer = () => {
         <Col xl="6">
           <div className="copyright text-center text-xl-left text-muted">
             © {new Date().getFullYear()}{" "}
-            <a href="" target="_blank">Garage</a> at <a href="" target="_blank">GMB</a>
+            <a href="https://mfautosfinance.com/" target="">MF AutosFinance</a>
           </div>
         </Col>
 
