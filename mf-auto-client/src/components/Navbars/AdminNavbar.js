@@ -717,7 +717,7 @@ const WorkflowDiagram = () => (
     </text>
   </svg>
 );
-
+  
 const AdminNavbar = (props) => {
   const { userName, logout } = useContext(UserContext);
   const history = useHistory();
@@ -734,45 +734,104 @@ const AdminNavbar = (props) => {
     setIsWorkflowOpen(!isWorkflowOpen);
   };
 
+  const toggleSidebar = () => {
+    const sidebar = document.getElementById('sidenav-main');
+    if (sidebar) {
+      sidebar.classList.toggle('show');
+    }
+  };
+
   return (
     <>
       <Navbar className="navbar-top navbar-white" expand="md" id="navbar-main">
-        <Container fluid>
-          <span className="h4 mb-0 text-white text-uppercase d-none d-lg-inline-block">
+        <Container fluid className="px-3 py-2">
+          {/* Mobile Menu Button with Tailwind classes */}
+          <button 
+            className="navbar-toggler block md:hidden border-0 p-2 focus:outline-none"
+            type="button" 
+            onClick={toggleSidebar}
+          >
+            <span className="navbar-toggler-icon text-xl"></span>
+          </button>
+
+          <span className="h4 mb-0 text-white text-uppercase hidden lg:inline-block">
             {props.brandText}
           </span>
-          <Nav className="align-items-center d-none d-md-flex" navbar>
+
+          {/* Desktop Navigation */}
+          <Nav className="items-center hidden md:flex" navbar>
             <Button
-              className="mr-3"
+              className="mr-3 shadow-sm hover:shadow-md transition-all duration-200 text-base"
               color="info"
               size="sm"
               onClick={toggleWorkflow}
             >
-              <i className="ni ni-chart-bar-32 mr-1"></i> System Workflow
+              <i className="ni ni-chart-bar-32 mr-1 text-lg"></i> System Workflow
             </Button>
 
-            <Button color="info" size="sm" onClick={() => setShowGuide(true)}>
-              <i className="ni ni-bullet-list-67 mr-1"></i>  Guide
+            <Button 
+              className="shadow-sm hover:shadow-md transition-all duration-200 text-base"
+              color="info" 
+              size="sm" 
+              onClick={() => setShowGuide(true)}
+            >
+              <i className="ni ni-bullet-list-67 mr-1 text-lg"></i> Guide
             </Button>
 
-            <Notification setOpenedCollapse={props.setOpenedCollapse} />
+            <div className="ml-3">
+              <Notification setOpenedCollapse={props.setOpenedCollapse} />
+            </div>
 
             {userName && (
-              <UncontrolledDropdown nav>
-                <DropdownToggle className="pr-0" nav>
-                  <span className="mb-0 text-white font-weight-bold">
-                    Logout
+              <UncontrolledDropdown nav className="ml-3">
+                <DropdownToggle className="pr-0 flex items-center" nav>
+                  <span className="mb-0 text-white font-bold text-base">
+                    <i className="ni ni-circle-08 mr-1 text-lg"></i> {userName}
                   </span>
                 </DropdownToggle>
                 <DropdownMenu className="dropdown-menu-arrow" right>
                   <DropdownItem href="#pablo" onClick={handleLogout}>
-                    <i className="ni ni-user-run" />
-                    <span>Logout</span>
+                    <i className="ni ni-user-run mr-2 text-lg"></i>
+                    <span className="text-base">Logout</span>
                   </DropdownItem>
                 </DropdownMenu>
               </UncontrolledDropdown>
             )}
           </Nav>
+
+          {/* Mobile Navigation with Tailwind - Larger icons */}
+          <div className="flex items-center ml-auto md:hidden">
+            <Button
+              className="p-0 w-10 h-10 flex items-center justify-center mx-1 shadow-sm"
+              color="info"
+              size="sm"
+              onClick={toggleWorkflow}
+            >
+              <i className="ni ni-chart-bar-32 text-lg"></i>
+            </Button>
+
+            <Button
+              className="p-0 w-10 h-10 flex items-center justify-center mx-1 shadow-sm"
+              color="info"
+              size="sm"
+              onClick={() => setShowGuide(true)}
+            >
+              <i className="ni ni-bullet-list-67 text-lg"></i>
+            </Button>
+
+            <div className="mx-1">
+              <Notification setOpenedCollapse={props.setOpenedCollapse} />
+            </div>
+
+            <Button
+              className="p-0 w-10 h-10 flex items-center justify-center mx-1 shadow-sm"
+              color="danger"
+              size="sm"
+              onClick={handleLogout}
+            >
+              <i className="ni ni-user-run text-lg"></i>
+            </Button>
+          </div>
         </Container>
       </Navbar>
 
@@ -791,17 +850,16 @@ const AdminNavbar = (props) => {
         </ModalBody>
       </Modal>
 
-
-  {/* Dialog for guide  */}
-<Dialog
-  open={showGuide}
-  onClose={() => setShowGuide(false)}
-  maxWidth="md"
->
-  <DialogContent>
-    <WorkflowGuide onClose={() => setShowGuide(false)} />
-  </DialogContent>
-</Dialog>
+      {/* Dialog for guide */}
+      <Dialog
+        open={showGuide}
+        onClose={() => setShowGuide(false)}
+        maxWidth="md"
+      >
+        <DialogContent>
+          <WorkflowGuide onClose={() => setShowGuide(false)} />
+        </DialogContent>
+      </Dialog>
     </>
   );
 };

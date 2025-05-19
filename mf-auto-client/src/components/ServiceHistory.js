@@ -1,6 +1,6 @@
 // Create or update ServiceHistory.js
 import React, { useState, useEffect, useContext } from 'react';
-import { UserContext } from '../../Context/UserContext';
+import { UserContext } from '../Context/UserContext';
 import axios from 'axios';
 import {
   Box, Typography, Paper, Table, TableBody, TableCell, TableContainer,

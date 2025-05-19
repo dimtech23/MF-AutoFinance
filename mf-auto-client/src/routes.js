@@ -5,7 +5,7 @@ import Reports from "views/pages/Reports.js";
 import Invoices from "views/pages/Invoices.js";
 import UserManagement from "views/pages/UserManagement.js";
 import Login from "views/pages/Login.js";
-import TransactionHistory from "views/pages/TransactionHistory.js";
+import ClientActivityHistory from "views/pages/ClientActivityHistory";
 
 const routes = [
   {
@@ -25,20 +25,12 @@ const routes = [
     roles: ["Accountant", "Admin"]
   },
   {
-    path: "/budget",
-    name: "Budget",
-    icon: "ni ni-chart-pie-35 text-orange",
-    component: Budget,
+    path: "/client-history",
+    name: "Client History",
+    icon: "ni ni-bullet-list-67 text-red",
+    component: ClientActivityHistory,
     layout: "/admin",
-    roles: ["Admin", "Accountant", "Manager"]
-  },
-  {
-    path: "/reports",
-    name: "Reports",
-    icon: "ni ni-chart-bar-32 text-blue",
-    component: Reports,
-    layout: "/admin",
-    roles: ["Admin", "Manager", "Accountant"]
+    roles: ["Accountant", "Admin", "Manager"]
   },
   {
     path: "/invoices",
@@ -49,12 +41,20 @@ const routes = [
     roles: ["Accountant", "Admin"]
   },
   {
-    path: "/transaction-history",
-    name: "Transaction History",
-    icon: "ni ni-bullet-list-67 text-red",
-    component: TransactionHistory,
+    path: "/reports",
+    name: "Reports",
+    icon: "ni ni-chart-bar-32 text-blue",
+    component: Reports,
     layout: "/admin",
-    roles: ["Accountant", "Admin", "Manager"]
+    roles: ["Admin", "Manager", "Accountant"]
+  },
+  {
+    path: "/budget",
+    name: "Budget",
+    icon: "ni ni-chart-pie-35 text-orange",
+    component: Budget,
+    layout: "/admin",
+    roles: ["Admin", "Accountant", "Manager"]
   },
   {
     path: "/user-management",

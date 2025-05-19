@@ -8,7 +8,9 @@ import {
   markAsPaid,
   processPayment,
   generatePDF,
-  exportToExcel
+  exportToExcel,
+  exportFinancialReportPDF,
+  exportFinancialReportExcel
 } from '../controllers/invoiceController';
 import { authenticateToken, authorize } from "../middlewares/authMiddleware";
 import { UserRole } from "../constants/roles";
@@ -41,5 +43,11 @@ router.get('/:id/pdf', authenticateToken, generatePDF);
 
 // Export invoices to Excel - Admin and Accountant only
 router.get('/export/excel', authenticateToken, authorize([UserRole.ADMIN, UserRole.ACCOUNTANT]), exportToExcel);
+
+// Export financial report to PDF - Admin and Accountant only
+router.post('/export/pdf', authenticateToken, authorize([UserRole.ADMIN, UserRole.ACCOUNTANT]), exportFinancialReportPDF);
+
+// Export financial report to Excel - Admin and Accountant only
+router.post('/export/excel', authenticateToken, authorize([UserRole.ADMIN, UserRole.ACCOUNTANT]), exportFinancialReportExcel);
 
 export { router as invoiceRouter };

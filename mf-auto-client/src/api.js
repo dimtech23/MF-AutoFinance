@@ -1,6 +1,7 @@
 // api.js
 import axios from 'axios';
 import { toast } from 'react-toastify';
+import { format } from 'date-fns';
 
 // Get API URL from environment variables with proper fallback
 const API_URL = process.env.REACT_APP_API_URL || 'https://server.mfautosfinance.com';
@@ -95,36 +96,48 @@ export const authAPI = {
 // All other API calls - These use /api prefix
 // Transaction API methods
 export const transactionAPI = {
-  // Get all transactions (we'll use budget entries as transactions)
+  // Get all transactions
   getAll: (params = {}) => {
-    return budgetAPI.getAll();
+    // Convert params object to query string
+    const queryParams = new URLSearchParams();
+    
+    if (params.startDate) queryParams.append('startDate', params.startDate);
+    if (params.endDate) queryParams.append('endDate', params.endDate);
+    if (params.type) queryParams.append('type', params.type);
+    if (params.status) queryParams.append('status', params.status);
+    if (params.category) queryParams.append('category', params.category);
+    
+    const queryString = queryParams.toString();
+    const url = queryString ? `/api/transactions?${queryString}` : '/api/transactions';
+    
+    return api.get(url);
   },
   
   // Get a specific transaction by ID
-  getById: (id) => {
-    return budgetAPI.getById(id);
-  },
+  getById: (id) => api.get(`/api/transactions/${id}`),
   
   // Create a new transaction
-  create: (data) => {
-    return budgetAPI.create(data);
-  },
+  create: (data) => api.post('/api/transactions', data),
   
   // Update a transaction
   update: (id, data) => {
-    return budgetAPI.update(id, data);
+    if (!id) {
+      console.error("Transaction update called with undefined ID");
+      throw new Error("Cannot update transaction: ID is required");
+    }
+    
+    // Remove id from data to prevent duplicate ID fields
+    const { id: _, ...cleanData } = data;
+    return api.put(`/api/transactions/${id}`, cleanData);
   },
   
   // Delete a transaction
-  delete: (id) => {
-    return budgetAPI.delete(id);
-  },
+  delete: (id) => api.delete(`/api/transactions/${id}`),
   
-  // Get transaction summary by calculating from budget data
+  // Get transaction summary
   getSummary: async (timeRange = 'month') => {
     try {
-      // Fetch all budget entries
-      const response = await budgetAPI.getAll();
+      const response = await transactionAPI.getAll();
       const transactions = response.data;
       
       // Calculate date range based on timeRange
@@ -159,11 +172,11 @@ export const transactionAPI = {
       
       // Calculate summary stats
       const totalIncome = filteredTransactions
-        .filter(t => t.type === 'income')
+        .filter(t => t.type === 'income' && t.status === 'approved')
         .reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
         
       const totalExpenses = filteredTransactions
-        .filter(t => t.type === 'expense')
+        .filter(t => t.type === 'expense' && t.status === 'approved')
         .reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
         
       const pendingCount = filteredTransactions.filter(t => t.status === 'pending').length;
@@ -186,88 +199,29 @@ export const transactionAPI = {
     }
   },
   
-  // Generate monthly data for charts
-  getMonthlyData: async (year = new Date().getFullYear()) => {
-    try {
-      // Fetch all budget entries
-      const response = await budgetAPI.getAll();
-      const transactions = response.data;
-      
-      // Group by month
-      const months = {};
-      
-      transactions.forEach(transaction => {
-        const date = new Date(transaction.date || transaction.createdAt);
-        if (date.getFullYear() !== parseInt(year)) return;
-        
-        const monthKey = `${date.getFullYear()}-${date.getMonth() + 1}`;
-        
-        if (!months[monthKey]) {
-          months[monthKey] = {
-            month: date.toLocaleString('default', { month: 'short' }),
-            year: date.getFullYear(),
-            income: 0,
-            expenses: 0
-          };
-        }
-        
-        if (transaction.type === 'income') {
-          months[monthKey].income += parseFloat(transaction.amount) || 0;
-        } else {
-          months[monthKey].expenses += parseFloat(transaction.amount) || 0;
-        }
-      });
-      
-      // Convert to array and sort by date
-      const monthlyData = Object.values(months)
-        .map(month => ({
-          ...month,
-          balance: month.income - month.expenses,
-          label: `${month.month} ${month.year}`
-        }))
-        .sort((a, b) => {
-          if (a.year !== b.year) return a.year - b.year;
-          return months.indexOf(a.month) - months.indexOf(b.month);
-        });
-      
-      return { data: monthlyData };
-    } catch (error) {
-      console.error('Error generating monthly data:', error);
-      throw error;
-    }
-  },
-  
-  // Export to CSV by formatting budget data
+  // Export to CSV
   exportCSV: async (params = {}) => {
     try {
-      // Fetch all budget entries
-      const response = await budgetAPI.getAll();
-      let transactions = response.data;
-      
-      // Apply filters if provided
-      if (params.startDate && params.endDate) {
-        const startDate = new Date(params.startDate);
-        const endDate = new Date(params.endDate);
-        transactions = transactions.filter(t => {
-          const txDate = new Date(t.date || t.createdAt);
-          return txDate >= startDate && txDate <= endDate;
-        });
-      }
-      
-      if (params.type) {
-        transactions = transactions.filter(t => t.type === params.type);
-      }
-      
-      if (params.status) {
-        transactions = transactions.filter(t => t.status === params.status);
-      }
-      
-      if (params.category) {
-        transactions = transactions.filter(t => t.category === params.category);
-      }
+      const response = await transactionAPI.getAll(params);
+      const transactions = response.data;
       
       // Format as CSV
-      const headers = ["ID", "Date", "Type", "Category", "Description", "Amount", "Status", "Reference"];
+      const headers = [
+        "ID", 
+        "Date", 
+        "Type", 
+        "Category", 
+        "Description", 
+        "Amount", 
+        "Status", 
+        "Reference",
+        "Client Name",
+        "Vehicle Info",
+        "Created By",
+        "Approved By",
+        "Approved At"
+      ];
+      
       const csvData = transactions.map(t => [
         t.id || t._id,
         new Date(t.date || t.createdAt).toISOString().split('T')[0],
@@ -276,12 +230,17 @@ export const transactionAPI = {
         t.description || '',
         t.amount || '0',
         t.status || 'pending',
-        t.reference || ''
+        t.reference || '',
+        t.clientName || '',
+        t.vehicleInfo ? `${t.vehicleInfo.year} ${t.vehicleInfo.make} ${t.vehicleInfo.model}` : '',
+        t.createdBy || '',
+        t.approvedBy || '',
+        t.approvedAt ? new Date(t.approvedAt).toISOString().split('T')[0] : ''
       ]);
       
       const csvContent = [
         headers.join(','),
-        ...csvData.map(row => row.join(','))
+        ...csvData.map(row => row.map(cell => `"${cell}"`).join(','))
       ].join('\n');
       
       // Create blob
@@ -302,7 +261,36 @@ export const clientsAPI = {
   update: (id, data) => api.put(`/api/clients/${id}`, data),
   delete: (id) => api.delete(`/api/clients/${id}`),
   updateStatus: (clientId, status) => api.patch(`/api/clients/${clientId}/status`, { status }),
-  updatePayment: (clientId, paymentData) => api.patch(`/api/clients/${clientId}/payment`, paymentData)
+  updatePayment: (clientId, paymentData) => api.patch(`/api/clients/${clientId}/payment`, paymentData),
+  getHistory: (params = {}) => {
+    // If params is a string, treat it as a clientId
+    if (typeof params === 'string') {
+      return api.get(`/api/clients/${params}/history`);
+    }
+    
+    // Otherwise, treat it as query parameters for all client history
+    const queryParams = new URLSearchParams();
+    if (params.startDate) queryParams.append('startDate', params.startDate);
+    if (params.endDate) queryParams.append('endDate', params.endDate);
+    if (params.type) queryParams.append('type', params.type);
+    if (params.status) queryParams.append('status', params.status);
+    if (params.category) queryParams.append('category', params.category);
+    
+    const queryString = queryParams.toString();
+    const url = queryString ? `/api/clients/history?${queryString}` : '/api/clients/history';
+    
+    return api.get(url);
+  },
+  getSummary: () => api.get('/api/clients/summary'),
+  markDelivered: (clientId, deliveryData) => api.patch(`/api/clients/${clientId}/delivery`, deliveryData),
+  getClientDocuments: async (clientId) => {
+    const response = await api.get(`/api/clients/${clientId}/documents`);
+    return response.data;
+  },
+  // You can add this method if needed
+  sendDocuments: async (clientId, documentUrls) => {
+    return api.post(`/api/clients/${clientId}/send-documents`, { documentUrls });
+  }
 };
 
 // Add error handler function
@@ -317,24 +305,96 @@ const handleApiError = (error) => {
 
 // Invoice related API calls
 export const invoicesAPI = {
-  getAll: () => api.get('/api/invoices'),
+  getAll: (params = {}) => api.get('/api/invoices', { params }),
   getById: (id) => api.get(`/api/invoices/${id}`),
   create: (data) => api.post('/api/invoices', data),
   update: (id, data) => api.put(`/api/invoices/${id}`, data),
   delete: (id) => api.delete(`/api/invoices/${id}`),
-  exportExcel: async (params = {}) => {
+  markAsPaid: (id) => api.patch(`/api/invoices/${id}/pay`),
+  processPayment: (id, paymentData) => api.post(`/api/invoices/${id}/payment`, paymentData),
+  getPDF: (id) => api.get(`/api/invoices/${id}/pdf`, { responseType: 'blob' }),
+  sendEmail: (id) => api.post(`/api/invoices/${id}/email`),
+  exportExcel: (params = {}) => api.get('/api/invoices/export/excel', { params, responseType: 'blob' }),
+  updateStatus: (id, status) => api.patch(`/api/invoices/${id}/status`, { status }),
+  exportToPdf: async (exportData) => {
     try {
-      const response = await api.get('/api/invoices/export/excel', {
-        params,
+      const response = await api.post('/api/invoices/export/pdf', exportData, {
         responseType: 'blob'
       });
-      return response;
+      
+      // Create a blob from the PDF data
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      
+      // Create a URL for the blob
+      const url = window.URL.createObjectURL(blob);
+      
+      // Create a temporary link element
+      const link = document.createElement('a');
+      link.href = url;
+      
+      // Generate filename based on date range and report type
+      const dateStr = exportData.dateRange === 'custom' 
+        ? `${format(new Date(exportData.customDateRange[0]), 'yyyy-MM-dd')}_to_${format(new Date(exportData.customDateRange[1]), 'yyyy-MM-dd')}`
+        : exportData.dateRange;
+      
+      link.download = `financial_report_${exportData.reportType}_${dateStr}.pdf`;
+      
+      // Append to body, click, and remove
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      // Clean up the URL
+      window.URL.revokeObjectURL(url);
+      
+      return { success: true };
     } catch (error) {
-      handleApiError(error);
+      console.error('Error exporting to PDF:', error);
+      toast.error('Failed to export PDF. Please try again.');
+      throw error;
+    }
+  },
+  exportToExcel: async (exportData) => {
+    try {
+      const response = await api.post('/api/invoices/export/excel', exportData, {
+        responseType: 'blob'
+      });
+      
+      // Create a blob from the Excel data
+      const blob = new Blob([response.data], { 
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+      });
+      
+      // Create a URL for the blob
+      const url = window.URL.createObjectURL(blob);
+      
+      // Create a temporary link element
+      const link = document.createElement('a');
+      link.href = url;
+      
+      // Generate filename based on date range and report type
+      const dateStr = exportData.dateRange === 'custom' 
+        ? `${format(new Date(exportData.customDateRange[0]), 'yyyy-MM-dd')}_to_${format(new Date(exportData.customDateRange[1]), 'yyyy-MM-dd')}`
+        : exportData.dateRange;
+      
+      link.download = `financial_report_${exportData.reportType}_${dateStr}.xlsx`;
+      
+      // Append to body, click, and remove
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      // Clean up the URL
+      window.URL.revokeObjectURL(url);
+      
+      return { success: true };
+    } catch (error) {
+      console.error('Error exporting to Excel:', error);
+      toast.error('Failed to export Excel. Please try again.');
       throw error;
     }
   }
-};
+};  
 
 // User related API calls
 export const usersAPI = {

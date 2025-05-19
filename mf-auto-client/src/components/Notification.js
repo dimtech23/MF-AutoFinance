@@ -13,10 +13,9 @@ import ListItemText from '@mui/material/ListItemText';
 import Typography from '@mui/material/Typography';
 import { styled } from '@mui/material/styles';
 import CloseIcon from '@mui/icons-material/Close';
+import api from '../api';
 
-const baseURL = process.env.NODE_ENV === 'production'
-  ? ''
-  : 'https://localhost:7097';
+const baseURL = process.env.REACT_APP_API_URL || 'https://server.mfautosfinance.com';
 
 const StyledBadge = styled(Badge)(({ theme }) => ({
   '& .MuiBadge-badge': {
@@ -67,12 +66,9 @@ const Notification = () => {
   useEffect(() => {
     const fetchNotifications = async () => {
       try {
-        const response = await fetch(`${baseURL}/api/notification/user/${userName}`);
-        if (response.ok) {
-          const data = await response.json();
-          setNotifications(data);
-        } else {
-          console.error("Failed to fetch notifications");
+        const response = await api.get(`/api/notification/user/${userName}`);
+        if (response.data) {
+          setNotifications(response.data);
         }
       } catch (error) {
         console.error("Error fetching notifications:", error);
@@ -89,9 +85,7 @@ const Notification = () => {
   const handleNotificationClick = async (notification) => {
     try {
       if (!notification.isReadByUser) {
-        await fetch(`${baseURL}/api/notification/read/${notification.id}?username=${userName}`, { 
-          method: 'PUT' 
-        });
+        await api.put(`/api/notification/read/${notification.id}`, { username: userName });
         setNotifications(prev => prev.map(n => 
           n.id === notification.id ? { ...n, isReadByUser: true } : n
         ));

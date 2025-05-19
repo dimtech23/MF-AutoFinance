@@ -1,184 +1,172 @@
-import { useState, useContext } from "react";
-import { NavLink as NavLinkRRD, Link, useLocation } from "react-router-dom";
-import PropTypes from "prop-types";
-import { UserContext } from 'Context/UserContext';
+import { useState, useContext, useEffect } from "react";
 import {
-    Button,
-    Collapse,
-    NavbarBrand,
-    Navbar,
-    NavItem,
-    NavLink,
-    Nav,
-    Row,
-    Col,
-    Container,
-    InputGroupAddon,
-    InputGroupText,
-    InputGroup,
-    Input,
-    Form,
+  NavLink as NavLinkRRD,
+  Link,
+  useHistory,
+  useLocation,
+} from "react-router-dom";
+import PropTypes from "prop-types";
+import { UserContext } from "../../Context/UserContext";
+import {
+  Button,
+  Collapse,
+  NavbarBrand,
+  Navbar,
+  NavItem,
+  NavLink,
+  Nav,
+  Container,
 } from "reactstrap";
 
-const Sidebar = ({ bgColor, routes = [], logo, closeCollapse }) => {
-    const { userRole } = useContext(UserContext);
-    const [collapseOpen, setCollapseOpen] = useState(false);
-    const location = useLocation();
+const Sidebar = ({ routes = [], logo, closeCollapse }) => {
+  const { userRole, logout } = useContext(UserContext);
+  const [collapseOpen, setCollapseOpen] = useState(false);
+  const history = useHistory();
+  const location = useLocation();
 
-    const toggleCollapse = () => {
-        setCollapseOpen((data) => !data);
-    };
-
-    const closeSidebarCollapse = () => {
-        setCollapseOpen(false);
-    };
-
-    const createLinks = (routes) => {
-        return routes
-            .filter(route => Array.isArray(route.roles) && route.roles.includes(userRole))
-            .map((prop, key) => (
-                <NavItem key={key}>
-                    <NavLink
-                        to={prop.layout + prop.path}
-                        tag={NavLinkRRD}
-                        onClick={closeCollapse || closeSidebarCollapse}
-                        activeClassName="active"
-                    >
-                        <i className={prop.icon} />
-                        {prop.name}
-                    </NavLink>
-                </NavItem>
-            ));
-    };
-
-    let navbarBrandProps;
-    if (logo && logo.innerLink) {
-        navbarBrandProps = {
-            to: logo.innerLink,
-            tag: Link
-        };
-    } else if (logo && logo.outterLink) {
-        navbarBrandProps = {
-            href: logo.outterLink,
-            target: "_blank"
-        };
+  // Close sidebar when route changes on mobile
+  useEffect(() => {
+    if (window.innerWidth < 768) {
+      setCollapseOpen(false);
     }
+  }, [location.pathname]);
 
-    return (
-        <Navbar className="navbar-vertical fixed-left navbar-light bg-white" expand="md" id="sidenav-main">
-            <Container fluid>
-                <button className="navbar-toggler" type="button" onClick={toggleCollapse}>
-                    <span className="navbar-toggler-icon" />
+  const toggleCollapse = () => {
+    setCollapseOpen(!collapseOpen);
+  };
+
+  const closeSidebarCollapse = () => {
+    setCollapseOpen(false);
+  };
+
+  const handleLogout = (e) => {
+    e.preventDefault();
+    logout();
+    history.push("/auth/login");
+  };
+
+  const createLinks = (routes) => {
+    return routes
+      .filter(
+        (route) => Array.isArray(route.roles) && route.roles.includes(userRole)
+      )
+      .map((prop, key) => (
+        <NavItem key={key} className="px-3">
+          <NavLink
+            to={prop.layout + prop.path}
+            tag={NavLinkRRD}
+            onClick={closeCollapse || closeSidebarCollapse}
+            activeClassName="bg-gray-200 text-primary font-semibold"
+            className="flex items-center py-2 px-4 text-gray-700 hover:bg-gray-100 rounded transition-colors duration-200"
+          >
+            <i
+              className={`${prop.icon} mr-3 text-xl min-w-[24px] text-center`}
+            />
+            {prop.name}
+          </NavLink>
+        </NavItem>
+      ));
+  };
+
+  let navbarBrandProps;
+  if (logo && logo.innerLink) {
+    navbarBrandProps = {
+      to: logo.innerLink,
+      tag: Link,
+    };
+  } else if (logo && logo.outterLink) {
+    navbarBrandProps = {
+      href: logo.outterLink,
+      target: "_blank",
+    };
+  }
+
+  return (
+    <Navbar
+      className="navbar-vertical fixed-left navbar-light bg-white shadow-md"
+      expand="md"
+      id="sidenav-main"
+    >
+      <Container fluid className="px-0">
+        {/* Toggler with Tailwind */}
+        <button
+          className="navbar-toggler border-0 p-3 focus:outline-none"
+          type="button"
+          onClick={toggleCollapse}
+        >
+          <span className="navbar-toggler-icon"></span>
+        </button>
+
+        {/* Logo - Larger for laptop, smaller for mobile */}
+        <NavbarBrand className="pt-0 flex justify-center" {...navbarBrandProps}>
+          <img
+            alt="Logo"
+            className="navbar-brand-img max-h-[120px] md:max-h-[220px] max-w-[180px] md:max-w-[280px] h-auto w-auto"
+            src="https://i.ibb.co/PGLYCzRD/MF-Autos-Social-Media.jpg"
+          />
+        </NavbarBrand>
+
+        <Collapse navbar isOpen={collapseOpen}>
+          {/* Mobile view close header with Tailwind */}
+          <div className="navbar-collapse-header p-4 md:hidden border-b border-gray-200 mb-3">
+            <div className="row">
+              <div className="col-6 collapse-brand">
+                <Link to="/">
+                  <img
+                    alt="Logo"
+                    src="https://i.ibb.co/PGLYCzRD/MF-Autos-Social-Media.jpg"
+                    className="max-h-[90px] max-w-[150px] w-auto"
+                  />
+                </Link>
+              </div>
+              <div className="col-6 collapse-close text-right">
+                <button
+                  className="navbar-toggler focus:outline-none"
+                  type="button"
+                  onClick={toggleCollapse}
+                >
+                  <span></span>
+                  <span></span>
                 </button>
+              </div>
+            </div>
+          </div>
 
-                <NavbarBrand className="pt-0" {...navbarBrandProps}>
-                    <img
-                        alt="Logo"
-                        className="navbar-brand-img"
-                        src="https://i.ibb.co/PGLYCzRD/MF-Autos-Social-Media.jpg"
-                        style={{ maxHeight: '100%', maxWidth: '75%', height: 'auto' }}
-                    />
-                </NavbarBrand>
+          {/* Navigation Links with Tailwind - Larger icons */}
+          <Nav navbar className="mb-md-3 py-2">
+            {createLinks(routes)}
+          </Nav>
 
-                {/* Mobile Header: Bell icon and User Profile */}
-                {/* <Nav className="align-items-center d-md-none">
-                    <UncontrolledDropdown nav>
-                        <DropdownToggle nav className="nav-link-icon">
-                            <i className="ni ni-bell-55" />
-                        </DropdownToggle>
-                        <DropdownMenu aria-labelledby="navbar-default_dropdown_1" className="dropdown-menu-arrow" right>
-                            <DropdownItem>Action</DropdownItem>
-                            <DropdownItem>Another action</DropdownItem>
-                            <DropdownItem divider />
-                            <DropdownItem>Something else here</DropdownItem>
-                        </DropdownMenu>
-                    </UncontrolledDropdown>
+          <hr className="my-3 mx-3 border-gray-200" />
 
-                    <UncontrolledDropdown nav>
-                        <DropdownToggle nav>
-                            <Media className="align-items-center">
-                                <span className="avatar avatar-sm rounded-circle">
-                                    <img alt="User" src={require("../../assets/img/theme/team-1-800x800.jpg")} />
-                                </span>
-                            </Media>
-                        </DropdownToggle>
-                        <DropdownMenu className="dropdown-menu-arrow" right>
-                            <DropdownItem className="noti-title" header tag="div">
-                                <h6 className="text-overflow m-0">Welcome!</h6>
-                            </DropdownItem>
-                            <DropdownItem to="/admin/user-profile" tag={Link}>
-                                <i className="ni ni-single-02" />
-                                <span>My profile</span>
-                            </DropdownItem>
-                            <DropdownItem to="/admin/user-profile" tag={Link}>
-                                <i className="ni ni-settings-gear-65" />
-                                <span>Settings</span>
-                            </DropdownItem>
-                            <DropdownItem to="/admin/user-profile" tag={Link}>
-                                <i className="ni ni-calendar-grid-58" />
-                                <span>Activity</span>
-                            </DropdownItem>
-                            <DropdownItem to="/admin/user-profile" tag={Link}>
-                                <i className="ni ni-support-16" />
-                                <span>Support</span>
-                            </DropdownItem>
-                            <DropdownItem divider />
-                            <DropdownItem href="#pablo" onClick={(e) => e.preventDefault()}>
-                                <i className="ni ni-user-run" />
-                                <span>Logout</span>
-                            </DropdownItem>
-                        </DropdownMenu>
-                    </UncontrolledDropdown>
-                </Nav> */}
-
-                {/* Sidebar Collapse for mobile */}
-                <Collapse navbar isOpen={collapseOpen}>
-                    <div className="navbar-collapse-header d-md-none">
-                        <Row>
-                            <Col className="collapse-close" xs="6">
-                                <button className="navbar-toggler" type="button" onClick={toggleCollapse}>
-                                    <span />
-                                    <span />
-                                </button>
-                            </Col>
-                        </Row>
-                    </div>
-
-                    <Form className="mt-4 mb-3 d-md-none">
-                        <InputGroup className="input-group-rounded input-group-merge">
-                            <Input
-                                aria-label="Search"
-                                className="form-control-rounded form-control-prepended"
-                                placeholder="Search"
-                                type="search"
-                            />
-                            <InputGroupAddon addonType="prepend">
-                                <InputGroupText>
-                                    <span className="fa fa-search" />
-                                </InputGroupText>
-                            </InputGroupAddon>
-                        </InputGroup>
-                    </Form>
-
-                    {/* Sidebar Links */}
-                    <Nav navbar>{createLinks(routes)}</Nav>
-                    <hr className="my-3" />
-                </Collapse>
-            </Container>
-        </Navbar>
-    );
+          {/* Logout Link with Tailwind - Larger icon */}
+          <Nav className="px-3 mb-4">
+            <NavItem>
+              <NavLink
+                href="#"
+                onClick={handleLogout}
+                className="flex items-center text-red-500 hover:bg-red-50 hover:text-red-600 py-2 px-4 rounded transition-colors duration-200"
+              >
+                <i className="ni ni-user-run mr-3 text-xl" />
+                <span className="text-base">Logout</span>
+              </NavLink>
+            </NavItem>
+          </Nav>
+        </Collapse>
+      </Container>
+    </Navbar>
+  );
 };
 
 Sidebar.propTypes = {
-    bgColor: PropTypes.string,
-    routes: PropTypes.arrayOf(PropTypes.object),
-    logo: PropTypes.shape({
-        innerLink: PropTypes.string,
-        outterLink: PropTypes.string,
-        imgSrc: PropTypes.string.isRequired,
-        imgAlt: PropTypes.string.isRequired
-    }),
-    closeCollapse: PropTypes.func
+  routes: PropTypes.arrayOf(PropTypes.object),
+  logo: PropTypes.shape({
+    innerLink: PropTypes.string,
+    outterLink: PropTypes.string,
+    imgSrc: PropTypes.string,
+    imgAlt: PropTypes.string,
+  }),
+  closeCollapse: PropTypes.func,
 };
 
 export default Sidebar;

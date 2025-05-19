@@ -48,6 +48,7 @@ export const getAllAppointments = async (req: Request, res: Response) => {
   }
 };
 
+
 // Get a specific appointment by ID
 export const getAppointmentById = async (req: Request, res: Response) => {
   try {

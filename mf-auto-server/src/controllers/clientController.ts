@@ -109,7 +109,12 @@ export const updateClient = async (req: Request, res: Response) => {
     
     const updatedClient = await Client.findByIdAndUpdate(
       req.params.id,
-      { $set: req.body },
+      { 
+        $set: {
+          ...req.body,
+          updatedBy: (req as any).user._id
+        }
+      },
       { new: true, runValidators: true }
     );
     
@@ -391,6 +396,169 @@ export const registerAdmin = async (req: Request, res: Response) => {
     res.status(201).json({ message: 'Admin user created successfully' });
   } catch (error) {
     console.error('Error creating admin user:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Get all client history with filtering
+export const getAllClientHistory = async (req: Request, res: Response) => {
+  try {
+    const { startDate, endDate, type, status, category } = req.query;
+    
+    // Build the query
+    const query: any = {};
+    
+    // Add date range filter if provided
+    if (startDate || endDate) {
+      query.date = {};
+      if (startDate) query.date.$gte = new Date(startDate as string);
+      if (endDate) query.date.$lte = new Date(endDate as string);
+    }
+    
+    // Add type filter if provided
+    if (type) query.type = type;
+    
+    // Add status filter if provided
+    if (status) query.status = status;
+    
+    // Add category filter if provided
+    if (category) query.category = category;
+    
+    // Get all clients first
+    const clients = await Client.find().sort({ createdAt: -1 });
+    
+    // Transform client data into activity history
+    const history = clients.flatMap(client => {
+      const activities = [];
+      
+      // Add client creation as an activity
+      activities.push({
+        id: `create_${client._id}`,
+        type: 'status_change',
+        date: client.createdAt,
+        status: 'created',
+        category: 'client',
+        description: `New client registered: ${client.clientName}`,
+        clientName: client.clientName,
+        vehicleInfo: client.carDetails,
+        createdBy: client.createdBy,
+        documents: client.documents || [],
+        notes: client.notes
+      });
+      
+      // Add status changes
+      if (client.repairStatus) {
+        activities.push({
+          id: `status_${client._id}`,
+          type: 'status_change',
+          date: client.updatedAt,
+          status: client.repairStatus,
+          category: 'status',
+          description: `Status updated to: ${client.repairStatus}`,
+          clientName: client.clientName,
+          vehicleInfo: client.carDetails,
+          createdBy: client.updatedBy || client.createdBy
+        });
+      }
+      
+      // Add payment activities
+      if (client.paymentStatus) {
+        activities.push({
+          id: `payment_${client._id}`,
+          type: 'payment',
+          date: client.updatedAt,
+          status: client.paymentStatus,
+          category: 'payment',
+          description: `Payment status: ${client.paymentStatus}${client.partialPaymentAmount ? ` (Amount: ${client.partialPaymentAmount})` : ''}`,
+          clientName: client.clientName,
+          vehicleInfo: client.carDetails,
+          amount: client.partialPaymentAmount || 0,
+          createdBy: client.updatedBy || client.createdBy
+        });
+      }
+      
+      // Add delivery activity if delivered
+      if (client.repairStatus === 'delivered' && client.deliveryDate) {
+        activities.push({
+          id: `delivery_${client._id}`,
+          type: 'delivery',
+          date: client.deliveryDate,
+          status: 'delivered',
+          category: 'delivery',
+          description: `Vehicle delivered to client`,
+          clientName: client.clientName,
+          vehicleInfo: client.carDetails,
+          createdBy: client.updatedBy || client.createdBy
+        });
+      }
+      
+      return activities;
+    });
+    
+    // Apply filters
+    const filteredHistory = history.filter(activity => {
+      if (query.date && activity.date) {
+        if (query.date.$gte && new Date(activity.date) < query.date.$gte) return false;
+        if (query.date.$lte && new Date(activity.date) > query.date.$lte) return false;
+      }
+      if (query.type && activity.type !== query.type) return false;
+      if (query.status && activity.status !== query.status) return false;
+      if (query.category && activity.category !== query.category) return false;
+      return true;
+    });
+    
+    // Sort by date descending
+    filteredHistory.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    
+    res.status(200).json(filteredHistory);
+  } catch (error) {
+    console.error('Error fetching all client history:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Get client summary statistics
+export const getClientSummary = async (req: Request, res: Response) => {
+  try {
+    // Get total number of clients
+    const totalClients = await Client.countDocuments();
+    
+    // Get active clients (not cancelled)
+    const activeClients = await Client.countDocuments({
+      repairStatus: { $ne: 'cancelled' }
+    });
+    
+    // Get pending deliveries (completed but not delivered)
+    const pendingDeliveries = await Client.countDocuments({
+      repairStatus: 'completed',
+      deliveryDate: { $exists: false }
+    });
+    
+    // Get pending payments (not paid or partial)
+    const pendingPayments = await Client.countDocuments({
+      paymentStatus: { $in: ['not_paid', 'partial'] }
+    });
+    
+    // Get recent activities (clients created or updated in last 30 days)
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    
+    const recentActivities = await Client.countDocuments({
+      $or: [
+        { createdAt: { $gte: thirtyDaysAgo } },
+        { updatedAt: { $gte: thirtyDaysAgo } }
+      ]
+    });
+    
+    res.status(200).json({
+      totalClients,
+      activeClients,
+      pendingDeliveries,
+      pendingPayments,
+      recentActivities
+    });
+  } catch (error) {
+    console.error('Error fetching client summary:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };

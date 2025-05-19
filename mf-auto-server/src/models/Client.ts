@@ -34,6 +34,15 @@ export interface ClientDocument extends Document {
     uploadDate: Date;
   }[];
   createdBy: mongoose.Schema.Types.ObjectId;
+  updatedBy?: mongoose.Schema.Types.ObjectId;
+  documents?: {
+    name: string;
+    url: string;
+    type: string;
+    uploadDate: Date;
+  }[];
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 const ClientSchema = new mongoose.Schema({
@@ -76,7 +85,14 @@ const ClientSchema = new mongoose.Schema({
     url: String,
     uploadDate: Date
   }],
-  createdBy: { type: Schema.Types.ObjectId, ref: 'User' }
+  createdBy: { type: Schema.Types.ObjectId, ref: 'User' },
+  updatedBy: { type: Schema.Types.ObjectId, ref: 'User' },
+  documents: [{
+    name: String,
+    url: String,
+    type: String,
+    uploadDate: Date
+  }]
 }, {
   timestamps: true
 });

@@ -1,0 +1,56 @@
+/* MobileNavbar.css - Add only necessary mobile adjustments */
+
+/* Only apply these styles on mobile devices */
+@media (max-width: 767px) {
+    /* Make navbar logo smaller on mobile */
+    .navbar-brand img {
+      max-width: 100px !important;
+      height: auto !important;
+    }
+    
+    /* Ensure mobile menu button is visible */
+    .navbar-toggler {
+      display: flex !important;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    /* Add padding to main content area to prevent navbar overlap */
+    .main-content {
+      padding-top: 10px !important;
+    }
+    
+    /* Make dropdown menu properly positioned */
+    .dropdown-menu {
+      position: absolute !important;
+      will-change: transform !important;
+    }
+    
+    /* Adjust button spacing for compact mobile display */
+    .navbar .btn {
+      padding: 4px 8px !important;
+      font-size: 0.75rem !important;
+    }
+    
+    /* Ensure notification icon is visible */
+    .notification-icon {
+      color: white !important;
+    }
+    
+    /* Sidebar improvements */
+    #sidenav-main.show {
+      display: block !important;
+      transform: translateX(0) !important;
+    }
+    
+    /* Fix for overflow issues */
+    .navbar-collapse {
+      max-height: calc(100vh - 70px);
+      overflow-y: auto;
+    }
+  }
+  
+  /* Target the logout icon specifically for better visibility */
+  .ni.ni-circle-08 {
+    font-size: 1.1rem !important;
+  }
