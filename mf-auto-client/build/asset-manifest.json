@@ -1,7 +1,7 @@
 {
   "files": {
-    "main.css": "/static/css/main.7e1ce99f.css",
-    "main.js": "/static/js/main.f6308fe3.js",
+    "main.css": "/static/css/main.24fd109f.css",
+    "main.js": "/static/js/main.e4e36d57.js",
     "static/media/fa-solid-900.svg": "/static/media/fa-solid-900.13de59f1a36b6cb4bca0.svg",
     "static/media/fa-brands-400.svg": "/static/media/fa-brands-400.216edb96b562c79adc09.svg",
     "static/media/mfautos-logo.jpg": "/static/media/mfautos-logo.e29ba08dd02fc4cb36e8.jpg",
@@ -24,11 +24,11 @@
     "static/media/nucleo-icons.woff": "/static/media/nucleo-icons.c82c9b7c40130b7116d3.woff",
     "static/media/nucleo-icons.woff2": "/static/media/nucleo-icons.cba267483aa6a7cb6e33.woff2",
     "index.html": "/index.html",
-    "main.7e1ce99f.css.map": "/static/css/main.7e1ce99f.css.map",
-    "main.f6308fe3.js.map": "/static/js/main.f6308fe3.js.map"
+    "main.24fd109f.css.map": "/static/css/main.24fd109f.css.map",
+    "main.e4e36d57.js.map": "/static/js/main.e4e36d57.js.map"
   },
   "entrypoints": [
-    "static/css/main.7e1ce99f.css",
-    "static/js/main.f6308fe3.js"
+    "static/css/main.24fd109f.css",
+    "static/js/main.e4e36d57.js"
   ]
 }

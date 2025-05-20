@@ -930,18 +930,48 @@ const Invoices = () => {
     return (
       <>
         <Header />
-        <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
-        {isLoading ? (
-          <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
-            <CircularProgress />
-          </Box>
-        ) : (
-          <>
-            {/* Header Section */}
-            <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-            <Typography variant="h4" component="h1">
-              Invoices
-            </Typography>
+        <Box 
+          sx={{ 
+            p: 3,
+            minHeight: 'calc(100vh - 64px)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: { xs: 2, md: 3 }
+          }}
+        >
+          {/* Header Section */}
+          <Box 
+            sx={{ 
+              display: 'flex', 
+              flexDirection: { xs: 'column', sm: 'row' },
+              justifyContent: 'space-between', 
+              alignItems: { xs: 'flex-start', sm: 'center' },
+              gap: 2,
+              flexShrink: 0,
+              mb: { xs: 2, md: 3 }
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <Avatar 
+                sx={{ 
+                  bgcolor: 'primary.main', 
+                  mr: 2,
+                  width: { xs: 40, md: 48 },
+                  height: { xs: 40, md: 48 }
+                }}
+              >
+                <DollarSign size={24} />
+              </Avatar>
+              <Typography 
+                variant="h4" 
+                component="h1"
+                sx={{ 
+                  fontSize: { xs: '1.5rem', sm: '2rem', md: '2.5rem' }
+                }}
+              >
+                Invoices
+              </Typography>
+            </Box>
             <Button
               variant="contained"
               color="primary"
@@ -950,7 +980,7 @@ const Invoices = () => {
                 setFormOpen(true);
                 setEditMode(false);
                 setFormData({
-                  invoiceNumber: generateInvoiceNumber(), // Generate new invoice number
+                  invoiceNumber: generateInvoiceNumber(),
                   status: "draft",
                   issueDate: new Date(),
                   dueDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000),
@@ -991,41 +1021,62 @@ const Invoices = () => {
                   relatedClientId: null,
                   relatedRepairId: null,
                 });
-                setSelectedClient(null); // Clear selected client
+                setSelectedClient(null);
+              }}
+              sx={{
+                whiteSpace: 'nowrap',
+                minWidth: { xs: '100%', sm: 'auto' }
               }}
             >
               New Invoice
             </Button>
-        </Box>
+          </Box>
 
-            {/* Search and Filter Section */}
-            <Card sx={{ mb: 3, p: 2 }}>
-          <Grid container spacing={2} alignItems="center">
+          {/* Main Content */}
+          <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', gap: { xs: 2, md: 3 } }}>
+            {/* Filters and Search */}
+            <Card 
+              sx={{ 
+                p: { xs: 1.5, sm: 2, md: 2.5 },
+                borderRadius: 2,
+                boxShadow: 2,
+                borderLeft: '4px solid',
+                borderColor: 'primary.main'
+              }}
+            >
+              <Grid container spacing={2} alignItems="center">
                 <Grid item xs={12} md={4}>
-              <TextField
-                fullWidth
+                  <TextField
+                    fullWidth
                     variant="outlined"
-                placeholder="Search invoices..."
-                value={searchTerm}
+                    placeholder="Search invoices..."
+                    value={searchTerm}
                     onChange={(e) => debouncedSearch(e.target.value)}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
                           <Search />
-                    </InputAdornment>
-                  ),
-                }}
-              />
-            </Grid>
-            <Grid item xs={12} md={3}>
-              <Select
-                value={statusFilter}
+                        </InputAdornment>
+                      ),
+                    }}
+                    size="small"
+                  />
+                </Grid>
+                <Grid item xs={12} md={3}>
+                  <Select
+                    value={statusFilter}
                     onChange={setStatusFilter}
-                options={invoiceStatusOptions}
+                    options={invoiceStatusOptions}
                     placeholder="Filter by status"
                     isClearable
-              />
-            </Grid>
+                    styles={{
+                      control: (base) => ({
+                        ...base,
+                        minHeight: '40px'
+                      })
+                    }}
+                  />
+                </Grid>
                 <Grid item xs={12} md={5}>
                   <DatePicker
                     selected={startDate}
@@ -1035,62 +1086,95 @@ const Invoices = () => {
                     selectsRange
                     placeholderText="Filter by date range"
                     className="form-control"
+                    customInput={
+                      <TextField 
+                        fullWidth 
+                        size="small"
+                        variant="outlined"
+                        InputProps={{
+                          startAdornment: (
+                            <InputAdornment position="start">
+                              <Calendar size={20} />
+                            </InputAdornment>
+                          ),
+                        }}
+                      />
+                    }
                   />
                 </Grid>
-                </Grid>
+              </Grid>
             </Card>
 
-            {/* Invoices Table */}
-            <Card>
-              <TableContainer>
+            {/* Table Section */}
+            <Card 
+              sx={{ 
+                flexGrow: 1,
+                display: 'flex',
+                flexDirection: 'column',
+                borderRadius: 2,
+                boxShadow: 2,
+                borderLeft: '4px solid',
+                borderColor: 'info.main',
+                overflow: 'hidden'
+              }}
+            >
+              <TableContainer sx={{ flexGrow: 1 }}>
                 <Table>
-                        <TableHead>
-                          <TableRow>
-                      <TableCell>Invoice #</TableCell>
-                      <TableCell>Customer</TableCell>
-                            <TableCell>Date</TableCell>
-                      <TableCell>Due Date</TableCell>
-                      <TableCell>Amount</TableCell>
-                            <TableCell>Status</TableCell>
-                      <TableCell>Actions</TableCell>
-                          </TableRow>
-                        </TableHead>
-                        <TableBody>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell sx={{ fontWeight: 'bold' }}>Invoice #</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold' }}>Customer</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold' }}>Date</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold' }}>Due Date</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold' }}>Amount</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold' }}>Status</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold' }}>Actions</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
                     {filteredInvoices.map((invoice) => (
-                      <TableRow key={invoice._id}>
+                      <TableRow 
+                        key={invoice._id}
+                        hover
+                        sx={{ 
+                          '&:hover': {
+                            backgroundColor: 'action.hover'
+                          }
+                        }}
+                      >
                         <TableCell>{invoice.invoiceNumber}</TableCell>
                         <TableCell>{invoice.customerInfo.name}</TableCell>
                         <TableCell>{format(new Date(invoice.issueDate), 'MMM dd, yyyy')}</TableCell>
                         <TableCell>{format(new Date(invoice.dueDate), 'MMM dd, yyyy')}</TableCell>
                         <TableCell>${invoice.total?.toFixed(2) || '0.00'}</TableCell>
-                              <TableCell>
-                                <Chip
+                        <TableCell>
+                          <Chip
                             label={invoice.status}
-                                  color={
+                            color={
                               invoice.status === 'paid' ? 'success' :
                               invoice.status === 'overdue' ? 'error' :
                               invoice.status === 'pending' ? 'warning' :
                               'default'
-                                  }
-                                  size="small"
-                                />
-                              </TableCell>
+                            }
+                            size="small"
+                          />
+                        </TableCell>
                         <TableCell>
                           <Box display="flex" gap={1}>
                             <Tooltip title="View">
                               <IconButton
-                                  size="small"
-                                  onClick={() => {
+                                size="small"
+                                onClick={() => {
                                   setSelectedInvoice(invoice);
                                   setPreviewOpen(true);
                                 }}
                               >
                                 <Eye size={16} />
-                          </IconButton>
+                              </IconButton>
                             </Tooltip>
                             <Tooltip title="Edit">
                               <IconButton
-                            size="small"
+                                size="small"
                                 onClick={() => {
                                   setFormData(invoice);
                                   setEditMode(true);
@@ -1101,23 +1185,23 @@ const Invoices = () => {
                               </IconButton>
                             </Tooltip>
                             <Tooltip title="Delete">
-                    <IconButton
-                      size="small"
+                              <IconButton
+                                size="small"
                                 onClick={() => {
                                   setInvoiceToDelete(invoice);
                                   setDeleteDialogOpen(true);
                                 }}
                               >
                                 <Trash2 size={16} />
-                    </IconButton>
+                              </IconButton>
                             </Tooltip>
                             <Tooltip title="Download PDF">
-                    <IconButton
-                      size="small"
+                              <IconButton
+                                size="small"
                                 onClick={() => handleDownloadPDF(invoice._id)}
-                    >
+                              >
                                 <Download size={16} />
-                    </IconButton>
+                              </IconButton>
                             </Tooltip>
                             {invoice.status !== 'paid' && invoice.status !== 'cancelled' && (
                               <Tooltip title="Process Payment">
@@ -1139,650 +1223,652 @@ const Invoices = () => {
                                 </IconButton>
                               </Tooltip>
                             )}
-                  </Box>
-                          </TableCell>
-                        </TableRow>
+                          </Box>
+                        </TableCell>
+                      </TableRow>
                     ))}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
+                  </TableBody>
+                </Table>
+              </TableContainer>
             </Card>
+          </Box>
+        </Box>
 
-            {/* Invoice Form Dialog */}
-            <Dialog
-              open={formOpen}
-              onClose={() => setFormOpen(false)}
-              maxWidth="md"
-              fullWidth
-            >
-              <DialogTitle>
-                {editMode ? 'Edit Invoice' : 'New Invoice'}
-              </DialogTitle>
-              <DialogContent>
-                <Box component="form" onSubmit={handleSubmit} sx={{ mt: 2 }}>
-                  <Grid container spacing={3}>
-                    {/* Invoice Header */}
-                    <Grid item xs={12}>
-                      <Card sx={{ p: 2 }}>
-                        <Grid container spacing={2}>
-                          <Grid item xs={12} md={4}>
-                            <TextField
-                              fullWidth
-                              label="Invoice Number"
-                              value={formData.invoiceNumber}
-                              onChange={(e) => setFormData({
-                                ...formData,
-                                invoiceNumber: e.target.value
-                              })}
-                              disabled={editMode}
-                            />
-                          </Grid>
-                          <Grid item xs={12} md={4}>
-                            <DatePicker
-                              selected={formData.issueDate}
-                              onChange={(date) => setFormData({
-                                ...formData,
-                                issueDate: date
-                              })}
-                              className="form-control"
-                              dateFormat="MMM dd, yyyy"
-                              placeholderText="Issue Date"
-                            />
-                          </Grid>
-                          <Grid item xs={12} md={4}>
-                            <DatePicker
-                              selected={formData.dueDate}
-                              onChange={(date) => setFormData({
-                                ...formData,
-                                dueDate: date
-                              })}
-                              className="form-control"
-                              dateFormat="MMM dd, yyyy"
-                              placeholderText="Due Date"
-                            />
-                          </Grid>
-                        </Grid>
-                      </Card>
+        {/* Invoice Form Dialog */}
+        <Dialog
+          open={formOpen}
+          onClose={() => setFormOpen(false)}
+          maxWidth="md"
+          fullWidth
+        >
+          <DialogTitle>
+            {editMode ? 'Edit Invoice' : 'New Invoice'}
+          </DialogTitle>
+          <DialogContent>
+            <Box component="form" onSubmit={handleSubmit} sx={{ mt: 2 }}>
+              <Grid container spacing={3}>
+                {/* Invoice Header */}
+                <Grid item xs={12}>
+                  <Card sx={{ p: 2 }}>
+                    <Grid container spacing={2}>
+                      <Grid item xs={12} md={4}>
+                        <TextField
+                          fullWidth
+                          label="Invoice Number"
+                          value={formData.invoiceNumber}
+                          onChange={(e) => setFormData({
+                            ...formData,
+                            invoiceNumber: e.target.value
+                          })}
+                          disabled={editMode}
+                        />
+                      </Grid>
+                      <Grid item xs={12} md={4}>
+                        <DatePicker
+                          selected={formData.issueDate}
+                          onChange={(date) => setFormData({
+                            ...formData,
+                            issueDate: date
+                          })}
+                          className="form-control"
+                          dateFormat="MMM dd, yyyy"
+                          placeholderText="Issue Date"
+                        />
+                      </Grid>
+                      <Grid item xs={12} md={4}>
+                        <DatePicker
+                          selected={formData.dueDate}
+                          onChange={(date) => setFormData({
+                            ...formData,
+                            dueDate: date
+                          })}
+                          className="form-control"
+                          dateFormat="MMM dd, yyyy"
+                          placeholderText="Due Date"
+                        />
+                      </Grid>
                     </Grid>
+                  </Card>
+                </Grid>
 
-                    {/* Customer & Vehicle Information */}
-                    <Grid item xs={12}>
-                      <Card sx={{ p: 2 }}>
-                        <Typography variant="h6" gutterBottom>
-                          Customer & Vehicle Information
-                        </Typography>
-                        <Grid container spacing={2}>
-                          {/* Client Selection */}
-                          <Grid item xs={12}>
-                            <Select
-                              value={selectedClient}
-                              onChange={handleClientSelect}
-                              options={clients.map(client => ({
-                                value: client._id || client.id,
-                                label: `${client.clientName || client.name} - ${client.phoneNumber || client.phone || 'No Phone'}`
-                              }))}
-                              placeholder="Select Existing Client"
-                              isClearable
-                              isSearchable
-                              styles={{
-                                menu: (provided) => ({
-                                  ...provided,
-                                  zIndex: 9999
-                                })
-                              }}
-                            />
-                          </Grid>
-                          
-                          {/* Customer Info */}
-                          <Grid item xs={12} md={6}>
-                            <TextField
-                              fullWidth
-                              label="Customer Name"
-                              value={formData.customerInfo.name}
-                              onChange={(e) => setFormData({
-                                ...formData,
-                                customerInfo: {
-                                  ...formData.customerInfo,
-                                  name: e.target.value
-                                }
-                              })}
-                              required
-                            />
-                          </Grid>
-                          <Grid item xs={12} md={6}>
-                            <TextField
-                              fullWidth
-                              label="Email"
-                              type="email"
-                              value={formData.customerInfo.email}
-                              onChange={(e) => setFormData({
-                                ...formData,
-                                customerInfo: {
-                                  ...formData.customerInfo,
-                                  email: e.target.value
-                                }
-                              })}
-                            />
-                          </Grid>
-                          <Grid item xs={12} md={6}>
-                            <TextField
-                              fullWidth
-                              label="Phone"
-                              value={formData.customerInfo.phone}
-                              onChange={(e) => setFormData({
-                                ...formData,
-                                customerInfo: {
-                                  ...formData.customerInfo,
-                                  phone: e.target.value
-                                }
-                              })}
-                            />
-                          </Grid>
-                          <Grid item xs={12} md={6}>
-                            <TextField
-                              fullWidth
-                              label="Address"
-                              value={formData.customerInfo.address}
-                              onChange={(e) => setFormData({
-                                ...formData,
-                                customerInfo: {
-                                  ...formData.customerInfo,
-                                  address: e.target.value
-                                }
-                              })}
-                            />
-                          </Grid>
+                {/* Customer & Vehicle Information */}
+                <Grid item xs={12}>
+                  <Card sx={{ p: 2 }}>
+                    <Typography variant="h6" gutterBottom>
+                      Customer & Vehicle Information
+                    </Typography>
+                    <Grid container spacing={2}>
+                      {/* Client Selection */}
+                      <Grid item xs={12}>
+                        <Select
+                          value={selectedClient}
+                          onChange={handleClientSelect}
+                          options={clients.map(client => ({
+                            value: client._id || client.id,
+                            label: `${client.clientName || client.name} - ${client.phoneNumber || client.phone || 'No Phone'}`
+                          }))}
+                          placeholder="Select Existing Client"
+                          isClearable
+                          isSearchable
+                          styles={{
+                            menu: (provided) => ({
+                              ...provided,
+                              zIndex: 9999
+                            })
+                          }}
+                        />
+                      </Grid>
+                      
+                      {/* Customer Info */}
+                      <Grid item xs={12} md={6}>
+                        <TextField
+                          fullWidth
+                          label="Customer Name"
+                          value={formData.customerInfo.name}
+                          onChange={(e) => setFormData({
+                            ...formData,
+                            customerInfo: {
+                              ...formData.customerInfo,
+                              name: e.target.value
+                            }
+                          })}
+                          required
+                        />
+                      </Grid>
+                      <Grid item xs={12} md={6}>
+                        <TextField
+                          fullWidth
+                          label="Email"
+                          type="email"
+                          value={formData.customerInfo.email}
+                          onChange={(e) => setFormData({
+                            ...formData,
+                            customerInfo: {
+                              ...formData.customerInfo,
+                              email: e.target.value
+                            }
+                          })}
+                        />
+                      </Grid>
+                      <Grid item xs={12} md={6}>
+                        <TextField
+                          fullWidth
+                          label="Phone"
+                          value={formData.customerInfo.phone}
+                          onChange={(e) => setFormData({
+                            ...formData,
+                            customerInfo: {
+                              ...formData.customerInfo,
+                              phone: e.target.value
+                            }
+                          })}
+                        />
+                      </Grid>
+                      <Grid item xs={12} md={6}>
+                        <TextField
+                          fullWidth
+                          label="Address"
+                          value={formData.customerInfo.address}
+                          onChange={(e) => setFormData({
+                            ...formData,
+                            customerInfo: {
+                              ...formData.customerInfo,
+                              address: e.target.value
+                            }
+                          })}
+                        />
+                      </Grid>
 
-                          {/* Vehicle Info */}
-                          <Grid item xs={12} md={4}>
-                            <TextField
-                              fullWidth
-                              label="Make"
-                              value={formData.vehicleInfo.make}
-                              onChange={(e) => setFormData({
-                                ...formData,
-                                vehicleInfo: {
-                                  ...formData.vehicleInfo,
-                                  make: e.target.value
-                                }
-                              })}
-                            />
-                          </Grid>
-                          <Grid item xs={12} md={4}>
-                            <TextField
-                              fullWidth
-                              label="Model"
-                              value={formData.vehicleInfo.model}
-                              onChange={(e) => setFormData({
-                                ...formData,
-                                vehicleInfo: {
-                                  ...formData.vehicleInfo,
-                                  model: e.target.value
-                                }
-                              })}
-                            />
-                          </Grid>
-                          <Grid item xs={12} md={4}>
-                            <TextField
-                              fullWidth
-                              label="Year"
-                              value={formData.vehicleInfo.year}
-                              onChange={(e) => setFormData({
-                                ...formData,
-                                vehicleInfo: {
-                                  ...formData.vehicleInfo,
-                                  year: e.target.value
-                                }
-                              })}
-                            />
-                          </Grid>
-                          <Grid item xs={12} md={4}>
-                            <TextField
-                              fullWidth
-                              label="License Plate"
-                              value={formData.vehicleInfo.licensePlate}
-                              onChange={(e) => setFormData({
-                                ...formData,
-                                vehicleInfo: {
-                                  ...formData.vehicleInfo,
-                                  licensePlate: e.target.value
-                                }
-                              })}
-                            />
-                          </Grid>
-                          <Grid item xs={12} md={4}>
-                            <TextField
-                              fullWidth
-                              label="VIN"
-                              value={formData.vehicleInfo.vin}
-                              onChange={(e) => setFormData({
-                                ...formData,
-                                vehicleInfo: {
-                                  ...formData.vehicleInfo,
-                                  vin: e.target.value
-                                }
-                              })}
-                            />
-                          </Grid>
-                          <Grid item xs={12} md={4}>
-                            <TextField
-                              fullWidth
-                              label="Odometer"
-                              value={formData.vehicleInfo.odometer}
-                              onChange={(e) => setFormData({
-                                ...formData,
-                                vehicleInfo: {
-                                  ...formData.vehicleInfo,
-                                  odometer: e.target.value
-                                }
-                              })}
-                            />
-                          </Grid>
-                        </Grid>
-                      </Card>
+                      {/* Vehicle Info */}
+                      <Grid item xs={12} md={4}>
+                        <TextField
+                          fullWidth
+                          label="Make"
+                          value={formData.vehicleInfo.make}
+                          onChange={(e) => setFormData({
+                            ...formData,
+                            vehicleInfo: {
+                              ...formData.vehicleInfo,
+                              make: e.target.value
+                            }
+                          })}
+                        />
+                      </Grid>
+                      <Grid item xs={12} md={4}>
+                        <TextField
+                          fullWidth
+                          label="Model"
+                          value={formData.vehicleInfo.model}
+                          onChange={(e) => setFormData({
+                            ...formData,
+                            vehicleInfo: {
+                              ...formData.vehicleInfo,
+                              model: e.target.value
+                            }
+                          })}
+                        />
+                      </Grid>
+                      <Grid item xs={12} md={4}>
+                        <TextField
+                          fullWidth
+                          label="Year"
+                          value={formData.vehicleInfo.year}
+                          onChange={(e) => setFormData({
+                            ...formData,
+                            vehicleInfo: {
+                              ...formData.vehicleInfo,
+                              year: e.target.value
+                            }
+                          })}
+                        />
+                      </Grid>
+                      <Grid item xs={12} md={4}>
+                        <TextField
+                          fullWidth
+                          label="License Plate"
+                          value={formData.vehicleInfo.licensePlate}
+                          onChange={(e) => setFormData({
+                            ...formData,
+                            vehicleInfo: {
+                              ...formData.vehicleInfo,
+                              licensePlate: e.target.value
+                            }
+                          })}
+                        />
+                      </Grid>
+                      <Grid item xs={12} md={4}>
+                        <TextField
+                          fullWidth
+                          label="VIN"
+                          value={formData.vehicleInfo.vin}
+                          onChange={(e) => setFormData({
+                            ...formData,
+                            vehicleInfo: {
+                              ...formData.vehicleInfo,
+                              vin: e.target.value
+                            }
+                          })}
+                        />
+                      </Grid>
+                      <Grid item xs={12} md={4}>
+                        <TextField
+                          fullWidth
+                          label="Odometer"
+                          value={formData.vehicleInfo.odometer}
+                          onChange={(e) => setFormData({
+                            ...formData,
+                            vehicleInfo: {
+                              ...formData.vehicleInfo,
+                              odometer: e.target.value
+                            }
+                          })}
+                        />
+                      </Grid>
                     </Grid>
+                  </Card>
+                </Grid>
 
-                    {/* Items & Services */}
-                    <Grid item xs={12}>
-                      <Card sx={{ p: 2 }}>
-                        <Typography variant="h6" gutterBottom>
-                          Items & Services
-                        </Typography>
-                        <Grid container spacing={2}>
-                          {/* Item Search */}
-                          <Grid item xs={12}>
-                            <TextField
-                              fullWidth
-                              placeholder="Search items..."
-                              value={itemSearchTerm}
-                              onChange={(e) => debouncedItemSearch(e.target.value)}
-                              InputProps={{
-                                startAdornment: (
-                                  <InputAdornment position="start">
-                                    <Search />
-                                  </InputAdornment>
-                                ),
-                              }}
-                            />
-                          </Grid>
+                {/* Items & Services */}
+                <Grid item xs={12}>
+                  <Card sx={{ p: 2 }}>
+                    <Typography variant="h6" gutterBottom>
+                      Items & Services
+                    </Typography>
+                    <Grid container spacing={2}>
+                      {/* Item Search */}
+                      <Grid item xs={12}>
+                        <TextField
+                          fullWidth
+                          placeholder="Search items..."
+                          value={itemSearchTerm}
+                          onChange={(e) => debouncedItemSearch(e.target.value)}
+                          InputProps={{
+                            startAdornment: (
+                              <InputAdornment position="start">
+                                <Search />
+                              </InputAdornment>
+                            ),
+                          }}
+                        />
+                      </Grid>
 
-                          {/* Items List */}
-                          {formData.items.map((item, index) => (
-                            <Grid item xs={12} key={item.id}>
-                              <Card variant="outlined" sx={{ p: 2 }}>
-                                <Grid container spacing={2} alignItems="center">
-                                  <Grid item xs={12} md={4}>
-                                    <Select
-                                      value={item}
-                                      onChange={(selected) => {
-                                        const newItems = [...formData.items];
-                                        newItems[index] = {
-                                          ...selected,
-                                          quantity: item.quantity,
-                                          laborHours: selected.laborHours || 0,
-                                          laborRate: selected.laborRate || 85,
-                                          taxable: true
-                                        };
-                                        setFormData({
-                                          ...formData,
-                                          items: newItems
-                                        });
-                                      }}
-                                      options={filteredItems}
-                                      getOptionLabel={(option) => option.description}
-                                      getOptionValue={(option) => option.id}
-                                      placeholder="Select Item"
-                                      isSearchable
-                                    />
-                                  </Grid>
-                                  <Grid item xs={12} md={2}>
-                                    <TextField
-                                      fullWidth
-                                      label="Quantity"
-                                      type="number"
-                                      value={item.quantity}
-                                      onChange={(e) => {
-                                        const newItems = [...formData.items];
-                                        newItems[index] = {
-                                          ...item,
-                                          quantity: parseInt(e.target.value) || 0
-                                        };
-                                        setFormData({
-                                          ...formData,
-                                          items: newItems
-                                        });
-                                      }}
-                                    />
-                                  </Grid>
-                                  <Grid item xs={12} md={2}>
-                                    <TextField
-                                      fullWidth
-                                      label="Unit Price"
-                                      type="number"
-                                      value={item.unitPrice}
-                                      onChange={(e) => {
-                                        const newItems = [...formData.items];
-                                        newItems[index] = {
-                                          ...item,
-                                          unitPrice: parseFloat(e.target.value) || 0
-                                        };
-                                        setFormData({
-                                          ...formData,
-                                          items: newItems
-                                        });
-                                      }}
-                                    />
-                                  </Grid>
-                                  {item.type === 'service' && (
-                                    <>
-                                      <Grid item xs={12} md={2}>
-                                        <TextField
-                                          fullWidth
-                                          label="Labor Hours"
-                                          type="number"
-                                          value={item.laborHours}
-                                          onChange={(e) => {
-                                            const newItems = [...formData.items];
-                                            newItems[index] = {
-                                              ...item,
-                                              laborHours: parseFloat(e.target.value) || 0
-                                            };
-                                            setFormData({
-                                              ...formData,
-                                              items: newItems
-                                            });
-                                          }}
-                                        />
-                                      </Grid>
-                                      <Grid item xs={12} md={2}>
-                                        <TextField
-                                          fullWidth
-                                          label="Labor Rate"
-                                          type="number"
-                                          value={item.laborRate}
-                                          onChange={(e) => {
-                                            const newItems = [...formData.items];
-                                            newItems[index] = {
-                                              ...item,
-                                              laborRate: parseFloat(e.target.value) || 0
-                                            };
-                                            setFormData({
-                                              ...formData,
-                                              items: newItems
-                                            });
-                                          }}
-                                        />
-                                      </Grid>
-                                    </>
-                                  )}
-                                  <Grid item xs={12} md={12}>
-                                    <Box display="flex" justifyContent="flex-end">
-                                      <Button
-                                        color="error"
-                                        startIcon={<Trash2 />}
-                                        onClick={() => {
-                                          const newItems = formData.items.filter((_, i) => i !== index);
-                                          setFormData({
-                                            ...formData,
-                                            items: newItems
-                                          });
-                                        }}
-                                      >
-                                        Remove Item
-                                      </Button>
-                                    </Box>
-                                  </Grid>
-                                </Grid>
-                              </Card>
-                            </Grid>
-                          ))}
-
-                          {/* Add Item Button */}
-                          <Grid item xs={12}>
-                            <Button
-                              startIcon={<Plus />}
-                              onClick={() => {
-                                setFormData({
-                                  ...formData,
-                                  items: [
-                                    ...formData.items,
-                                    {
-                                      id: Date.now(),
-                                      type: "service",
-                                      description: "",
-                                      quantity: 1,
-                                      unitPrice: 0,
-                                      laborHours: 0,
-                                      laborRate: 85,
+                      {/* Items List */}
+                      {formData.items.map((item, index) => (
+                        <Grid item xs={12} key={item.id}>
+                          <Card variant="outlined" sx={{ p: 2 }}>
+                            <Grid container spacing={2} alignItems="center">
+                              <Grid item xs={12} md={4}>
+                                <Select
+                                  value={item}
+                                  onChange={(selected) => {
+                                    const newItems = [...formData.items];
+                                    newItems[index] = {
+                                      ...selected,
+                                      quantity: item.quantity,
+                                      laborHours: selected.laborHours || 0,
+                                      laborRate: selected.laborRate || 85,
                                       taxable: true
-                                    }
-                                  ]
-                                });
-                              }}
-                            >
-                              Add Item
-                            </Button>
-                          </Grid>
+                                    };
+                                    setFormData({
+                                      ...formData,
+                                      items: newItems
+                                    });
+                                  }}
+                                  options={filteredItems}
+                                  getOptionLabel={(option) => option.description}
+                                  getOptionValue={(option) => option.id}
+                                  placeholder="Select Item"
+                                  isSearchable
+                                />
+                              </Grid>
+                              <Grid item xs={12} md={2}>
+                                <TextField
+                                  fullWidth
+                                  label="Quantity"
+                                  type="number"
+                                  value={item.quantity}
+                                  onChange={(e) => {
+                                    const newItems = [...formData.items];
+                                    newItems[index] = {
+                                      ...item,
+                                      quantity: parseInt(e.target.value) || 0
+                                    };
+                                    setFormData({
+                                      ...formData,
+                                      items: newItems
+                                    });
+                                  }}
+                                />
+                              </Grid>
+                              <Grid item xs={12} md={2}>
+                                <TextField
+                                  fullWidth
+                                  label="Unit Price"
+                                  type="number"
+                                  value={item.unitPrice}
+                                  onChange={(e) => {
+                                    const newItems = [...formData.items];
+                                    newItems[index] = {
+                                      ...item,
+                                      unitPrice: parseFloat(e.target.value) || 0
+                                    };
+                                    setFormData({
+                                      ...formData,
+                                      items: newItems
+                                    });
+                                  }}
+                                />
+                              </Grid>
+                              {item.type === 'service' && (
+                                <>
+                                  <Grid item xs={12} md={2}>
+                                    <TextField
+                                      fullWidth
+                                      label="Labor Hours"
+                                      type="number"
+                                      value={item.laborHours}
+                                      onChange={(e) => {
+                                        const newItems = [...formData.items];
+                                        newItems[index] = {
+                                          ...item,
+                                          laborHours: parseFloat(e.target.value) || 0
+                                        };
+                                        setFormData({
+                                          ...formData,
+                                          items: newItems
+                                        });
+                                      }}
+                                    />
+                                  </Grid>
+                                  <Grid item xs={12} md={2}>
+                                    <TextField
+                                      fullWidth
+                                      label="Labor Rate"
+                                      type="number"
+                                      value={item.laborRate}
+                                      onChange={(e) => {
+                                        const newItems = [...formData.items];
+                                        newItems[index] = {
+                                          ...item,
+                                          laborRate: parseFloat(e.target.value) || 0
+                                        };
+                                        setFormData({
+                                          ...formData,
+                                          items: newItems
+                                        });
+                                      }}
+                                    />
+                                  </Grid>
+                                </>
+                              )}
+                              <Grid item xs={12} md={12}>
+                                <Box display="flex" justifyContent="flex-end">
+                                  <Button
+                                    color="error"
+                                    startIcon={<Trash2 />}
+                                    onClick={() => {
+                                      const newItems = formData.items.filter((_, i) => i !== index);
+                                      setFormData({
+                                        ...formData,
+                                        items: newItems
+                                      });
+                                    }}
+                                  >
+                                    Remove Item
+                                  </Button>
+                                </Box>
+                              </Grid>
+                            </Grid>
+                          </Card>
                         </Grid>
-                      </Card>
-                    </Grid>
+                      ))}
 
-                    {/* Payment & Notes */}
-                    <Grid item xs={12}>
-                      <Card sx={{ p: 2 }}>
-                        <Typography variant="h6" gutterBottom>
-                          Payment & Notes
+                      {/* Add Item Button */}
+                      <Grid item xs={12}>
+                        <Button
+                          startIcon={<Plus />}
+                          onClick={() => {
+                            setFormData({
+                              ...formData,
+                              items: [
+                                ...formData.items,
+                                {
+                                  id: Date.now(),
+                                  type: "service",
+                                  description: "",
+                                  quantity: 1,
+                                  unitPrice: 0,
+                                  laborHours: 0,
+                                  laborRate: 85,
+                                  taxable: true
+                                }
+                              ]
+                            });
+                          }}
+                        >
+                          Add Item
+                        </Button>
+                      </Grid>
+                    </Grid>
+                  </Card>
+                </Grid>
+
+                {/* Payment & Notes */}
+                <Grid item xs={12}>
+                  <Card sx={{ p: 2 }}>
+                    <Typography variant="h6" gutterBottom>
+                      Payment & Notes
+                    </Typography>
+                    <Grid container spacing={2}>
+                      <Grid item xs={12} md={6}>
+                        <TextField
+                          fullWidth
+                          label="Notes"
+                          multiline
+                          rows={4}
+                          value={formData.notes}
+                          onChange={(e) => setFormData({
+                            ...formData,
+                            notes: e.target.value
+                          })}
+                        />
+                      </Grid>
+                      <Grid item xs={12} md={6}>
+                        <TextField
+                          fullWidth
+                          label="Mechanic Notes"
+                          multiline
+                          rows={4}
+                          value={formData.mechanicNotes}
+                          onChange={(e) => setFormData({
+                            ...formData,
+                            mechanicNotes: e.target.value
+                          })}
+                        />
+                      </Grid>
+                      <Grid item xs={12} md={6}>
+                        <TextField
+                          fullWidth
+                          label="Terms & Conditions"
+                          multiline
+                          rows={4}
+                          value={formData.terms}
+                          onChange={(e) => setFormData({
+                            ...formData,
+                            terms: e.target.value
+                          })}
+                        />
+                      </Grid>
+                      <Grid item xs={12} md={6}>
+                        <TextField
+                          fullWidth
+                          label="Tax Rate (%)"
+                          type="number"
+                          value={formData.taxRate}
+                          onChange={(e) => setFormData({
+                            ...formData,
+                            taxRate: parseFloat(e.target.value) || 0
+                          })}
+                        />
+                      </Grid>
+                    </Grid>
+                  </Card>
+                </Grid>
+
+                {/* Summary */}
+                <Grid item xs={12}>
+                  <Card sx={{ p: 2 }}>
+                    <Typography variant="h6" gutterBottom>
+                      Summary
+                    </Typography>
+                    <Grid container spacing={2}>
+                      <Grid item xs={12} md={4}>
+                        <Typography variant="subtitle1">
+                          Subtotal: ${calculateTotals.subtotal.toFixed(2)}
                         </Typography>
-                        <Grid container spacing={2}>
-                          <Grid item xs={12} md={6}>
-                            <TextField
-                              fullWidth
-                              label="Notes"
-                              multiline
-                              rows={4}
-                              value={formData.notes}
-                              onChange={(e) => setFormData({
-                                ...formData,
-                                notes: e.target.value
-                              })}
+                      </Grid>
+                      <Grid item xs={12} md={4}>
+                        <Typography variant="subtitle1">
+                          Tax: ${calculateTotals.tax.toFixed(2)}
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={12} md={4}>
+                        <Typography variant="h6">
+                          Total: ${calculateTotals.total.toFixed(2)}
+                        </Typography>
+                      </Grid>
+                    </Grid>
+                  </Card>
+                </Grid>
+
+                {/* Invoice Status */}
+                <Grid item xs={12}>
+                  <Card sx={{ p: 2 }}>
+                    <Typography variant="h6" gutterBottom>
+                      Invoice Status
+                    </Typography>
+                    <Grid container spacing={2}>
+                      <Grid item xs={12}>
+                        <FormControl fullWidth>
+                          <FormLabel>Status</FormLabel>
+                          <RadioGroup
+                            row
+                            value={formData.status}
+                            onChange={(e) => setFormData({
+                              ...formData,
+                              status: e.target.value
+                            })}
+                          >
+                            <FormControlLabel 
+                              value="draft" 
+                              control={<Radio />} 
+                              label={
+                                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                  <Clock size={16} style={{ marginRight: 8 }} />
+                                  Draft
+                                </Box>
+                              } 
                             />
-                          </Grid>
-                          <Grid item xs={12} md={6}>
-                            <TextField
-                              fullWidth
-                              label="Mechanic Notes"
-                              multiline
-                              rows={4}
-                              value={formData.mechanicNotes}
-                              onChange={(e) => setFormData({
-                                ...formData,
-                                mechanicNotes: e.target.value
-                              })}
+                            <FormControlLabel 
+                              value="pending" 
+                              control={<Radio />} 
+                              label={
+                                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                  <AlertTriangle size={16} style={{ marginRight: 8 }} />
+                                  Pending
+                                </Box>
+                              } 
                             />
-                          </Grid>
-                          <Grid item xs={12} md={6}>
-                            <TextField
-                              fullWidth
-                              label="Terms & Conditions"
-                              multiline
-                              rows={4}
-                              value={formData.terms}
-                              onChange={(e) => setFormData({
-                                ...formData,
-                                terms: e.target.value
-                              })}
+                            <FormControlLabel 
+                              value="paid" 
+                              control={<Radio />} 
+                              label={
+                                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                  <CheckCircle size={16} style={{ marginRight: 8 }} />
+                                  Paid
+                                </Box>
+                              } 
                             />
-                          </Grid>
-                          <Grid item xs={12} md={6}>
-                            <TextField
-                              fullWidth
-                              label="Tax Rate (%)"
-                              type="number"
-                              value={formData.taxRate}
-                              onChange={(e) => setFormData({
-                                ...formData,
-                                taxRate: parseFloat(e.target.value) || 0
-                              })}
+                            <FormControlLabel 
+                              value="overdue" 
+                              control={<Radio />} 
+                              label={
+                                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                  <XCircle size={16} style={{ marginRight: 8 }} />
+                                  Overdue
+                                </Box>
+                              } 
                             />
-                          </Grid>
+                            <FormControlLabel 
+                              value="cancelled" 
+                              control={<Radio />} 
+                              label={
+                                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                  <X size={16} style={{ marginRight: 8 }} />
+                                  Cancelled
+                                </Box>
+                              } 
+                            />
+                          </RadioGroup>
+                        </FormControl>
+                      </Grid>
+                      {formData.status === 'paid' && (
+                        <Grid item xs={12}>
+                          <TextField
+                            fullWidth
+                            label="Payment Method"
+                            select
+                            value={formData.paymentMethod}
+                            onChange={(e) => setFormData({
+                              ...formData,
+                              paymentMethod: e.target.value
+                            })}
+                          >
+                            {paymentMethods.map((method) => (
+                              <MenuItem key={method.value} value={method.value}>
+                                {method.label}
+                              </MenuItem>
+                            ))}
+                          </TextField>
                         </Grid>
-                      </Card>
-                    </Grid>
-
-                    {/* Summary */}
-                    <Grid item xs={12}>
-                      <Card sx={{ p: 2 }}>
-                        <Typography variant="h6" gutterBottom>
-                          Summary
-                        </Typography>
-                        <Grid container spacing={2}>
-                          <Grid item xs={12} md={4}>
-                            <Typography variant="subtitle1">
-                              Subtotal: ${calculateTotals.subtotal.toFixed(2)}
-                            </Typography>
-                          </Grid>
-                          <Grid item xs={12} md={4}>
-                            <Typography variant="subtitle1">
-                              Tax: ${calculateTotals.tax.toFixed(2)}
-                            </Typography>
-                          </Grid>
-                          <Grid item xs={12} md={4}>
-                            <Typography variant="h6">
-                              Total: ${calculateTotals.total.toFixed(2)}
-                            </Typography>
-                          </Grid>
-                        </Grid>
-                      </Card>
-                    </Grid>
-
-                    {/* Invoice Status */}
-                    <Grid item xs={12}>
-                      <Card sx={{ p: 2 }}>
-                        <Typography variant="h6" gutterBottom>
-                          Invoice Status
-                        </Typography>
-                        <Grid container spacing={2}>
-                          <Grid item xs={12}>
-                            <FormControl fullWidth>
-                              <FormLabel>Status</FormLabel>
-                              <RadioGroup
-                                row
-                                value={formData.status}
-                                onChange={(e) => setFormData({
-                                  ...formData,
-                                  status: e.target.value
-                                })}
-                              >
-                                <FormControlLabel 
-                                  value="draft" 
-                                  control={<Radio />} 
-                                  label={
-                                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                      <Clock size={16} style={{ marginRight: 8 }} />
-                                      Draft
-                                    </Box>
-                                  } 
-                                />
-                                <FormControlLabel 
-                                  value="pending" 
-                                  control={<Radio />} 
-                                  label={
-                                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                      <AlertTriangle size={16} style={{ marginRight: 8 }} />
-                                      Pending
-                                    </Box>
-                                  } 
-                                />
-                                <FormControlLabel 
-                                  value="paid" 
-                                  control={<Radio />} 
-                                  label={
-                                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                      <CheckCircle size={16} style={{ marginRight: 8 }} />
-                                      Paid
-                                    </Box>
-                                  } 
-                                />
-                                <FormControlLabel 
-                                  value="overdue" 
-                                  control={<Radio />} 
-                                  label={
-                                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                      <XCircle size={16} style={{ marginRight: 8 }} />
-                                      Overdue
-                                    </Box>
-                                  } 
-                                />
-                                <FormControlLabel 
-                                  value="cancelled" 
-                                  control={<Radio />} 
-                                  label={
-                                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                      <X size={16} style={{ marginRight: 8 }} />
-                                      Cancelled
-                                    </Box>
-                                  } 
-                                />
-                              </RadioGroup>
-                            </FormControl>
-                          </Grid>
-                          {formData.status === 'paid' && (
-                            <Grid item xs={12}>
+                      )}
+                      {formData.status === 'paid' && (
+                        <Grid item xs={12}>
+                          <DatePicker
+                            selected={formData.paymentDate}
+                            onChange={(date) => setFormData({
+                              ...formData,
+                              paymentDate: date
+                            })}
+                            dateFormat="MMM dd, yyyy"
+                            placeholderText="Payment Date"
+                            customInput={
                               <TextField
                                 fullWidth
-                                label="Payment Method"
-                                select
-                                value={formData.paymentMethod}
-                                onChange={(e) => setFormData({
-                                  ...formData,
-                                  paymentMethod: e.target.value
-                                })}
-                              >
-                                {paymentMethods.map((method) => (
-                                  <MenuItem key={method.value} value={method.value}>
-                                    {method.label}
-                                  </MenuItem>
-                                ))}
-                              </TextField>
-                            </Grid>
-                          )}
-                          {formData.status === 'paid' && (
-                            <Grid item xs={12}>
-                              <DatePicker
-                                selected={formData.paymentDate}
-                                onChange={(date) => setFormData({
-                                  ...formData,
-                                  paymentDate: date
-                                })}
-                                dateFormat="MMM dd, yyyy"
-                                placeholderText="Payment Date"
-                                customInput={
-                                  <TextField
-                                    fullWidth
-                                    label="Payment Date"
-                                  />
-                                }
+                                label="Payment Date"
                               />
-                            </Grid>
-                          )}
+                            }
+                          />
                         </Grid>
-                      </Card>
+                      )}
                     </Grid>
-                  </Grid>
-                </Box>
-              </DialogContent>
-              <DialogActions>
-                <Button onClick={() => setFormOpen(false)}>Cancel</Button>
-                <Button
-                  variant="contained"
-                  color="primary"
-                  onClick={handleSubmit}
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting ? 'Saving...' : 'Save Invoice'}
-                </Button>
-              </DialogActions>
-            </Dialog>
+                  </Card>
+                </Grid>
+              </Grid>
+            </Box>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setFormOpen(false)}>Cancel</Button>
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={handleSubmit}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? 'Saving...' : 'Save Invoice'}
+            </Button>
+          </DialogActions>
+        </Dialog>
 
         {/* Delete Confirmation Dialog */}
         <Dialog
@@ -1808,29 +1894,29 @@ const Invoices = () => {
           </DialogActions>
         </Dialog>
 
-            {/* Preview Dialog */}
-            <Dialog
-              open={previewOpen}
-              onClose={() => setPreviewOpen(false)}
-              maxWidth="md"
-              fullWidth
+        {/* Preview Dialog */}
+        <Dialog
+          open={previewOpen}
+          onClose={() => setPreviewOpen(false)}
+          maxWidth="md"
+          fullWidth
+        >
+          <DialogTitle>Invoice Preview</DialogTitle>
+          <DialogContent>
+            {selectedInvoice && renderPreviewContent(selectedInvoice)}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setPreviewOpen(false)}>Close</Button>
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={() => handleDownloadPDF(selectedInvoice?._id)}
+              startIcon={<Download size={16} />}
             >
-              <DialogTitle>Invoice Preview</DialogTitle>
-              <DialogContent>
-                {selectedInvoice && renderPreviewContent(selectedInvoice)}
-              </DialogContent>
-              <DialogActions>
-                <Button onClick={() => setPreviewOpen(false)}>Close</Button>
-                <Button
-                  variant="contained"
-                  color="primary"
-                  onClick={() => handleDownloadPDF(selectedInvoice?._id)}
-                  startIcon={<Download size={16} />}
-                >
-                  Download PDF
-                </Button>
-              </DialogActions>
-            </Dialog>
+              Download PDF
+            </Button>
+          </DialogActions>
+        </Dialog>
 
         {/* Payment Dialog */}
         <Dialog
@@ -1895,11 +1981,8 @@ const Invoices = () => {
             </Button>
           </DialogActions>
         </Dialog>
-          </>
-        )}
-      </Container>
-    </>
-  );
-};
+      </>
+    );
+  };
 
 export default Invoices;

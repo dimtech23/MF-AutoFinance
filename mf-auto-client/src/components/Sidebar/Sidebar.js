@@ -83,52 +83,68 @@ const Sidebar = ({ routes = [], logo, closeCollapse }) => {
 
   return (
     <Navbar
-      className="navbar-vertical fixed-left navbar-light bg-white shadow-md"
+      className="navbar-vertical fixed-left navbar-light bg-white shadow-md md:min-h-screen"
+      style={{
+        '@media (max-width: 768px)': {
+          height: '40px' // smaller than admin navbar
+        }
+      }}
       expand="md"
       id="sidenav-main"
     >
       <Container fluid className="px-0">
-        {/* Toggler with Tailwind */}
-        <button
-          className="navbar-toggler border-0 p-3 focus:outline-none"
-          type="button"
-          onClick={toggleCollapse}
-        >
-          <span className="navbar-toggler-icon"></span>
-        </button>
+        <div className="flex justify-between items-center w-full px-2">
+          {/* Toggler with Tailwind */}
+          <button
+            className="navbar-toggler border-0 p-1 focus:outline-none"
+            type="button"
+            onClick={toggleCollapse}
+          >
+            <span className="navbar-toggler-icon text-sm"></span>
+          </button>
 
-        {/* Logo - Larger for laptop, smaller for mobile */}
-        <NavbarBrand className="pt-0 flex justify-center" {...navbarBrandProps}>
-          <img
-            alt="Logo"
-            className="navbar-brand-img max-h-[120px] md:max-h-[220px] max-w-[180px] md:max-w-[280px] h-auto w-auto"
-            src="https://i.ibb.co/PGLYCzRD/MF-Autos-Social-Media.jpg"
-          />
-        </NavbarBrand>
+          {/* Small mobile logo */}
+          <div className="md:hidden">
+            <img
+              alt="Logo"
+              style={{ 
+                width: '35px',
+                height: '35px',
+                objectFit: 'contain'
+              }}
+              src="https://i.ibb.co/PGLYCzRD/MF-Autos-Social-Media.jpg"
+            />
+          </div>
+
+          {/* Desktop Logo - Hidden on mobile */}
+          <NavbarBrand className="pt-0 hidden md:flex justify-center w-full" {...navbarBrandProps}>
+            <img
+              alt="Logo"
+              style={{ 
+                width: '100%',
+                maxWidth: '450px',
+                height: 'auto',
+                minHeight: '300px',
+                objectFit: 'contain'
+              }}
+              className="navbar-brand-img"
+              src="https://i.ibb.co/PGLYCzRD/MF-Autos-Social-Media.jpg"
+            />
+          </NavbarBrand>
+        </div>
 
         <Collapse navbar isOpen={collapseOpen}>
-          {/* Mobile view close header with Tailwind */}
-          <div className="navbar-collapse-header p-4 md:hidden border-b border-gray-200 mb-3">
-            <div className="row">
-              <div className="col-6 collapse-brand">
-                <Link to="/">
-                  <img
-                    alt="Logo"
-                    src="https://i.ibb.co/PGLYCzRD/MF-Autos-Social-Media.jpg"
-                    className="max-h-[90px] max-w-[150px] w-auto"
-                  />
-                </Link>
-              </div>
-              <div className="col-6 collapse-close text-right">
-                <button
-                  className="navbar-toggler focus:outline-none"
-                  type="button"
-                  onClick={toggleCollapse}
-                >
-                  <span></span>
-                  <span></span>
-                </button>
-              </div>
+          {/* Mobile view with simplified header */}
+          <div className="navbar-collapse-header p-2 md:hidden border-b border-gray-200">
+            <div className="flex justify-end">
+              <button
+                className="navbar-toggler focus:outline-none"
+                type="button"
+                onClick={toggleCollapse}
+              >
+                <span></span>
+                <span></span>
+              </button>
             </div>
           </div>
 

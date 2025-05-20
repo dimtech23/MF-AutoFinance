@@ -23,9 +23,8 @@ import {
   AlertCircle
 } from "react-feather";
 import {
-  Container,
-  Typography,
   Box,
+  Typography,
   Grid,
   CircularProgress,
   Card,
@@ -321,11 +320,19 @@ const ClientActivityHistory = () => {
     return (
       <>
         <Header />
-        <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
+        <Box 
+          sx={{ 
+            p: 3,
+            minHeight: 'calc(100vh - 64px)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: { xs: 2, md: 3 }
+          }}
+        >
           <Box display="flex" justifyContent="center" alignItems="center" height="50vh">
             <CircularProgress />
           </Box>
-        </Container>
+        </Box>
       </>
     );
   }
@@ -334,7 +341,15 @@ const ClientActivityHistory = () => {
     return (
       <>
         <Header />
-        <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
+        <Box 
+          sx={{ 
+            p: 3,
+            minHeight: 'calc(100vh - 64px)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: { xs: 2, md: 3 }
+          }}
+        >
           <Box sx={{ 
             display: 'flex', 
             flexDirection: 'column',
@@ -358,7 +373,7 @@ const ClientActivityHistory = () => {
               Retry
             </Button>
           </Box>
-        </Container>
+        </Box>
       </>
     );
   }
@@ -366,23 +381,25 @@ const ClientActivityHistory = () => {
   return (
     <>
       <Header />
-      <Container 
-        maxWidth="xl" 
+      <Box 
         sx={{ 
-          mt: { xs: 2, md: 4 }, 
-          mb: { xs: 2, md: 4 },
-          px: { xs: 1, sm: 2, md: 3 }
+          p: 3,
+          minHeight: 'calc(100vh - 64px)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: { xs: 2, md: 3 }
         }}
       >
         {/* Header Section */}
         <Box 
           sx={{ 
-            mb: { xs: 2, md: 4 }, 
             display: 'flex', 
             flexDirection: { xs: 'column', sm: 'row' },
             justifyContent: 'space-between', 
             alignItems: { xs: 'flex-start', sm: 'center' },
-            gap: 2
+            gap: 2,
+            flexShrink: 0,
+            mb: { xs: 2, md: 3 }
           }}
         >
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -441,7 +458,6 @@ const ClientActivityHistory = () => {
               color="primary" 
               startIcon={<Download />}
               onClick={exportToCSV}
-              fullWidth={false}
               sx={{ 
                 whiteSpace: 'nowrap',
                 minWidth: { xs: '100%', sm: 'auto' }
@@ -452,736 +468,760 @@ const ClientActivityHistory = () => {
           </Box>
         </Box>
 
-        {/* Summary Cards */}
-        <Grid 
-          container 
-          spacing={{ xs: 1, md: 3 }} 
-          sx={{ mb: { xs: 2, md: 4 } }}
-        >
-          <Grid item xs={12} sm={6} md={3}>
-            <Card 
-              sx={{ 
-                height: '100%', 
-                bgcolor: 'primary.light',
-                transition: 'transform 0.2s',
-                '&:hover': {
-                  transform: 'translateY(-4px)'
-                }
-              }}
-            >
-              <CardContent>
-                <Typography 
-                  color="primary.dark" 
-                  variant="subtitle2" 
-                  gutterBottom
-                  sx={{ fontSize: { xs: '0.875rem', md: '1rem' } }}
-                >
-                  Total Clients
-                </Typography>
-                <Typography 
-                  variant="h5" 
-                  component="div" 
-                  color="primary.dark" 
-                  gutterBottom
-                  sx={{ fontSize: { xs: '1.25rem', md: '1.5rem' } }}
-                >
-                  {summaryStats.totalClients}
-                </Typography>
-                <Typography 
-                  variant="body2" 
-                  color="primary.dark"
-                  sx={{ fontSize: { xs: '0.75rem', md: '0.875rem' } }}
-                >
-                  Active: {summaryStats.activeClients}
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-          
-          <Grid item xs={12} sm={6} md={3}>
-            <Card 
-              sx={{ 
-                height: '100%', 
-                bgcolor: 'warning.light',
-                transition: 'transform 0.2s',
-                '&:hover': {
-                  transform: 'translateY(-4px)'
-                }
-              }}
-            >
-              <CardContent>
-                <Typography 
-                  color="warning.dark" 
-                  variant="subtitle2" 
-                  gutterBottom
-                  sx={{ fontSize: { xs: '0.875rem', md: '1rem' } }}
-                >
-                  Pending Deliveries
-                </Typography>
-                <Typography 
-                  variant="h5" 
-                  component="div" 
-                  color="warning.dark" 
-                  gutterBottom
-                  sx={{ fontSize: { xs: '1.25rem', md: '1.5rem' } }}
-                >
-                  {summaryStats.pendingDeliveries}
-                </Typography>
-                <Typography 
-                  variant="body2" 
-                  color="warning.dark"
-                  sx={{ fontSize: { xs: '0.75rem', md: '0.875rem' } }}
-                >
-                  Vehicles to be delivered
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-          
-          <Grid item xs={12} sm={6} md={3}>
-            <Card 
-              sx={{ 
-                height: '100%', 
-                bgcolor: 'info.light',
-                transition: 'transform 0.2s',
-                '&:hover': {
-                  transform: 'translateY(-4px)'
-                }
-              }}
-            >
-              <CardContent>
-                <Typography 
-                  color="info.dark" 
-                  variant="subtitle2" 
-                  gutterBottom
-                  sx={{ fontSize: { xs: '0.875rem', md: '1rem' } }}
-                >
-                  Pending Payments
-                </Typography>
-                <Typography 
-                  variant="h5" 
-                  component="div" 
-                  color="info.dark" 
-                  gutterBottom
-                  sx={{ fontSize: { xs: '1.25rem', md: '1.5rem' } }}
-                >
-                  {summaryStats.pendingPayments}
-                </Typography>
-                <Typography 
-                  variant="body2" 
-                  color="info.dark"
-                  sx={{ fontSize: { xs: '0.75rem', md: '0.875rem' } }}
-                >
-                  Awaiting payment
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-          
-          <Grid item xs={12} sm={6} md={3}>
-            <Card 
-              sx={{ 
-                height: '100%', 
-                bgcolor: 'success.light',
-                transition: 'transform 0.2s',
-                '&:hover': {
-                  transform: 'translateY(-4px)'
-                }
-              }}
-            >
-              <CardContent>
-                <Typography 
-                  color="success.dark" 
-                  variant="subtitle2" 
-                  gutterBottom
-                  sx={{ fontSize: { xs: '0.875rem', md: '1rem' } }}
-                >
-                  Recent Activities
-                </Typography>
-                <Typography 
-                  variant="h5" 
-                  component="div" 
-                  color="success.dark" 
-                  gutterBottom
-                  sx={{ fontSize: { xs: '1.25rem', md: '1.5rem' } }}
-                >
-                  {summaryStats.recentActivities}
-                </Typography>
-                <Typography 
-                  variant="body2" 
-                  color="success.dark"
-                  sx={{ fontSize: { xs: '0.75rem', md: '0.875rem' } }}
-                >
-                  Last 30 days
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-        </Grid>
-
-        {/* Filters Section */}
-        <Paper 
-          sx={{ 
-            p: { xs: 1, sm: 2 }, 
-            mb: { xs: 2, md: 3 }, 
-            borderRadius: 2,
-            boxShadow: 2
-          }}
-        >
+        {/* Main Content */}
+        <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', gap: { xs: 2, md: 3 } }}>
+          {/* Summary Cards */}
           <Grid 
             container 
-            spacing={{ xs: 1, sm: 2 }} 
-            alignItems="center"
+            spacing={{ xs: 1, md: 3 }} 
+            sx={{ flexShrink: 0 }}
           >
             <Grid item xs={12} sm={6} md={3}>
-              <TextField
-                fullWidth
-                placeholder="Search activities..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <Search size={20} />
-                    </InputAdornment>
-                  ),
-                }}
-                size="small"
-                variant="outlined"
-              />
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <DatePicker
-                selectsRange={true}
-                startDate={startDate}
-                endDate={endDate}
-                onChange={(update) => setDateRange(update)}
-                placeholderText="Select date range"
-                customInput={
-                  <TextField 
-                    fullWidth 
-                    size="small"
-                    variant="outlined"
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <Calendar size={20} />
-                        </InputAdornment>
-                      ),
-                    }}
-                  />
-                }
-              />
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <Select
-                placeholder="Filter by category"
-                isClearable
-                value={selectedCategory}
-                onChange={(option) => setSelectedCategory(option)}
-                options={activityCategories}
-                styles={{
-                  control: (base) => ({
-                    ...base,
-                    minHeight: '40px'
-                  })
-                }}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <Box 
+              <Card 
                 sx={{ 
-                  display: 'flex', 
-                  gap: 1,
-                  flexDirection: { xs: 'column', sm: 'row' }
+                  height: '100%', 
+                  bgcolor: 'background.paper',
+                  borderLeft: '4px solid',
+                  borderColor: 'primary.main',
+                  transition: 'transform 0.2s',
+                  '&:hover': {
+                    transform: 'translateY(-4px)'
+                  },
+                  borderRadius: 2,
+                  boxShadow: 2
                 }}
               >
-                <Button 
-                  variant="outlined" 
-                  startIcon={<Filter />}
-                  onClick={() => {
-                    setSearchTerm('');
-                    setDateRange([null, null]);
-                    setSelectedCategory(null);
-                    setActivityType('all');
-                    setStatusFilter(null);
-                    setActiveTab('all');
-                  }}
-                  fullWidth
-                >
-                  Reset
-                </Button>
-                <Button 
-                  variant="outlined" 
-                  startIcon={<Download />}
-                  onClick={exportToCSV}
-                  fullWidth
-                >
-                  Export
-                </Button>
-              </Box>
+                <CardContent>
+                  <Typography 
+                    color="text.primary" 
+                    variant="subtitle2" 
+                    gutterBottom
+                    sx={{ fontSize: { xs: '0.875rem', md: '1rem' } }}
+                  >
+                    Total Clients
+                  </Typography>
+                  <Typography 
+                    variant="h5" 
+                    component="div" 
+                    color="text.primary" 
+                    gutterBottom
+                    sx={{ fontSize: { xs: '1.25rem', md: '1.5rem' } }}
+                  >
+                    {summaryStats.totalClients}
+                  </Typography>
+                  <Typography 
+                    variant="body2" 
+                    color="text.secondary"
+                    sx={{ fontSize: { xs: '0.75rem', md: '0.875rem' } }}
+                  >
+                    Active: {summaryStats.activeClients}
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+            
+            <Grid item xs={12} sm={6} md={3}>
+              <Card 
+                sx={{ 
+                  height: '100%', 
+                  bgcolor: 'background.paper',
+                  borderLeft: '4px solid',
+                  borderColor: 'warning.main',
+                  transition: 'transform 0.2s',
+                  '&:hover': {
+                    transform: 'translateY(-4px)'
+                  },
+                  borderRadius: 2,
+                  boxShadow: 2
+                }}
+              >
+                <CardContent>
+                  <Typography 
+                    color="text.primary" 
+                    variant="subtitle2" 
+                    gutterBottom
+                    sx={{ fontSize: { xs: '0.875rem', md: '1rem' } }}
+                  >
+                    Pending Deliveries
+                  </Typography>
+                  <Typography 
+                    variant="h5" 
+                    component="div" 
+                    color="text.primary" 
+                    gutterBottom
+                    sx={{ fontSize: { xs: '1.25rem', md: '1.5rem' } }}
+                  >
+                    {summaryStats.pendingDeliveries}
+                  </Typography>
+                  <Typography 
+                    variant="body2" 
+                    color="text.secondary"
+                    sx={{ fontSize: { xs: '0.75rem', md: '0.875rem' } }}
+                  >
+                    Vehicles to be delivered
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+            
+            <Grid item xs={12} sm={6} md={3}>
+              <Card 
+                sx={{ 
+                  height: '100%', 
+                  bgcolor: 'background.paper',
+                  borderLeft: '4px solid',
+                  borderColor: 'info.main',
+                  transition: 'transform 0.2s',
+                  '&:hover': {
+                    transform: 'translateY(-4px)'
+                  },
+                  borderRadius: 2,
+                  boxShadow: 2
+                }}
+              >
+                <CardContent>
+                  <Typography 
+                    color="text.primary" 
+                    variant="subtitle2" 
+                    gutterBottom
+                    sx={{ fontSize: { xs: '0.875rem', md: '1rem' } }}
+                  >
+                    Pending Payments
+                  </Typography>
+                  <Typography 
+                    variant="h5" 
+                    component="div" 
+                    color="text.primary" 
+                    gutterBottom
+                    sx={{ fontSize: { xs: '1.25rem', md: '1.5rem' } }}
+                  >
+                    {summaryStats.pendingPayments}
+                  </Typography>
+                  <Typography 
+                    variant="body2" 
+                    color="text.secondary"
+                    sx={{ fontSize: { xs: '0.75rem', md: '0.875rem' } }}
+                  >
+                    Awaiting payment
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+            
+            <Grid item xs={12} sm={6} md={3}>
+              <Card 
+                sx={{ 
+                  height: '100%', 
+                  bgcolor: 'background.paper',
+                  borderLeft: '4px solid',
+                  borderColor: 'success.main',
+                  transition: 'transform 0.2s',
+                  '&:hover': {
+                    transform: 'translateY(-4px)'
+                  },
+                  borderRadius: 2,
+                  boxShadow: 2
+                }}
+              >
+                <CardContent>
+                  <Typography 
+                    color="text.primary" 
+                    variant="subtitle2" 
+                    gutterBottom
+                    sx={{ fontSize: { xs: '0.875rem', md: '1rem' } }}
+                  >
+                    Recent Activities
+                  </Typography>
+                  <Typography 
+                    variant="h5" 
+                    component="div" 
+                    color="text.primary" 
+                    gutterBottom
+                    sx={{ fontSize: { xs: '1.25rem', md: '1.5rem' } }}
+                  >
+                    {summaryStats.recentActivities}
+                  </Typography>
+                  <Typography 
+                    variant="body2" 
+                    color="text.secondary"
+                    sx={{ fontSize: { xs: '0.75rem', md: '0.875rem' } }}
+                  >
+                    Last 30 days
+                  </Typography>
+                </CardContent>
+              </Card>
             </Grid>
           </Grid>
-        </Paper>
 
-        {/* Tabs Section */}
-        <Box sx={{ mb: { xs: 2, md: 3 } }}>
-          <Box 
+          {/* Filters Section */}
+          <Card 
             sx={{ 
-              borderBottom: 1, 
-              borderColor: 'divider',
-              overflowX: 'auto',
-              '&::-webkit-scrollbar': {
-                height: '4px'
-              },
-              '&::-webkit-scrollbar-thumb': {
-                backgroundColor: 'rgba(0,0,0,0.2)',
-                borderRadius: '4px'
-              }
+              p: { xs: 1.5, sm: 2, md: 2.5 },
+              borderRadius: 2,
+              boxShadow: 2,
+              borderLeft: '4px solid',
+              borderColor: 'info.main'
             }}
           >
-            <Tabs 
-              value={activeTab} 
-              onChange={handleTabChange}
-              aria-label="activity tabs"
-              variant="scrollable"
-              scrollButtons="auto"
-              sx={{
-                minHeight: { xs: 48, sm: 64 },
-                '& .MuiTab-root': {
-                  minHeight: { xs: 48, sm: 64 },
-                  fontSize: { xs: '0.75rem', sm: '0.875rem' }
-                }
-              }}
+            <Grid 
+              container 
+              spacing={{ xs: 1, sm: 2 }} 
+              alignItems="center"
             >
-              <Tab label="All Activities" value="all" />
-              <Tab label="Status Changes" value="status" />
-              <Tab label="Payments" value="payments" />
-              <Tab label="Deliveries" value="deliveries" />
-              <Tab label="Documents" value="documents" />
-              <Tab label="Appointments" value="appointments" />
-            </Tabs>
-          </Box>
-          
-          {/* Table Section */}
-          <Box sx={{ pt: 2 }}>
-            <TableContainer 
-              component={Paper}
-              sx={{ 
-                boxShadow: 2,
-                borderRadius: 2,
-                overflowX: 'auto'
-              }}
-            >
-              <Table 
-                aria-label="client activity history table"
-                sx={{
-                  '& .MuiTableCell-root': {
-                    whiteSpace: 'nowrap',
-                    px: { xs: 1, sm: 2 },
-                    py: { xs: 1, sm: 1.5 }
+              <Grid item xs={12} sm={6} md={3}>
+                <TextField
+                  fullWidth
+                  placeholder="Search activities..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <Search size={20} />
+                      </InputAdornment>
+                    ),
+                  }}
+                  size="small"
+                  variant="outlined"
+                />
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <DatePicker
+                  selectsRange={true}
+                  startDate={startDate}
+                  endDate={endDate}
+                  onChange={(update) => setDateRange(update)}
+                  placeholderText="Select date range"
+                  customInput={
+                    <TextField 
+                      fullWidth 
+                      size="small"
+                      variant="outlined"
+                      InputProps={{
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <Calendar size={20} />
+                          </InputAdornment>
+                        ),
+                      }}
+                    />
                   }
-                }}
-              >
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Date</TableCell>
-                    <TableCell>Type</TableCell>
-                    <TableCell>Client</TableCell>
-                    <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>Vehicle</TableCell>
-                    <TableCell>Description</TableCell>
-                    <TableCell>Status</TableCell>
-                    <TableCell align="center">Actions</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {filteredActivities.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={7} align="center">
-                        <Box sx={{ py: 3 }}>
-                          <Typography variant="body1" sx={{ mb: 1 }}>
-                            No activities found
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            Try adjusting your search or filter criteria
-                          </Typography>
-                        </Box>
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    filteredActivities
-                      .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                      .map((activity) => (
-                        <TableRow 
-                          key={activity.id} 
-                          hover
-                          sx={{ 
-                            '&:hover': {
-                              backgroundColor: 'action.hover'
-                            }
-                          }}
-                        >
-                          <TableCell>
-                            {format(new Date(activity.date), "MMM d, yyyy")}
-                          </TableCell>
-                          <TableCell>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                              {getActivityIcon(activity.type)}
-                              <Typography 
-                                variant="body2"
-                                sx={{ 
-                                  display: { xs: 'none', sm: 'block' }
-                                }}
-                              >
-                                {getActivityTypeLabel(activity.type)}
-                              </Typography>
-                            </Box>
-                          </TableCell>
-                          <TableCell>
-                            <Typography variant="body2">
-                              {activity.clientName}
-                            </Typography>
-                          </TableCell>
-                          <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>
-                            {activity.vehicleInfo ? (
-                              <Typography variant="body2">
-                                {activity.vehicleInfo.year} {activity.vehicleInfo.make} {activity.vehicleInfo.model}
-                              </Typography>
-                            ) : (
-                              <Typography variant="body2" color="text.secondary">
-                                N/A
-                              </Typography>
-                            )}
-                          </TableCell>
-                          <TableCell 
-                            sx={{ 
-                              maxWidth: { xs: 120, sm: 200 },
-                              whiteSpace: 'nowrap',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis'
-                            }}
-                          >
-                            <Tooltip title={activity.description}>
-                              <Typography variant="body2">
-                                {activity.description}
-                              </Typography>
-                            </Tooltip>
-                          </TableCell>
-                          <TableCell>
-                            <Chip 
-                              label={activity.status.charAt(0).toUpperCase() + activity.status.slice(1)} 
-                              color={getStatusColor(activity.status)}
-                              size="small"
-                              sx={{ 
-                                fontSize: { xs: '0.75rem', sm: '0.875rem' }
-                              }}
-                            />
-                          </TableCell>
-                          <TableCell align="center">
-                            <Button
-                              variant="text"
-                              size="small"
-                              color="primary"
-                              onClick={() => openActivityDetails(activity)}
-                              sx={{ 
-                                minWidth: { xs: 'auto', sm: '80px' },
-                                px: { xs: 1, sm: 2 }
-                              }}
-                            >
-                              View
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
-            
-            {/* Pagination */}
-            <TablePagination
-              rowsPerPageOptions={[10, 25, 50, 100]}
-              component="div"
-              count={filteredActivities.length}
-              rowsPerPage={rowsPerPage}
-              page={page}
-              onPageChange={handleChangePage}
-              onRowsPerPageChange={handleChangeRowsPerPage}
-              sx={{
-                '.MuiTablePagination-select': {
-                  minWidth: { xs: 'auto', sm: '80px' }
-                },
-                '.MuiTablePagination-displayedRows': {
-                  fontSize: { xs: '0.875rem', sm: '1rem' }
-                }
-              }}
-            />
-          </Box>
-        </Box>
-        
-        {/* Activity Detail Dialog */}
-        <Dialog 
-          open={detailOpen} 
-          onClose={closeActivityDetails}
-          maxWidth="md"
-          fullWidth
-          PaperProps={{
-            sx: {
-              borderRadius: 2,
-              boxShadow: 3
-            }
-          }}
-        >
-          {selectedActivity && (
-            <>
-              <DialogTitle>
+                />
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <Select
+                  placeholder="Filter by category"
+                  isClearable
+                  value={selectedCategory}
+                  onChange={(option) => setSelectedCategory(option)}
+                  options={activityCategories}
+                  styles={{
+                    control: (base) => ({
+                      ...base,
+                      minHeight: '40px'
+                    })
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
                 <Box 
                   sx={{ 
                     display: 'flex', 
-                    flexDirection: { xs: 'column', sm: 'row' },
-                    justifyContent: 'space-between', 
-                    alignItems: { xs: 'flex-start', sm: 'center' },
-                    gap: 1
+                    gap: 1,
+                    flexDirection: { xs: 'column', sm: 'row' }
                   }}
                 >
-                  <Typography 
-                    variant="h6"
-                    sx={{ 
-                      fontSize: { xs: '1.1rem', sm: '1.25rem' }
+                  <Button 
+                    variant="outlined" 
+                    startIcon={<Filter />}
+                    onClick={() => {
+                      setSearchTerm('');
+                      setDateRange([null, null]);
+                      setSelectedCategory(null);
+                      setActivityType('all');
+                      setStatusFilter(null);
+                      setActiveTab('all');
                     }}
+                    fullWidth
                   >
-                    Activity Details
-                  </Typography>
-                  <Chip 
-                    label={selectedActivity.status.charAt(0).toUpperCase() + selectedActivity.status.slice(1)} 
-                    color={getStatusColor(selectedActivity.status)}
-                    sx={{ 
-                      fontSize: { xs: '0.75rem', sm: '0.875rem' }
-                    }}
-                  />
+                    Reset
+                  </Button>
+                  <Button 
+                    variant="outlined" 
+                    startIcon={<Download />}
+                    onClick={exportToCSV}
+                    fullWidth
+                  >
+                    Export
+                  </Button>
                 </Box>
-              </DialogTitle>
-              <DialogContent>
-                <Grid container spacing={2} sx={{ mt: 1 }}>
-                  <Grid item xs={12}>
-                    <Card 
-                      sx={{ 
-                        mb: 3,
-                        boxShadow: 2,
-                        borderRadius: 2
-                      }}
-                    >
-                      <CardContent>
-                        <Grid container spacing={2}>
-                          <Grid item xs={12} sm={6}>
-                            <Typography 
-                              variant="body2" 
-                              color="text.secondary"
-                              sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
-                            >
-                              Activity Type
-                            </Typography>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
-                              {getActivityIcon(selectedActivity.type)}
-                              <Typography 
-                                variant="body1"
-                                sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}
-                              >
-                                {getActivityTypeLabel(selectedActivity.type)}
-                              </Typography>
-                            </Box>
-                          </Grid>
-                          <Grid item xs={12} sm={6}>
-                            <Typography 
-                              variant="body2" 
-                              color="text.secondary"
-                              sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
-                            >
-                              Date
-                            </Typography>
-                            <Typography 
-                              variant="body1" 
-                              gutterBottom
-                              sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}
-                            >
-                              {format(new Date(selectedActivity.date), "MMMM d, yyyy")}
-                            </Typography>
-                          </Grid>
-                          <Grid item xs={12} sm={6}>
-                            <Typography 
-                              variant="body2" 
-                              color="text.secondary"
-                              sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
-                            >
-                              Client
-                            </Typography>
-                            <Typography 
-                              variant="body1" 
-                              gutterBottom
-                              sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}
-                            >
-                              {selectedActivity.clientName}
-                            </Typography>
-                          </Grid>
-                          {selectedActivity.vehicleInfo && (
-                            <Grid item xs={12} sm={6}>
-                              <Typography 
-                                variant="body2" 
-                                color="text.secondary"
-                                sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
-                              >
-                                Vehicle
-                              </Typography>
-                              <Typography 
-                                variant="body1" 
-                                gutterBottom
-                                sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}
-                              >
-                                {selectedActivity.vehicleInfo.year} {selectedActivity.vehicleInfo.make} {selectedActivity.vehicleInfo.model}
-                                {selectedActivity.vehicleInfo.licensePlate && ` (${selectedActivity.vehicleInfo.licensePlate})`}
-                              </Typography>
-                            </Grid>
-                          )}
-                          {selectedActivity.amount > 0 && (
-                            <Grid item xs={12} sm={6}>
-                              <Typography 
-                                variant="body2" 
-                                color="text.secondary"
-                                sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
-                              >
-                                Amount
-                              </Typography>
-                              <Typography 
-                                variant="body1" 
-                                gutterBottom 
-                                sx={{ 
-                                  fontWeight: 'bold',
-                                  fontSize: { xs: '0.875rem', sm: '1rem' }
-                                }}
-                              >
-                                {formatCurrency(selectedActivity.amount)}
-                              </Typography>
-                            </Grid>
-                          )}
-                          <Grid item xs={12}>
-                            <Typography 
-                              variant="body2" 
-                              color="text.secondary"
-                              sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
-                            >
-                              Description
-                            </Typography>
-                            <Typography 
-                              variant="body1" 
-                              gutterBottom
-                              sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}
-                            >
-                              {selectedActivity.description}
-                            </Typography>
-                          </Grid>
-                          
-                          {selectedActivity.documents && selectedActivity.documents.length > 0 && (
-                            <Grid item xs={12}>
-                              <Typography 
-                                variant="body2" 
-                                color="text.secondary"
-                                sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
-                              >
-                                Documents
-                              </Typography>
-                              <List dense>
-                                {selectedActivity.documents.map((doc, index) => (
-                                  <ListItem 
-                                    key={index}
-                                    sx={{ 
-                                      px: { xs: 1, sm: 2 },
-                                      py: { xs: 0.5, sm: 1 }
-                                    }}
-                                  >
-                                    <ListItemAvatar>
-                                      <Avatar sx={{ width: 32, height: 32 }}>
-                                        <FileText size={16} />
-                                      </Avatar>
-                                    </ListItemAvatar>
-                                    <ListItemText
-                                      primary={
-                                        <Typography 
-                                          variant="body2"
-                                          sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
-                                        >
-                                          {doc.name}
-                                        </Typography>
-                                      }
-                                      secondary={
-                                        <Typography 
-                                          variant="caption"
-                                          sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}
-                                        >
-                                          {doc.type}
-                                        </Typography>
-                                      }
-                                    />
-                                  </ListItem>
-                                ))}
-                              </List>
-                            </Grid>
-                          )}
-                          
-                          {selectedActivity.notes && (
-                            <Grid item xs={12}>
-                              <Typography 
-                                variant="body2" 
-                                color="text.secondary"
-                                sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
-                              >
-                                Notes
-                              </Typography>
-                              <Typography 
-                                variant="body1" 
-                                gutterBottom
-                                sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}
-                              >
-                                {selectedActivity.notes}
-                              </Typography>
-                            </Grid>
-                          )}
-                        </Grid>
-                      </CardContent>
-                    </Card>
-                  </Grid>
-                </Grid>
-              </DialogContent>
-              <DialogActions
-                sx={{ 
-                  px: { xs: 2, sm: 3 },
-                  py: { xs: 1.5, sm: 2 }
+              </Grid>
+            </Grid>
+          </Card>
+
+          {/* Tabs Section */}
+          <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <Box 
+              sx={{ 
+                borderBottom: 1, 
+                borderColor: 'divider',
+                overflowX: 'auto',
+                '&::-webkit-scrollbar': {
+                  height: '4px'
+                },
+                '&::-webkit-scrollbar-thumb': {
+                  backgroundColor: 'rgba(0,0,0,0.2)',
+                  borderRadius: '4px'
+                }
+              }}
+            >
+              <Tabs 
+                value={activeTab} 
+                onChange={handleTabChange}
+                aria-label="activity tabs"
+                variant="scrollable"
+                scrollButtons="auto"
+                sx={{
+                  minHeight: { xs: 48, sm: 64 },
+                  '& .MuiTab-root': {
+                    minHeight: { xs: 48, sm: 64 },
+                    fontSize: { xs: '0.75rem', sm: '0.875rem' }
+                  }
                 }}
               >
-                <Button 
-                  onClick={closeActivityDetails}
-                  sx={{ 
-                    minWidth: { xs: 'auto', sm: '80px' }
+                <Tab label="All Activities" value="all" />
+                <Tab label="Status Changes" value="status" />
+                <Tab label="Payments" value="payments" />
+                <Tab label="Deliveries" value="deliveries" />
+                <Tab label="Documents" value="documents" />
+                <Tab label="Appointments" value="appointments" />
+              </Tabs>
+            </Box>
+            
+            {/* Table Section */}
+            <Card 
+              sx={{ 
+                flexGrow: 1,
+                display: 'flex',
+                flexDirection: 'column',
+                borderRadius: 2,
+                boxShadow: 2,
+                borderLeft: '4px solid',
+                borderColor: 'success.main',
+                overflow: 'hidden'
+              }}
+            >
+              <TableContainer sx={{ flexGrow: 1 }}>
+                <Table 
+                  aria-label="client activity history table"
+                  sx={{
+                    '& .MuiTableCell-root': {
+                      whiteSpace: 'nowrap',
+                      px: { xs: 1, sm: 2 },
+                      py: { xs: 1, sm: 1.5 }
+                    }
                   }}
                 >
-                  Close
-                </Button>
-                {selectedActivity.documents && selectedActivity.documents.length > 0 && (
-                  <Button 
-                    variant="outlined"
-                    color="primary"
-                    startIcon={<Download />}
+                  <TableHead>
+                    <TableRow>
+                      <TableCell sx={{ fontWeight: 'bold' }}>Date</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold' }}>Type</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold' }}>Client</TableCell>
+                      <TableCell sx={{ display: { xs: 'none', md: 'table-cell' }, fontWeight: 'bold' }}>Vehicle</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold' }}>Description</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold' }}>Status</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold' }} align="center">Actions</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {filteredActivities.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={7} align="center">
+                          <Box sx={{ py: 3 }}>
+                            <Typography variant="body1" sx={{ mb: 1 }}>
+                              No activities found
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              Try adjusting your search or filter criteria
+                            </Typography>
+                          </Box>
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      filteredActivities
+                        .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                        .map((activity) => (
+                          <TableRow 
+                            key={activity.id} 
+                            hover
+                            sx={{ 
+                              '&:hover': {
+                                backgroundColor: 'action.hover'
+                              }
+                            }}
+                          >
+                            <TableCell>
+                              {format(new Date(activity.date), "MMM d, yyyy")}
+                            </TableCell>
+                            <TableCell>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                {getActivityIcon(activity.type)}
+                                <Typography 
+                                  variant="body2"
+                                  sx={{ 
+                                    display: { xs: 'none', sm: 'block' }
+                                  }}
+                                >
+                                  {getActivityTypeLabel(activity.type)}
+                                </Typography>
+                              </Box>
+                            </TableCell>
+                            <TableCell>
+                              <Typography variant="body2">
+                                {activity.clientName}
+                              </Typography>
+                            </TableCell>
+                            <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>
+                              {activity.vehicleInfo ? (
+                                <Typography variant="body2">
+                                  {activity.vehicleInfo.year} {activity.vehicleInfo.make} {activity.vehicleInfo.model}
+                                </Typography>
+                              ) : (
+                                <Typography variant="body2" color="text.secondary">
+                                  N/A
+                                </Typography>
+                              )}
+                            </TableCell>
+                            <TableCell 
+                              sx={{ 
+                                maxWidth: { xs: 120, sm: 200 },
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis'
+                              }}
+                            >
+                              <Tooltip title={activity.description}>
+                                <Typography variant="body2">
+                                  {activity.description}
+                                </Typography>
+                              </Tooltip>
+                            </TableCell>
+                            <TableCell>
+                              <Chip 
+                                label={activity.status.charAt(0).toUpperCase() + activity.status.slice(1)} 
+                                color={getStatusColor(activity.status)}
+                                size="small"
+                                sx={{ 
+                                  fontSize: { xs: '0.75rem', sm: '0.875rem' }
+                                }}
+                              />
+                            </TableCell>
+                            <TableCell align="center">
+                              <Button
+                                variant="text"
+                                size="small"
+                                color="primary"
+                                onClick={() => openActivityDetails(activity)}
+                                sx={{ 
+                                  minWidth: { xs: 'auto', sm: '80px' },
+                                  px: { xs: 1, sm: 2 }
+                                }}
+                              >
+                                View
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+              
+              {/* Pagination */}
+              <TablePagination
+                rowsPerPageOptions={[10, 25, 50, 100]}
+                component="div"
+                count={filteredActivities.length}
+                rowsPerPage={rowsPerPage}
+                page={page}
+                onPageChange={handleChangePage}
+                onRowsPerPageChange={handleChangeRowsPerPage}
+                sx={{
+                  '.MuiTablePagination-select': {
+                    minWidth: { xs: 'auto', sm: '80px' }
+                  },
+                  '.MuiTablePagination-displayedRows': {
+                    fontSize: { xs: '0.875rem', sm: '1rem' }
+                  }
+                }}
+              />
+            </Card>
+          </Box>
+          
+          {/* Activity Detail Dialog */}
+          <Dialog 
+            open={detailOpen} 
+            onClose={closeActivityDetails}
+            maxWidth="md"
+            fullWidth
+            PaperProps={{
+              sx: {
+                borderRadius: 2,
+                boxShadow: 3
+              }
+            }}
+          >
+            {selectedActivity && (
+              <>
+                <DialogTitle>
+                  <Box 
                     sx={{ 
-                      minWidth: { xs: 'auto', sm: '160px' }
+                      display: 'flex', 
+                      flexDirection: { xs: 'column', sm: 'row' },
+                      justifyContent: 'space-between', 
+                      alignItems: { xs: 'flex-start', sm: 'center' },
+                      gap: 1
                     }}
                   >
-                    Download Documents
+                    <Typography 
+                      variant="h6"
+                      sx={{ 
+                        fontSize: { xs: '1.1rem', sm: '1.25rem' }
+                      }}
+                    >
+                      Activity Details
+                    </Typography>
+                    <Chip 
+                      label={selectedActivity.status.charAt(0).toUpperCase() + selectedActivity.status.slice(1)} 
+                      color={getStatusColor(selectedActivity.status)}
+                      sx={{ 
+                        fontSize: { xs: '0.75rem', sm: '0.875rem' }
+                      }}
+                    />
+                  </Box>
+                </DialogTitle>
+                <DialogContent>
+                  <Grid container spacing={2} sx={{ mt: 1 }}>
+                    <Grid item xs={12}>
+                      <Card 
+                        sx={{ 
+                          mb: 3,
+                          boxShadow: 2,
+                          borderRadius: 2
+                        }}
+                      >
+                        <CardContent>
+                          <Grid container spacing={2}>
+                            <Grid item xs={12} sm={6}>
+                              <Typography 
+                                variant="body2" 
+                                color="text.secondary"
+                                sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
+                              >
+                                Activity Type
+                              </Typography>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
+                                {getActivityIcon(selectedActivity.type)}
+                                <Typography 
+                                  variant="body1"
+                                  sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}
+                                >
+                                  {getActivityTypeLabel(selectedActivity.type)}
+                                </Typography>
+                              </Box>
+                            </Grid>
+                            <Grid item xs={12} sm={6}>
+                              <Typography 
+                                variant="body2" 
+                                color="text.secondary"
+                                sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
+                              >
+                                Date
+                              </Typography>
+                              <Typography 
+                                variant="body1" 
+                                gutterBottom
+                                sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}
+                              >
+                                {format(new Date(selectedActivity.date), "MMMM d, yyyy")}
+                              </Typography>
+                            </Grid>
+                            <Grid item xs={12} sm={6}>
+                              <Typography 
+                                variant="body2" 
+                                color="text.secondary"
+                                sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
+                              >
+                                Client
+                              </Typography>
+                              <Typography 
+                                variant="body1" 
+                                gutterBottom
+                                sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}
+                              >
+                                {selectedActivity.clientName}
+                              </Typography>
+                            </Grid>
+                            {selectedActivity.vehicleInfo && (
+                              <Grid item xs={12} sm={6}>
+                                <Typography 
+                                  variant="body2" 
+                                  color="text.secondary"
+                                  sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
+                                >
+                                  Vehicle
+                                </Typography>
+                                <Typography 
+                                  variant="body1" 
+                                  gutterBottom
+                                  sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}
+                                >
+                                  {selectedActivity.vehicleInfo.year} {selectedActivity.vehicleInfo.make} {selectedActivity.vehicleInfo.model}
+                                  {selectedActivity.vehicleInfo.licensePlate && ` (${selectedActivity.vehicleInfo.licensePlate})`}
+                                </Typography>
+                              </Grid>
+                            )}
+                            {selectedActivity.amount > 0 && (
+                              <Grid item xs={12} sm={6}>
+                                <Typography 
+                                  variant="body2" 
+                                  color="text.secondary"
+                                  sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
+                                >
+                                  Amount
+                                </Typography>
+                                <Typography 
+                                  variant="body1" 
+                                  gutterBottom 
+                                  sx={{ 
+                                    fontWeight: 'bold',
+                                    fontSize: { xs: '0.875rem', sm: '1rem' }
+                                  }}
+                                >
+                                  {formatCurrency(selectedActivity.amount)}
+                                </Typography>
+                              </Grid>
+                            )}
+                            <Grid item xs={12}>
+                              <Typography 
+                                variant="body2" 
+                                color="text.secondary"
+                                sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
+                              >
+                                Description
+                              </Typography>
+                              <Typography 
+                                variant="body1" 
+                                gutterBottom
+                                sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}
+                              >
+                                {selectedActivity.description}
+                              </Typography>
+                            </Grid>
+                            
+                            {selectedActivity.documents && selectedActivity.documents.length > 0 && (
+                              <Grid item xs={12}>
+                                <Typography 
+                                  variant="body2" 
+                                  color="text.secondary"
+                                  sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
+                                >
+                                  Documents
+                                </Typography>
+                                <List dense>
+                                  {selectedActivity.documents.map((doc, index) => (
+                                    <ListItem 
+                                      key={index}
+                                      sx={{ 
+                                        px: { xs: 1, sm: 2 },
+                                        py: { xs: 0.5, sm: 1 }
+                                      }}
+                                    >
+                                      <ListItemAvatar>
+                                        <Avatar sx={{ width: 32, height: 32 }}>
+                                          <FileText size={16} />
+                                        </Avatar>
+                                      </ListItemAvatar>
+                                      <ListItemText
+                                        primary={
+                                          <Typography 
+                                            variant="body2"
+                                            sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
+                                          >
+                                            {doc.name}
+                                          </Typography>
+                                        }
+                                        secondary={
+                                          <Typography 
+                                            variant="caption"
+                                            sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}
+                                          >
+                                            {doc.type}
+                                          </Typography>
+                                        }
+                                      />
+                                    </ListItem>
+                                  ))}
+                                </List>
+                              </Grid>
+                            )}
+                            
+                            {selectedActivity.notes && (
+                              <Grid item xs={12}>
+                                <Typography 
+                                  variant="body2" 
+                                  color="text.secondary"
+                                  sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
+                                >
+                                  Notes
+                                </Typography>
+                                <Typography 
+                                  variant="body1" 
+                                  gutterBottom
+                                  sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}
+                                >
+                                  {selectedActivity.notes}
+                                </Typography>
+                              </Grid>
+                            )}
+                          </Grid>
+                        </CardContent>
+                      </Card>
+                    </Grid>
+                  </Grid>
+                </DialogContent>
+                <DialogActions
+                  sx={{ 
+                    px: { xs: 2, sm: 3 },
+                    py: { xs: 1.5, sm: 2 }
+                  }}
+                >
+                  <Button 
+                    onClick={closeActivityDetails}
+                    sx={{ 
+                      minWidth: { xs: 'auto', sm: '80px' }
+                    }}
+                  >
+                    Close
                   </Button>
-                )}
-              </DialogActions>
-            </>
-          )}
-        </Dialog>
-      </Container>
+                  {selectedActivity.documents && selectedActivity.documents.length > 0 && (
+                    <Button 
+                      variant="outlined"
+                      color="primary"
+                      startIcon={<Download />}
+                      sx={{ 
+                        minWidth: { xs: 'auto', sm: '160px' }
+                      }}
+                    >
+                      Download Documents
+                    </Button>
+                  )}
+                </DialogActions>
+              </>
+            )}
+          </Dialog>
+        </Box>
+      </Box>
     </>
   );
 };

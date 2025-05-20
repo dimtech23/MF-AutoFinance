@@ -193,10 +193,14 @@
   };
 
   const Dashboard = () => {
-    const { token, isAuthenticated } = useContext(UserContext);
-    const [dashboardStats, setDashboardStats] = useState(null);
+    const { token, userRole } = useContext(UserContext);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [financialSummary, setFinancialSummary] = useState(null);
+    const [monthlyFinancials, setMonthlyFinancials] = useState([]);
+    const [servicesByType, setServicesByType] = useState([]);
+    const [vehiclesByMake, setVehiclesByMake] = useState([]);
+    const [appointmentAvailability, setAppointmentAvailability] = useState(null);
     const [timeRange, setTimeRange] = useState("month");
     const [recentTransactions, setRecentTransactions] = useState([]);
     const [upcomingAppointments, setUpcomingAppointments] = useState([]);
@@ -326,7 +330,7 @@
       // Check if we have valid cached data
       if (dashboardCache.isValid()) {
         console.log("Using cached dashboard data");
-        setDashboardStats(dashboardCache.data);
+        setFinancialSummary(dashboardCache.data);
         setRecentTransactions(dashboardCache.transactions || []);
         setUpcomingAppointments(dashboardCache.appointments || []);
         setClients(dashboardCache.clients || []);
@@ -349,12 +353,12 @@
         // Process stats results
         if (statsRes.success) {
           const data = statsRes.data;
-          setDashboardStats(data);
+          setFinancialSummary(data);
           dashboardCache.update('data', data);
           setComponentsLoaded(prev => ({ ...prev, stats: true }));
         } else {
           console.warn("Using fallback data for dashboard stats");
-          setDashboardStats(fallbackData);
+          setFinancialSummary(fallbackData);
           dashboardCache.update('data', fallbackData);
           setComponentsLoaded(prev => ({ ...prev, stats: true }));
         }
@@ -438,7 +442,7 @@
         setError("Failed to load dashboard data. Please try again later.");
         
         // Use fallback data in case of error
-        setDashboardStats(fallbackData);
+        setFinancialSummary(fallbackData);
       } finally {
         setLoading(false);
       }
@@ -518,7 +522,7 @@
     
     // Income vs Expenses Chart
     const renderIncomeExpensesChart = () => {
-      if (!dashboardStats?.monthlyFinancials) return null;
+      if (!financialSummary?.monthlyFinancials) return null;
 
       return (
         <Card sx={{ p: 2, height: "100%" }}>
@@ -531,10 +535,10 @@
             subheader={
               <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
                 <Typography variant="body2" color="text.secondary">
-                  Total Income: {formatters.currency(dashboardStats.financialSummary.totalIncome)}
+                  Total Income: {formatters.currency(financialSummary.financialSummary.totalIncome)}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Total Expenses: {formatters.currency(dashboardStats.financialSummary.totalExpenses)}
+                  Total Expenses: {formatters.currency(financialSummary.financialSummary.totalExpenses)}
                 </Typography>
               </Box>
             }
@@ -542,7 +546,7 @@
           <CardContent>
             <ResponsiveContainer width="100%" height={400}>
               <BarChart
-                data={dashboardStats.monthlyFinancials}
+                data={financialSummary.monthlyFinancials}
                 margin={{ top: 20, right: 30, left: 20, bottom: 65 }}
               >
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
@@ -584,7 +588,7 @@
 
     // Monthly Profit Trend Chart
     const renderProfitChart = () => {
-      if (!dashboardStats?.monthlyFinancials) return null;
+      if (!financialSummary?.monthlyFinancials) return null;
 
       return (
         <Card sx={{ p: 2, height: "100%" }}>
@@ -596,14 +600,14 @@
             }
             subheader={
               <Typography variant="body2" color="text.secondary">
-                Net Profit: {formatters.currency(dashboardStats.financialSummary.netProfit)}
+                Net Profit: {formatters.currency(financialSummary.financialSummary.netProfit)}
               </Typography>
             }
           />
           <CardContent>
             <ResponsiveContainer width="100%" height={400}>
               <AreaChart
-                data={dashboardStats.monthlyFinancials}
+                data={financialSummary.monthlyFinancials}
                 margin={{ top: 20, right: 30, left: 20, bottom: 65 }}
               >
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
@@ -641,9 +645,9 @@
 
     // Service Revenue Breakdown Chart
     const renderServiceRevenueChart = () => {
-      if (!dashboardStats?.servicesByType) return null;
+      if (!financialSummary?.servicesByType) return null;
 
-      const total = dashboardStats.servicesByType.reduce((sum, item) => sum + item.value, 0);
+      const total = financialSummary.servicesByType.reduce((sum, item) => sum + item.value, 0);
 
       return (
         <Card sx={{ height: "100%" }}>
@@ -655,7 +659,7 @@
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>
                 <Pie
-                  data={dashboardStats.servicesByType}
+                  data={financialSummary.servicesByType}
                   cx="50%"
                   cy="50%"
                   labelLine={false}
@@ -665,7 +669,7 @@
                   nameKey="name"
                   label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
                 >
-                  {dashboardStats.servicesByType.map((entry, index) => (
+                  {financialSummary.servicesByType.map((entry, index) => (
                     <Cell
                       key={`cell-${index}`}
                       fill={COLORS[index % COLORS.length]}
@@ -688,7 +692,7 @@
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {dashboardStats.servicesByType.map((item, index) => (
+                  {financialSummary.servicesByType.map((item, index) => (
                     <TableRow key={index}>
                       <TableCell component="th" scope="row">
                         <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -718,9 +722,9 @@
 
     // Vehicles Serviced by Make Chart
     const renderVehiclesChart = () => {
-      if (!dashboardStats?.vehiclesByMake) return null;
+      if (!financialSummary?.vehiclesByMake) return null;
 
-      const total = dashboardStats.vehiclesByMake.reduce((sum, item) => sum + item.value, 0);
+      const total = financialSummary.vehiclesByMake.reduce((sum, item) => sum + item.value, 0);
 
       return (
         <Card sx={{ height: "100%" }}>
@@ -732,7 +736,7 @@
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>
                 <Pie
-                  data={dashboardStats.vehiclesByMake}
+                  data={financialSummary.vehiclesByMake}
                   cx="50%"
                   cy="50%"
                   labelLine={false}
@@ -742,7 +746,7 @@
                   nameKey="name"
                   label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
                 >
-                  {dashboardStats.vehiclesByMake.map((entry, index) => (
+                  {financialSummary.vehiclesByMake.map((entry, index) => (
                     <Cell
                       key={`cell-${index}`}
                       fill={CAR_COLORS[entry.name] || COLORS[index % COLORS.length]}
@@ -765,7 +769,7 @@
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {dashboardStats.vehiclesByMake.map((item, index) => (
+                  {financialSummary.vehiclesByMake.map((item, index) => (
                     <TableRow key={index}>
                       <TableCell component="th" scope="row">
                         <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -1053,7 +1057,7 @@
 
     // Render dashboard content
     const renderDashboardContent = () => {
-      if (loading && !dashboardStats) {
+      if (loading && !financialSummary) {
         return (
           <Box sx={{ width: '100%', mt: 4, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
             <CircularProgress size={60} />
@@ -1079,12 +1083,12 @@
         <>
           {/* Financial Summary Cards */}
           <Grid container spacing={3} sx={{ mb: 4 }}>
-            {dashboardStats ? (
+            {financialSummary ? (
               <>
                 <Grid item xs={12} sm={6} md={3}>
                   <StatCard
                     title="Total Garage Revenue"
-                    value={dashboardStats.financialSummary.totalIncome}
+                    value={financialSummary.financialSummary.totalIncome}
                     icon={DollarSign}
                     trend={{ direction: 'up', value: 12 }}
                     color='#2dce89'
@@ -1093,7 +1097,7 @@
                 <Grid item xs={12} sm={6} md={3}>
                   <StatCard
                     title="Garage Expenses"
-                    value={dashboardStats.financialSummary.totalExpenses}
+                    value={financialSummary.financialSummary.totalExpenses}
                     icon={CreditCard}
                     trend={{ direction: 'down', value: 5 }}
                     color='#f5365c'
@@ -1102,7 +1106,7 @@
                 <Grid item xs={12} sm={6} md={3}>
                   <StatCard
                     title="Net Garage Profit"
-                    value={dashboardStats.financialSummary.netProfit}
+                    value={financialSummary.financialSummary.netProfit}
                     icon={TrendingUp}
                     trend={{ direction: 'up', value: 22 }}
                     color='#11cdef'
@@ -1111,7 +1115,7 @@
                 <Grid item xs={12} sm={6} md={3}>
                   <StatCard
                     title="Average Service Value"
-                    value={dashboardStats.financialSummary.averageServiceValue}
+                    value={financialSummary.financialSummary.averageServiceValue}
                     icon={Tool}
                     trend={{ direction: 'up', value: 7 }}
                     color='#fb6340'

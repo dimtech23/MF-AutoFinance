@@ -14,16 +14,6 @@ export const UserProvider = ({ children }) => {
   const [userEmail, setUserEmail] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Debug logger for state changes
-  useEffect(() => {
-    console.log("UserContext State Changed:", {
-      isAuthenticated,
-      userRole,
-      user: user ? "exists" : "null",
-      token: token ? "exists" : "null",
-    });
-  }, [isAuthenticated, userRole, user, token]);
-
   // Update localStorage when token changes
   useEffect(() => {
     if (token) {
@@ -34,25 +24,16 @@ export const UserProvider = ({ children }) => {
   }, [token]);
 
   const validateToken = useCallback(async (storedToken) => {
-    console.log("Validating token:", storedToken ? "token exists" : "no token");
     if (!storedToken) return false;
 
     try {
       const decodedToken = decodeToken(storedToken);
-      console.log("Decoded token:", decodedToken);
-
-      if (!decodedToken) {
-        console.log("Token invalid - could not decode");
-        return false;
-      }
+      if (!decodedToken) return false;
 
       const currentTime = Date.now() / 1000;
-      if (decodedToken.exp < currentTime) {
-        console.log("Token expired");
-        return false;
-      }
+      if (decodedToken.exp < currentTime) return false;
 
-      // If token is not expired, keep the user logged in even if server is unreachable
+      // If token is not expired, keep the user logged in
       setUser(decodedToken);
       setUserRole(decodedToken.role);
       setUserName(decodedToken.name || '');
@@ -60,7 +41,6 @@ export const UserProvider = ({ children }) => {
       return true;
 
     } catch (error) {
-      console.error("Token validation error:", error);
       return false;
     }
   }, []);

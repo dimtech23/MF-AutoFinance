@@ -24,12 +24,12 @@ import {
 
 const WorkflowDiagram = () => (
   <svg
-    viewBox="0 0 800 980"
+    viewBox="0 0 800 1080"
     xmlns="http://www.w3.org/2000/svg"
     style={{ width: "100%", height: "auto" }}
   >
     {/* Background */}
-    <rect x="0" y="0" width="800" height="980" fill="#f8f9fa" />
+    <rect x="0" y="0" width="800" height="1080" fill="#f8f9fa" />
 
     {/* Title */}
     <text
@@ -41,7 +41,7 @@ const WorkflowDiagram = () => (
       textAnchor="middle"
       fill="#333"
     >
-      Auto Garage Management System Flow
+      MF Auto Finance System Workflow
     </text>
 
     {/* USER AUTHENTICATION SECTION */}
@@ -64,7 +64,7 @@ const WorkflowDiagram = () => (
       textAnchor="middle"
       fill="#1976d2"
     >
-      User Authentication
+      Authentication & Authorization
     </text>
 
     {/* Authentication Components */}
@@ -93,7 +93,7 @@ const WorkflowDiagram = () => (
       strokeWidth="1"
     />
     <text x="310" y="155" fontFamily="Arial" fontSize="14" textAnchor="middle">
-      Registration
+      Role Management
     </text>
 
     <rect
@@ -107,7 +107,7 @@ const WorkflowDiagram = () => (
       strokeWidth="1"
     />
     <text x="460" y="155" fontFamily="Arial" fontSize="14" textAnchor="middle">
-      User Management
+      Access Control
     </text>
 
     <rect
@@ -121,7 +121,7 @@ const WorkflowDiagram = () => (
       strokeWidth="1"
     />
     <text x="610" y="155" fontFamily="Arial" fontSize="14" textAnchor="middle">
-      Logout
+      Session Management
     </text>
 
     {/* DASHBOARD SECTION */}
@@ -129,7 +129,7 @@ const WorkflowDiagram = () => (
       x="50"
       y="220"
       width="700"
-      height="120"
+      height="140"
       rx="10"
       fill="#e8f5e9"
       stroke="#388e3c"
@@ -144,7 +144,7 @@ const WorkflowDiagram = () => (
       textAnchor="middle"
       fill="#388e3c"
     >
-      Dashboard
+      Dashboard & Analytics
     </text>
 
     {/* Dashboard Components */}
@@ -152,62 +152,74 @@ const WorkflowDiagram = () => (
       x="80"
       y="265"
       width="120"
-      height="50"
+      height="60"
       rx="5"
       fill="#c8e6c9"
       stroke="#388e3c"
       strokeWidth="1"
     />
     <text x="140" y="295" fontFamily="Arial" fontSize="14" textAnchor="middle">
-      Financial Stats
+      Financial
+    </text>
+    <text x="140" y="315" fontFamily="Arial" fontSize="14" textAnchor="middle">
+      Overview
     </text>
 
     <rect
       x="230"
       y="265"
       width="120"
-      height="50"
+      height="60"
       rx="5"
       fill="#c8e6c9"
       stroke="#388e3c"
       strokeWidth="1"
     />
     <text x="290" y="295" fontFamily="Arial" fontSize="14" textAnchor="middle">
-      Service Stats
+      Service
+    </text>
+    <text x="290" y="315" fontFamily="Arial" fontSize="14" textAnchor="middle">
+      Analytics
     </text>
 
     <rect
       x="380"
       y="265"
       width="160"
-      height="50"
+      height="60"
       rx="5"
       fill="#c8e6c9"
       stroke="#388e3c"
       strokeWidth="1"
     />
     <text x="460" y="295" fontFamily="Arial" fontSize="14" textAnchor="middle">
-      Appointment Calendar
+      Appointment
+    </text>
+    <text x="460" y="315" fontFamily="Arial" fontSize="14" textAnchor="middle">
+      Calendar
     </text>
 
     <rect
       x="570"
       y="265"
       width="120"
-      height="50"
+      height="60"
       rx="5"
       fill="#c8e6c9"
       stroke="#388e3c"
       strokeWidth="1"
     />
     <text x="630" y="295" fontFamily="Arial" fontSize="14" textAnchor="middle">
-      Recent Activity
+      Performance
+    </text>
+    <text x="630" y="315" fontFamily="Arial" fontSize="14" textAnchor="middle">
+      Metrics
     </text>
 
     {/* CLIENT MANAGEMENT SECTION */}
     <rect
       x="50"
-      y="360"
+      y="380"
       width="700"
       height="140"
       rx="10"
@@ -217,20 +229,20 @@ const WorkflowDiagram = () => (
     />
     <text
       x="400"
-      y="385"
+      y="405"
       fontFamily="Arial"
       fontSize="18"
       fontWeight="bold"
       textAnchor="middle"
       fill="#f57c00"
     >
-      Client Management
+      Client & Vehicle Management
     </text>
 
     {/* Client Management Components */}
     <rect
       x="80"
-      y="410"
+      y="430"
       width="120"
       height="60"
       rx="5"
@@ -238,16 +250,16 @@ const WorkflowDiagram = () => (
       stroke="#f57c00"
       strokeWidth="1"
     />
-    <text x="140" y="435" fontFamily="Arial" fontSize="14" textAnchor="middle">
+    <text x="140" y="455" fontFamily="Arial" fontSize="14" textAnchor="middle">
       Client
     </text>
-    <text x="140" y="455" fontFamily="Arial" fontSize="14" textAnchor="middle">
+    <text x="140" y="475" fontFamily="Arial" fontSize="14" textAnchor="middle">
       Registration
     </text>
 
     <rect
       x="230"
-      y="410"
+      y="430"
       width="120"
       height="60"
       rx="5"
@@ -255,16 +267,16 @@ const WorkflowDiagram = () => (
       stroke="#f57c00"
       strokeWidth="1"
     />
-    <text x="290" y="435" fontFamily="Arial" fontSize="14" textAnchor="middle">
+    <text x="290" y="455" fontFamily="Arial" fontSize="14" textAnchor="middle">
       Vehicle
     </text>
-    <text x="290" y="455" fontFamily="Arial" fontSize="14" textAnchor="middle">
-      Details
+    <text x="290" y="475" fontFamily="Arial" fontSize="14" textAnchor="middle">
+      Information
     </text>
 
     <rect
       x="380"
-      y="410"
+      y="430"
       width="120"
       height="60"
       rx="5"
@@ -272,16 +284,16 @@ const WorkflowDiagram = () => (
       stroke="#f57c00"
       strokeWidth="1"
     />
-    <text x="440" y="435" fontFamily="Arial" fontSize="14" textAnchor="middle">
-      Repair Status
-    </text>
     <text x="440" y="455" fontFamily="Arial" fontSize="14" textAnchor="middle">
-      Tracking
+      Service
+    </text>
+    <text x="440" y="475" fontFamily="Arial" fontSize="14" textAnchor="middle">
+      History
     </text>
 
     <rect
       x="530"
-      y="410"
+      y="430"
       width="120"
       height="60"
       rx="5"
@@ -289,19 +301,19 @@ const WorkflowDiagram = () => (
       stroke="#f57c00"
       strokeWidth="1"
     />
-    <text x="590" y="435" fontFamily="Arial" fontSize="14" textAnchor="middle">
-      Payment
-    </text>
     <text x="590" y="455" fontFamily="Arial" fontSize="14" textAnchor="middle">
-      Status
+      Document
+    </text>
+    <text x="590" y="475" fontFamily="Arial" fontSize="14" textAnchor="middle">
+      Management
     </text>
 
     {/* APPOINTMENT MANAGEMENT SECTION */}
     <rect
       x="50"
-      y="520"
+      y="540"
       width="700"
-      height="120"
+      height="140"
       rx="10"
       fill="#e1f5fe"
       stroke="#0288d1"
@@ -309,79 +321,91 @@ const WorkflowDiagram = () => (
     />
     <text
       x="400"
-      y="545"
+      y="565"
       fontFamily="Arial"
       fontSize="18"
       fontWeight="bold"
       textAnchor="middle"
       fill="#0288d1"
     >
-      Appointment Management
+      Service & Appointment Management
     </text>
 
     {/* Appointment Management Components */}
     <rect
       x="80"
-      y="565"
+      y="590"
       width="120"
-      height="50"
+      height="60"
       rx="5"
       fill="#b3e5fc"
       stroke="#0288d1"
       strokeWidth="1"
     />
-    <text x="140" y="595" fontFamily="Arial" fontSize="14" textAnchor="middle">
+    <text x="140" y="615" fontFamily="Arial" fontSize="14" textAnchor="middle">
+      Service
+    </text>
+    <text x="140" y="635" fontFamily="Arial" fontSize="14" textAnchor="middle">
       Scheduling
     </text>
 
     <rect
       x="230"
-      y="565"
+      y="590"
       width="160"
-      height="50"
+      height="60"
       rx="5"
       fill="#b3e5fc"
       stroke="#0288d1"
       strokeWidth="1"
     />
-    <text x="310" y="595" fontFamily="Arial" fontSize="14" textAnchor="middle">
-      Calendar Integration
+    <text x="310" y="615" fontFamily="Arial" fontSize="14" textAnchor="middle">
+      Service Status
+    </text>
+    <text x="310" y="635" fontFamily="Arial" fontSize="14" textAnchor="middle">
+      Tracking
     </text>
 
     <rect
       x="420"
-      y="565"
+      y="590"
       width="120"
-      height="50"
+      height="60"
       rx="5"
       fill="#b3e5fc"
       stroke="#0288d1"
       strokeWidth="1"
     />
-    <text x="480" y="595" fontFamily="Arial" fontSize="14" textAnchor="middle">
-      Notifications
+    <text x="480" y="615" fontFamily="Arial" fontSize="14" textAnchor="middle">
+      Quality
+    </text>
+    <text x="480" y="635" fontFamily="Arial" fontSize="14" textAnchor="middle">
+      Control
     </text>
 
     <rect
       x="570"
-      y="565"
+      y="590"
       width="120"
-      height="50"
+      height="60"
       rx="5"
       fill="#b3e5fc"
       stroke="#0288d1"
       strokeWidth="1"
     />
-    <text x="630" y="595" fontFamily="Arial" fontSize="14" textAnchor="middle">
-      Status Updates
+    <text x="630" y="615" fontFamily="Arial" fontSize="14" textAnchor="middle">
+      Service
+    </text>
+    <text x="630" y="635" fontFamily="Arial" fontSize="14" textAnchor="middle">
+      Completion
     </text>
 
-    {/* INVOICING & FINANCIAL SECTION */}
+    {/* FINANCIAL MANAGEMENT SECTION */}
     <rect
       x="50"
-      y="660"
+      y="700"
       width="700"
-      height="120"
+      height="140"
       rx="10"
       fill="#fce4ec"
       stroke="#c2185b"
@@ -389,79 +413,91 @@ const WorkflowDiagram = () => (
     />
     <text
       x="400"
-      y="685"
+      y="725"
       fontFamily="Arial"
       fontSize="18"
       fontWeight="bold"
       textAnchor="middle"
       fill="#c2185b"
     >
-      Invoicing & Financial Management
+      Financial Management
     </text>
 
-    {/* Invoicing Components */}
+    {/* Financial Components */}
     <rect
       x="80"
-      y="705"
+      y="750"
       width="120"
-      height="50"
+      height="60"
       rx="5"
       fill="#f8bbd0"
       stroke="#c2185b"
       strokeWidth="1"
     />
-    <text x="140" y="735" fontFamily="Arial" fontSize="14" textAnchor="middle">
-      Invoice Creation
+    <text x="140" y="775" fontFamily="Arial" fontSize="14" textAnchor="middle">
+      Invoice
+    </text>
+    <text x="140" y="795" fontFamily="Arial" fontSize="14" textAnchor="middle">
+      Generation
     </text>
 
     <rect
       x="230"
-      y="705"
+      y="750"
       width="120"
-      height="50"
+      height="60"
       rx="5"
       fill="#f8bbd0"
       stroke="#c2185b"
       strokeWidth="1"
     />
-    <text x="290" y="735" fontFamily="Arial" fontSize="14" textAnchor="middle">
-      Payment Processing
+    <text x="290" y="775" fontFamily="Arial" fontSize="14" textAnchor="middle">
+      Payment
+    </text>
+    <text x="290" y="795" fontFamily="Arial" fontSize="14" textAnchor="middle">
+      Processing
     </text>
 
     <rect
       x="380"
-      y="705"
+      y="750"
       width="120"
-      height="50"
+      height="60"
       rx="5"
       fill="#f8bbd0"
       stroke="#c2185b"
       strokeWidth="1"
     />
-    <text x="440" y="735" fontFamily="Arial" fontSize="14" textAnchor="middle">
-      Budget Management
+    <text x="440" y="775" fontFamily="Arial" fontSize="14" textAnchor="middle">
+      Tax
+    </text>
+    <text x="440" y="795" fontFamily="Arial" fontSize="14" textAnchor="middle">
+      Management
     </text>
 
     <rect
       x="530"
-      y="705"
+      y="750"
       width="120"
-      height="50"
+      height="60"
       rx="5"
       fill="#f8bbd0"
       stroke="#c2185b"
       strokeWidth="1"
     />
-    <text x="590" y="735" fontFamily="Arial" fontSize="14" textAnchor="middle">
-      Financial Reports
+    <text x="590" y="775" fontFamily="Arial" fontSize="14" textAnchor="middle">
+      Budget
+    </text>
+    <text x="590" y="795" fontFamily="Arial" fontSize="14" textAnchor="middle">
+      Control
     </text>
 
-    {/* REPORTS SECTION */}
+    {/* REPORTS & ANALYTICS SECTION */}
     <rect
       x="50"
-      y="800"
+      y="860"
       width="700"
-      height="120"
+      height="140"
       rx="10"
       fill="#f3e5f5"
       stroke="#9c27b0"
@@ -469,71 +505,83 @@ const WorkflowDiagram = () => (
     />
     <text
       x="400"
-      y="825"
+      y="885"
       fontFamily="Arial"
       fontSize="18"
       fontWeight="bold"
       textAnchor="middle"
       fill="#9c27b0"
     >
-      Financial Reports
+      Reports & Analytics
     </text>
 
     {/* Reports Components */}
     <rect
       x="80"
-      y="845"
+      y="910"
       width="120"
-      height="50"
+      height="60"
       rx="5"
       fill="#e1bee7"
       stroke="#9c27b0"
       strokeWidth="1"
     />
-    <text x="140" y="875" fontFamily="Arial" fontSize="14" textAnchor="middle">
-      Income Statement
+    <text x="140" y="935" fontFamily="Arial" fontSize="14" textAnchor="middle">
+      Financial
+    </text>
+    <text x="140" y="955" fontFamily="Arial" fontSize="14" textAnchor="middle">
+      Reports
     </text>
 
     <rect
       x="230"
-      y="845"
+      y="910"
       width="120"
-      height="50"
+      height="60"
       rx="5"
       fill="#e1bee7"
       stroke="#9c27b0"
       strokeWidth="1"
     />
-    <text x="290" y="875" fontFamily="Arial" fontSize="14" textAnchor="middle">
-      Cash Flow
+    <text x="290" y="935" fontFamily="Arial" fontSize="14" textAnchor="middle">
+      Performance
+    </text>
+    <text x="290" y="955" fontFamily="Arial" fontSize="14" textAnchor="middle">
+      Analytics
     </text>
 
     <rect
       x="380"
-      y="845"
+      y="910"
       width="120"
-      height="50"
+      height="60"
       rx="5"
       fill="#e1bee7"
       stroke="#9c27b0"
       strokeWidth="1"
     />
-    <text x="440" y="875" fontFamily="Arial" fontSize="14" textAnchor="middle">
-      Balance Sheet
+    <text x="440" y="935" fontFamily="Arial" fontSize="14" textAnchor="middle">
+      Trend
+    </text>
+    <text x="440" y="955" fontFamily="Arial" fontSize="14" textAnchor="middle">
+      Analysis
     </text>
 
     <rect
       x="530"
-      y="845"
+      y="910"
       width="120"
-      height="50"
+      height="60"
       rx="5"
       fill="#e1bee7"
       stroke="#9c27b0"
       strokeWidth="1"
     />
-    <text x="590" y="875" fontFamily="Arial" fontSize="14" textAnchor="middle">
-      Export & Print
+    <text x="590" y="935" fontFamily="Arial" fontSize="14" textAnchor="middle">
+      Export &
+    </text>
+    <text x="590" y="955" fontFamily="Arial" fontSize="14" textAnchor="middle">
+      Sharing
     </text>
 
     {/* Flow Arrows */}
@@ -548,43 +596,43 @@ const WorkflowDiagram = () => (
 
     {/* Dashboard to Client Mgmt */}
     <path
-      d="M 400 340 L 400 360"
+      d="M 400 360 L 400 380"
       stroke="#333"
       strokeWidth="2"
       fill="none"
       markerEnd="url(#arrowhead)"
     />
 
-    {/* Client Mgmt to Appointment */}
+    {/* Client Mgmt to Service */}
     <path
-      d="M 400 500 L 400 520"
+      d="M 400 520 L 400 540"
       stroke="#333"
       strokeWidth="2"
       fill="none"
       markerEnd="url(#arrowhead)"
     />
 
-    {/* Appointment to Invoicing */}
+    {/* Service to Financial */}
     <path
-      d="M 400 640 L 400 660"
+      d="M 400 680 L 400 700"
       stroke="#333"
       strokeWidth="2"
       fill="none"
       markerEnd="url(#arrowhead)"
     />
 
-    {/* Invoicing to Reports */}
+    {/* Financial to Reports */}
     <path
-      d="M 400 780 L 400 800"
+      d="M 400 840 L 400 860"
       stroke="#333"
       strokeWidth="2"
       fill="none"
       markerEnd="url(#arrowhead)"
     />
 
-    {/* Dashboard to Appointment (side connection) */}
+    {/* Dashboard to Service (side connection) */}
     <path
-      d="M 460 315 L 460 400 L 500 400 L 500 520"
+      d="M 460 315 L 460 400 L 500 400 L 500 540"
       stroke="#333"
       strokeWidth="2"
       fill="none"
@@ -592,9 +640,9 @@ const WorkflowDiagram = () => (
       strokeDasharray="5,5"
     />
 
-    {/* Client Mgmt to Invoicing (direct line) */}
+    {/* Client Mgmt to Financial (direct line) */}
     <path
-      d="M 590 470 L 590 550 L 590 660"
+      d="M 590 510 L 590 600 L 590 700"
       stroke="#333"
       strokeWidth="2"
       fill="none"
@@ -604,7 +652,7 @@ const WorkflowDiagram = () => (
 
     {/* Dashboard to Reports (direct line) */}
     <path
-      d="M 140 340 L 140 700 L 140 800"
+      d="M 140 360 L 140 700 L 140 860"
       stroke="#333"
       strokeWidth="2"
       fill="none"
@@ -626,12 +674,12 @@ const WorkflowDiagram = () => (
       </marker>
     </defs>
 
-    {/* Legend - without the "Legend" text */}
+    {/* Legend */}
     <rect
       x="50"
-      y="940"
+      y="1020"
       width="700"
-      height="30"
+      height="40"
       rx="5"
       fill="#f5f5f5"
       stroke="#aaaaaa"
@@ -640,79 +688,79 @@ const WorkflowDiagram = () => (
 
     <rect
       x="100"
-      y="940"
+      y="1030"
       width="15"
       height="15"
       fill="#e3f2fd"
       stroke="#1976d2"
       strokeWidth="1"
     />
-    <text x="120" y="953" fontFamily="Arial" fontSize="12" fill="#333">
+    <text x="120" y="1043" fontFamily="Arial" fontSize="12" fill="#333">
       Authentication
     </text>
 
     <rect
       x="220"
-      y="940"
+      y="1030"
       width="15"
       height="15"
       fill="#e8f5e9"
       stroke="#388e3c"
       strokeWidth="1"
     />
-    <text x="240" y="953" fontFamily="Arial" fontSize="12" fill="#333">
+    <text x="240" y="1043" fontFamily="Arial" fontSize="12" fill="#333">
       Dashboard
     </text>
 
     <rect
       x="320"
-      y="940"
+      y="1030"
       width="15"
       height="15"
       fill="#fff3e0"
       stroke="#f57c00"
       strokeWidth="1"
     />
-    <text x="340" y="953" fontFamily="Arial" fontSize="12" fill="#333">
+    <text x="340" y="1043" fontFamily="Arial" fontSize="12" fill="#333">
       Client Management
     </text>
 
     <rect
       x="460"
-      y="940"
+      y="1030"
       width="15"
       height="15"
       fill="#e1f5fe"
       stroke="#0288d1"
       strokeWidth="1"
     />
-    <text x="480" y="953" fontFamily="Arial" fontSize="12" fill="#333">
-      Appointment
+    <text x="480" y="1043" fontFamily="Arial" fontSize="12" fill="#333">
+      Service Management
     </text>
 
     <rect
-      x="560"
-      y="940"
+      x="580"
+      y="1030"
       width="15"
       height="15"
       fill="#fce4ec"
       stroke="#c2185b"
       strokeWidth="1"
     />
-    <text x="580" y="953" fontFamily="Arial" fontSize="12" fill="#333">
-      Invoicing
+    <text x="600" y="1043" fontFamily="Arial" fontSize="12" fill="#333">
+      Financial
     </text>
 
     <rect
-      x="640"
-      y="940"
+      x="660"
+      y="1030"
       width="15"
       height="15"
       fill="#f3e5f5"
       stroke="#9c27b0"
       strokeWidth="1"
     />
-    <text x="660" y="953" fontFamily="Arial" fontSize="12" fill="#333">
+    <text x="680" y="1043" fontFamily="Arial" fontSize="12" fill="#333">
       Reports
     </text>
   </svg>
