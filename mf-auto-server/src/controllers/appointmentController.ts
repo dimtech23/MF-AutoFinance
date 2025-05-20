@@ -4,7 +4,7 @@ import Client from '../models/Client';
 import mongoose from 'mongoose';
 
 // Get all appointments
-export const getAllAppointments = async (req: Request, res: Response) => {
+export const getAllAppointments = async (req: Request, res: Response): Promise<Response> => {
   try {
     // Extract query parameters for filtering
     const { startDate, endDate, clientId, status, type } = req.query;
@@ -41,16 +41,16 @@ export const getAllAppointments = async (req: Request, res: Response) => {
       .populate('invoiceId', 'invoiceNumber')
       .populate('createdBy', 'firstName lastName');
     
-    res.status(200).json(appointments);
+    return res.status(200).json(appointments);
   } catch (error) {
     console.error('Error fetching appointments:', error);
-    res.status(500).json({ message: 'Server error', error });
+    return res.status(500).json({ message: 'Server error', error });
   }
 };
 
 
 // Get a specific appointment by ID
-export const getAppointmentById = async (req: Request, res: Response) => {
+export const getAppointmentById = async (req: Request, res: Response): Promise<Response> => {
   try {
     const appointment = await Appointment.findById(req.params.id)
       .populate('clientId', 'clientName carDetails email phoneNumber')
@@ -61,15 +61,15 @@ export const getAppointmentById = async (req: Request, res: Response) => {
       return res.status(404).json({ message: 'Appointment not found' });
     }
     
-    res.status(200).json(appointment);
+    return res.status(200).json(appointment);
   } catch (error) {
     console.error('Error fetching appointment:', error);
-    res.status(500).json({ message: 'Server error', error });
+    return res.status(500).json({ message: 'Server error', error });
   }
 };
 
 // Create a new appointment
-export const createAppointment = async (req: Request, res: Response) => {
+export const createAppointment = async (req: Request, res: Response): Promise<Response> => {
   try {
     const { title, date, time, clientId, clientName, vehicleInfo, type, status, description, invoiceId } = req.body;
     
@@ -121,7 +121,7 @@ export const createAppointment = async (req: Request, res: Response) => {
       );
     }
     
-    res.status(201).json(savedAppointment);
+    return res.status(201).json(savedAppointment);
   } catch (error) {
     console.error('Error creating appointment:', error);
     
@@ -129,66 +129,66 @@ export const createAppointment = async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'Validation error', errors: error.errors });
     }
     
-    res.status(500).json({ message: 'Server error', error });
+    return res.status(500).json({ message: 'Server error', error });
   }
 };
 
 // Update an existing appointment
-export const updateAppointment = async (req: Request, res: Response) => {
-    try {
-      const { id } = req.params;
-      const updates = req.body;
-      
-      // Update the appointment
-      const appointment = await Appointment.findByIdAndUpdate(
-        id, 
-        updates,
-        { new: true, runValidators: true }
-      );
-      
-      if (!appointment) {
-        return res.status(404).json({ message: 'Appointment not found' });
-      }
-      
-      // Update related client data
-      await updateRelatedClient(id, updates);
-      
-      res.json(appointment);
-    } catch (error) {
-      console.error('Error updating appointment:', error);
-      res.status(500).json({ message: 'Server error' });
+export const updateAppointment = async (req: Request, res: Response): Promise<Response> => {
+  try {
+    const { id } = req.params;
+    const updates = req.body;
+    
+    // Update the appointment
+    const appointment = await Appointment.findByIdAndUpdate(
+      id, 
+      updates,
+      { new: true, runValidators: true }
+    );
+    
+    if (!appointment) {
+      return res.status(404).json({ message: 'Appointment not found' });
     }
-  };
+    
+    // Update related client data
+    await updateRelatedClient(id, updates);
+    
+    return res.status(200).json(appointment);
+  } catch (error) {
+    console.error('Error updating appointment:', error);
+    return res.status(500).json({ message: 'Server error' });
+  }
+};
 
 // Update appointment status
-export const updateAppointmentStatus = async (req: Request, res: Response) => {
-    try {
-      const { status } = req.body;
-      
-      // Validate status
-      const validStatuses = ['scheduled', 'in_progress', 'completed', 'cancelled', 'waiting'];
-      if (!validStatuses.includes(status)) {
-        return res.status(400).json({ message: 'Invalid status' });
-      }
-      
-      const appointment = await Appointment.findById(req.params.id);
-      if (!appointment) {
-        return res.status(404).json({ message: 'Appointment not found' });
-      }
-      
-      // Update appointment status
-      appointment.status = status;
-      await appointment.save();
-      
-      // Update related client using our sync function
-      await updateRelatedClient(req.params.id, { status });
-      
-      res.status(200).json(appointment);
-    } catch (error) {
-      console.error('Error updating appointment status:', error);
-      res.status(500).json({ message: 'Server error', error });
+export const updateAppointmentStatus = async (req: Request, res: Response): Promise<Response> => {
+  try {
+    const { status } = req.body;
+    
+    // Validate status
+    const validStatuses = ['scheduled', 'in_progress', 'completed', 'cancelled', 'waiting'];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ message: 'Invalid status' });
     }
-  };
+    
+    const appointment = await Appointment.findById(req.params.id);
+    if (!appointment) {
+      return res.status(404).json({ message: 'Appointment not found' });
+    }
+    
+    // Update appointment status
+    appointment.status = status;
+    await appointment.save();
+    
+    // Update related client using our sync function
+    await updateRelatedClient(req.params.id, { status });
+    
+    return res.status(200).json(appointment);
+  } catch (error) {
+    console.error('Error updating appointment status:', error);
+    return res.status(500).json({ message: 'Server error', error });
+  }
+};
 
 // Function to update related client data when an appointment is modified
 const updateRelatedClient = async (appointmentId: string, updatedFields: any): Promise<void> => {
@@ -245,7 +245,7 @@ const updateRelatedClient = async (appointmentId: string, updatedFields: any): P
   };
 
 // Delete an appointment
-export const deleteAppointment = async (req: Request, res: Response) => {
+export const deleteAppointment = async (req: Request, res: Response): Promise<Response> => {
   try {
     const appointment = await Appointment.findById(req.params.id);
     if (!appointment) {
@@ -253,9 +253,9 @@ export const deleteAppointment = async (req: Request, res: Response) => {
     }
     
     await Appointment.findByIdAndDelete(req.params.id);
-    res.status(200).json({ message: 'Appointment deleted successfully' });
+    return res.status(200).json({ message: 'Appointment deleted successfully' });
   } catch (error) {
     console.error('Error deleting appointment:', error);
-    res.status(500).json({ message: 'Server error', error });
+    return res.status(500).json({ message: 'Server error', error });
   }
 };

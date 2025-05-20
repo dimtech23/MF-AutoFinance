@@ -1,0 +1,13 @@
+import { Request, Response } from 'express';
+export declare const getAllClients: (req: Request, res: Response) => Promise<Response>;
+export declare const getClientById: (req: Request, res: Response) => Promise<Response>;
+export declare const createClient: (req: Request, res: Response) => Promise<Response>;
+export declare const updateClient: (req: Request, res: Response) => Promise<Response>;
+export declare const deleteClient: (req: Request, res: Response) => Promise<Response>;
+export declare const getClientHistory: (req: Request, res: Response) => Promise<Response>;
+export declare const updateClientStatus: (req: Request, res: Response) => Promise<Response>;
+export declare const updatePaymentStatus: (req: Request, res: Response) => Promise<Response>;
+export declare const markAsDelivered: (req: Request, res: Response) => Promise<Response>;
+export declare const registerAdmin: (req: Request, res: Response) => Promise<Response>;
+export declare const getAllClientHistory: (req: Request, res: Response) => Promise<void>;
+export declare const getClientSummary: (_req: Request, res: Response) => Promise<Response>;

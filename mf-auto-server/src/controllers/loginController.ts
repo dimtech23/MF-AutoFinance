@@ -2,10 +2,9 @@ import { Request, Response } from 'express';
 // import { emailService } from "../services/emailService";
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-import User, { UserDocument } from '../models/User';
+import User from '../models/User';
 
-
-export const loginUser = async (req: Request, res: Response) => {
+export const loginUser = async (req: Request, res: Response): Promise<void> => {
   try {
     const { email, password } = req.body;
     
@@ -16,19 +15,21 @@ export const loginUser = async (req: Request, res: Response) => {
 
     if (!user) {
       console.log(`Login failed: No user found with email ${email}`);
-      return res.status(404).json({ message: 'No account associated with this email. Please check the email entered or register.' });
+      res.status(404).json({ message: 'No account associated with this email. Please check the email entered or register.' });
+      return;
     }
 
     const passwordMatch = await bcrypt.compare(password, user.password);
 
     if (!passwordMatch) {
       console.log(`Login failed: Incorrect password for ${email}`);
-      return res.status(401).json({ message: 'Incorrect password. Please try again' });
+      res.status(401).json({ message: 'Incorrect password. Please try again' });
+      return;
     }
 
     const token = jwt.sign(
       { userId: user._id, role: user.role },
-      process.env.JWT_SECRET as string,
+      process.env.JWT_SECRET || 'your-secret-key',
       { expiresIn: '24h' }
     );
 
@@ -58,6 +59,7 @@ export const loginUser = async (req: Request, res: Response) => {
     res.status(500).json({ error: 'Internal Server Error' });
   }
 };
+
 const generateCode = (length: number) => {
   const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"; 
   const charLen = characters.length;
@@ -68,13 +70,14 @@ const generateCode = (length: number) => {
   return code;
 };
 
-export const passwordReset = async (req: Request, res: Response) => {
+export const passwordReset = async (req: Request, res: Response): Promise<void> => {
   try {
     const { email } = req.body;
     const user = await User.findOne({ email });
 
     if (!user) {
-      return res.status(404).json({ message: 'No account associated with this email. Please check the email entered or register.' });
+      res.status(404).json({ message: 'No account associated with this email. Please check the email entered or register.' });
+      return;
     }
 
     const resetCode = generateCode(6);
@@ -101,21 +104,24 @@ export const passwordReset = async (req: Request, res: Response) => {
   }
 };
 
-export const verifyResetCode = async (req: Request, res: Response) => {
+export const verifyResetCode = async (req: Request, res: Response): Promise<void> => {
   try {
     const { email, resetCode } = req.body;
     const user = await User.findOne({ email });
 
     if (!user) {
-      return res.status(404).json({ message: 'No account associated with this email.' });
+      res.status(404).json({ message: 'No account associated with this email.' });
+      return;
     }
 
     if (!user.resetCode || !user.resetCodeExpiry || user.resetCode !== resetCode) {
-      return res.status(400).json({ message: 'Invalid or expired reset code.' });
+      res.status(400).json({ message: 'Invalid or expired reset code.' });
+      return;
     }
 
     if (user.resetCodeExpiry < new Date()) {
-      return res.status(400).json({ message: 'The reset code has expired.' });
+      res.status(400).json({ message: 'The reset code has expired.' });
+      return;
     }
 
     res.status(200).json({ message: 'Reset code verified. Proceed to reset password.' });
@@ -125,21 +131,23 @@ export const verifyResetCode = async (req: Request, res: Response) => {
   }
 };
 
-export const updateInfo = async (req: Request, res: Response) => {
+export const updateInfo = async (req: Request, res: Response): Promise<void> => {
   try {
     const { userId, newEmail, newPassword } = req.body; 
     const user = await User.findOne({ _id: userId });
 
     if (!user) {
-      return res.status(400).json({ message: "User not found!" });
+      res.status(400).json({ message: "User not found!" });
+      return;
     }
 
     // Handle email update
     if (newEmail) {
-      const existingUser = await User.findOne({ email: newEmail });
+      const existingUser = await User.findOne({ email: newEmail }).exec();
 
-      if (existingUser && existingUser._id.toString() !== userId) {
-        return res.status(409).json({ message: 'This email is already in use.' });
+      if (existingUser && existingUser._id && existingUser._id.toString() !== userId) {
+        res.status(409).json({ message: 'This email is already in use.' });
+        return;
       }
 
       user.email = newEmail;
@@ -151,22 +159,21 @@ export const updateInfo = async (req: Request, res: Response) => {
     }
 
     await user.save();
-    return res.status(200).json({ message: 'User updated successfully.' });
+    res.status(200).json({ message: 'User updated successfully.' });
   } catch (error) {
     console.error('Error in updateInfo:', error);
-    return res.status(500).json({ error: 'Internal Server Error' });
+    res.status(500).json({ error: 'Internal Server Error' });
   }
 };
 
-
-
-export const resetPassword = async (req: Request, res: Response) => {
+export const resetPassword = async (req: Request, res: Response): Promise<void> => {
   try {
     const { email, resetCode, newPassword } = req.body; 
     const user = await User.findOne({ email });
 
     if (!user || user.resetCode !== resetCode || (user.resetCodeExpiry && user.resetCodeExpiry < new Date())) {
-      return res.status(400).json({ message: 'Invalid or expired reset code.' });
+      res.status(400).json({ message: 'Invalid or expired reset code.' });
+      return;
     }
 
     user.password = await bcrypt.hash(newPassword, 10);

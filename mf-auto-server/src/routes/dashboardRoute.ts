@@ -1,18 +1,16 @@
-import express from 'express';
-import { authenticateToken, authorize } from "../middlewares/authMiddleware";
-import { UserRole } from "../constants/roles";
-import { getDashboardStats, getTransactions, getAppointments, getInventoryAlerts } from '../controllers/dashboardController';
+import express, { Router } from 'express';
+import { authenticateToken } from "../middlewares/authMiddleware";
+import { getDashboardStats, getTransactions, getAppointments } from '../controllers/dashboardController';
 
-const router = express.Router();
+const router: Router = express.Router();
 
 // Get dashboard statistics
 router.get('/stats', authenticateToken, getDashboardStats);
 
 // Get recent transactions
-router.get('/transactions/recent', authenticateToken, getTransactions);
+router.get('/transactions', authenticateToken, getTransactions);
 
 // Get upcoming appointments
-router.get('/appointments/upcoming', authenticateToken, getAppointments);
-
+router.get('/appointments', authenticateToken, getAppointments);
 
 export { router as dashboardRouter };

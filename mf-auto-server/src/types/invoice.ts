@@ -1,5 +1,3 @@
-import { Document } from 'mongoose';
-
 export interface InvoiceItem {
   id: number;
   type: 'service' | 'part';

@@ -4,33 +4,33 @@ import User from '../models/User';
 import { UserRole } from '../constants/roles';
 
 // Get all users
-export const getAllUsers = async (req: Request, res: Response) => {
+export const getAllUsers = async (_req: Request, res: Response): Promise<Response> => {
   try {
     // Filter out sensitive information
     const users = await User.find().select('-password -resetCode -resetCodeExpiry');
-    res.status(200).json(users);
+    return res.status(200).json(users);
   } catch (error) {
     console.error('Error fetching users:', error);
-    res.status(500).json({ message: 'Server error' });
+    return res.status(500).json({ message: 'Server error' });
   }
 };
 
 // Get a specific user by ID
-export const getUserById = async (req: Request, res: Response) => {
+export const getUserById = async (req: Request, res: Response): Promise<Response> => {
   try {
     const user = await User.findById(req.params.id).select('-password -resetCode -resetCodeExpiry');
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
-    res.status(200).json(user);
+    return res.status(200).json(user);
   } catch (error) {
     console.error('Error fetching user:', error);
-    res.status(500).json({ message: 'Server error' });
+    return res.status(500).json({ message: 'Server error' });
   }
 };
 
 // Update a user's information
-export const updateUser = async (req: Request, res: Response) => {
+export const updateUser = async (req: Request, res: Response): Promise<Response> => {
   try {
     const { firstName, lastName, email, phone, role, status, permissions } = req.body;
     
@@ -82,15 +82,15 @@ export const updateUser = async (req: Request, res: Response) => {
     
     // Return updated user without sensitive info
     const updatedUser = await User.findById(req.params.id).select('-password -resetCode -resetCodeExpiry');
-    res.status(200).json(updatedUser);
+    return res.status(200).json(updatedUser);
   } catch (error) {
     console.error('Error updating user:', error);
-    res.status(500).json({ message: 'Server error' });
+    return res.status(500).json({ message: 'Server error' });
   }
 };
 
 // Delete a user
-export const deleteUser = async (req: Request, res: Response) => {
+export const deleteUser = async (req: Request, res: Response): Promise<Response> => {
   try {
     const user = await User.findById(req.params.id);
     if (!user) {
@@ -98,15 +98,15 @@ export const deleteUser = async (req: Request, res: Response) => {
     }
     
     await User.findByIdAndDelete(req.params.id);
-    res.status(200).json({ message: 'User deleted successfully' });
+    return res.status(200).json({ message: 'User deleted successfully' });
   } catch (error) {
     console.error('Error deleting user:', error);
-    res.status(500).json({ message: 'Server error' });
+    return res.status(500).json({ message: 'Server error' });
   }
 };
 
 // Reset a user's password (admin function)
-export const resetUserPassword = async (req: Request, res: Response) => {
+export const resetUserPassword = async (req: Request, res: Response): Promise<Response> => {
   try {
     const { newPassword } = req.body;
     
@@ -124,9 +124,9 @@ export const resetUserPassword = async (req: Request, res: Response) => {
     user.password = hashedPassword;
     
     await user.save();
-    res.status(200).json({ message: 'Password reset successfully' });
+    return res.status(200).json({ message: 'Password reset successfully' });
   } catch (error) {
     console.error('Error resetting password:', error);
-    res.status(500).json({ message: 'Server error' });
+    return res.status(500).json({ message: 'Server error' });
   }
 };

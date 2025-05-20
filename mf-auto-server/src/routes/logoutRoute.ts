@@ -2,12 +2,12 @@ import express, { Request, Response } from 'express';
 
 const router = express.Router();
 
-router.post('/logout', async (req: Request, res: Response) => {
+router.post('/logout', async (_req: Request, res: Response): Promise<Response> => {
   try {    
-    res.status(200).json({ message: 'Logout successful' });
+    return res.status(200).json({ message: 'Logout successful' });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: 'Internal Server Error' });
+    return res.status(500).json({ error: 'Internal Server Error' });
   }
 });
 

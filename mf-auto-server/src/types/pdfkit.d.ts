@@ -1,9 +1,35 @@
 declare module 'pdfkit' {
+    interface TextOptions {
+        align?: 'left' | 'center' | 'right' | 'justify';
+        width?: number;
+        height?: number;
+        lineBreak?: boolean;
+        continued?: boolean;
+        underline?: boolean;
+        strike?: boolean;
+        link?: string;
+        indent?: number;
+        columns?: number;
+        columnGap?: number;
+        wordSpacing?: number;
+        characterSpacing?: number;
+        fill?: boolean;
+        stroke?: boolean;
+        lineGap?: number;
+        paragraphGap?: number;
+        listType?: 'bullet' | 'numbered';
+        bulletRadius?: number;
+        bulletIndent?: number;
+        textIndent?: number;
+        ellipsis?: boolean;
+        features?: { liga?: boolean; rlig?: boolean };
+        [key: string]: any;
+    }
+
     class PDFDocument {
         constructor(options?: {
             size?: string | [number, number];
             margin?: number | { top?: number; bottom?: number; left?: number; right?: number };
-            layout?: 'portrait' | 'landscape';
             bufferPages?: boolean;
             autoFirstPage?: boolean;
             info?: {
@@ -16,119 +42,65 @@ declare module 'pdfkit' {
                 Creator?: string;
                 Producer?: string;
             };
+            [key: string]: any;
         });
 
-        // Add y property
         y: number;
 
-        // Text operations
-        text(text: string, x?: number | {
-            width?: number;
-            height?: number;
-            align?: 'left' | 'center' | 'right' | 'justify';
-            lineBreak?: boolean;
-            continued?: boolean;
-            underline?: boolean;
-        }, y?: number, options?: {
-            width?: number;
-            height?: number;
-            align?: 'left' | 'center' | 'right' | 'justify';
-            lineBreak?: boolean;
-            continued?: boolean;
-            underline?: boolean;
-        }): this;
-        font(font: string, size?: number): this;
-        fontSize(size: number): this;
-        textColor(color: string): this;
-        fillColor(color: string): this;
-        strokeColor(color: string): this;
-
-        // Positioning
-        moveDown(lines?: number): this;
-        moveUp(lines?: number): this;
-        moveTo(x: number, y: number): this;
-
-        // Graphics
-        rect(x: number, y: number, width: number, height: number): this;
-        roundedRect(x: number, y: number, width: number, height: number, radius: number): this;
-        circle(x: number, y: number, radius: number): this;
-        ellipse(x: number, y: number, rx: number, ry: number): this;
-        lineCap(cap: 'butt' | 'round' | 'square'): this;
-        lineJoin(join: 'miter' | 'round' | 'bevel'): this;
-        lineWidth(width: number): this;
-
-        // Images
-        image(src: string | Buffer, x?: number, y?: number, options?: {
-            width?: number;
-            height?: number;
-            scale?: number;
-            fit?: [number, number];
-            align?: 'left' | 'center' | 'right';
-            valign?: 'top' | 'center' | 'bottom';
-        }): this;
-
-        // Page operations
-        addPage(options?: {
-            size?: string | [number, number];
-            margin?: number | { top?: number; bottom?: number; left?: number; right?: number };
-            layout?: 'portrait' | 'landscape';
-        }): this;
-        switchToPage(pageNumber: number): this;
-
-        // Document operations
-        pipe(destination: NodeJS.WritableStream): this;
+        pipe(destination: any): this;
         end(): void;
-        flushPages(): void;
-        save(): Promise<Buffer>;
-
-        // Tables
-        table(rows: any[], options?: {
-            prepareHeader?: () => void;
-            prepareRow?: (row: any, index: number) => void;
-            columnSpacing?: number;
-            rowSpacing?: number;
-            headerColor?: string;
-            headerHeight?: number;
-            rowHeight?: number;
-            columnWidth?: number | number[];
-        }): this;
-
-        // Lists
-        list(items: string[], options?: {
-            bulletRadius?: number;
-            textIndent?: number;
-            bulletIndent?: number;
-            continued?: boolean;
-        }): this;
-
-        // Links
-        link(x: number, y: number, width: number, height: number, url: string): this;
-        goToPage(pageNumber: number, options?: { top?: number; left?: number }): this;
-
-        // Transformations
-        rotate(angle: number, options?: { origin?: [number, number] }): this;
-        scale(x: number, y?: number, options?: { origin?: [number, number] }): this;
+        addPage(): this;
+        fontSize(size: number): this;
+        text(text: string, x?: number | TextOptions, y?: number, options?: TextOptions): this;
+        moveDown(count?: number): this;
+        font(font: string): this;
+        fill(color: string): this;
+        stroke(color: string): this;
+        lineWidth(width: number): this;
+        rect(x: number, y: number, width: number, height: number): this;
+        circle(x: number, y: number, radius: number): this;
+        image(src: any, x: number, y: number, options?: any): this;
+        save(): this;
+        restore(): this;
         translate(x: number, y: number): this;
+        rotate(angle: number, options?: any): this;
+        scale(x: number, y: number): this;
         transform(a: number, b: number, c: number, d: number, e: number, f: number): this;
-
-        // Path operations
         path(path: string): this;
-        fill(color?: string, rule?: 'nonzero' | 'evenodd'): this;
-        stroke(color?: string): this;
-        fillAndStroke(fillColor?: string, strokeColor?: string): this;
-
-        // Clipping
-        clip(): this;
-        clipEvenOdd(): this;
-
-        // Vector operations
+        moveTo(x: number, y: number): this;
+        lineTo(x: number, y: number): this;
         bezierCurveTo(cp1x: number, cp1y: number, cp2x: number, cp2y: number, x: number, y: number): this;
         quadraticCurveTo(cpx: number, cpy: number, x: number, y: number): this;
         arc(x: number, y: number, radius: number, startAngle: number, endAngle: number, anticlockwise?: boolean): this;
-
-        // State management
-        save(): this;
-        restore(): this;
+        closePath(): this;
+        fillAndStroke(): this;
+        fillColor(color: string): this;
+        strokeColor(color: string): this;
+        lineCap(cap: 'butt' | 'round' | 'square'): this;
+        lineJoin(join: 'miter' | 'round' | 'bevel'): this;
+        miterLimit(limit: number): this;
+        dash(length: number, options?: { space?: number; phase?: number }): this;
+        undash(): this;
+        opacity(opacity: number): this;
+        fillOpacity(opacity: number): this;
+        strokeOpacity(opacity: number): this;
+        link(x: number, y: number, width: number, height: number, url: string): this;
+        note(x: number, y: number, width: number, height: number, contents: string, options?: any): this;
+        highlight(x: number, y: number, width: number, height: number, options?: any): this;
+        underline(x: number, y: number, width: number, height: number, options?: any): this;
+        strike(x: number, y: number, width: number, height: number, options?: any): this;
+        list(items: string[], x: number, y: number, options?: any): this;
+        table(rows: any[], x: number, y: number, options?: any): this;
+        vector(x: number, y: number, width: number, height: number, options?: any): this;
+        ellipse(x: number, y: number, rx: number, ry: number): this;
+        polygon(points: [number, number][]): this;
+        star(x: number, y: number, points: number, outerRadius: number, innerRadius: number): this;
+        roundedRect(x: number, y: number, width: number, height: number, radius: number): this;
+        sector(x: number, y: number, radius: number, startAngle: number, endAngle: number, options?: any): this;
+        clip(): this;
+        unclip(): this;
+        bufferedPageRange(): { start: number; count: number };
+        switchToPage(page: number): this;
     }
 
     export = PDFDocument;

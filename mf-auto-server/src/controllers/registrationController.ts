@@ -5,7 +5,7 @@ import User from '../models/User';
 import { UserRole } from '../constants/roles';
 // import { emailService } from '../services/emailService';
 
-export const registerUser = async (req: Request, res: Response) => {
+export const registerUser = async (req: Request, res: Response): Promise<Response> => {
   try {
     const { firstName, lastName, email, phone, password, role = UserRole.MECHANIC } = req.body;
     
@@ -72,7 +72,7 @@ export const registerUser = async (req: Request, res: Response) => {
     //   // Continue execution even if email fails
     // }
 
-    res.status(201).json({ 
+    return res.status(201).json({ 
       message: 'Account created successfully!', 
       token,
       user: {
@@ -85,12 +85,12 @@ export const registerUser = async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Internal Server Error' });
+    return res.status(500).json({ message: 'Internal Server Error' });
   }
 };
 
 // Admin can register users
-export const registerUserByAdmin = async (req: Request, res: Response) => {
+export const registerUserByAdmin = async (req: Request, res: Response): Promise<Response> => {
   try {
     const { firstName, lastName, email, phone, role, sendInvitation = true } = req.body;
     
@@ -164,7 +164,7 @@ export const registerUserByAdmin = async (req: Request, res: Response) => {
     //   }
     // }
 
-    res.status(201).json({ 
+    return res.status(201).json({ 
       message: 'User account created successfully!',
       user: {
         id: newUser._id,
@@ -177,6 +177,6 @@ export const registerUserByAdmin = async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Internal Server Error' });
+    return res.status(500).json({ message: 'Internal Server Error' });
   }
 };

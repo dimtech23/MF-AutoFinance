@@ -1,0 +1,1 @@
+{"version":3,"file":"setResponse.js","sourceRoot":"","sources":["../../src/middlewares/setResponse.ts"],"names":[],"mappings":";;AAEA,MAAM,iBAAiB,GAAG,CAAC,GAAY,EAAE,GAAa,EAAE,IAAkB,EAAE,EAAE;IAC3E,GAAW,CAAC,cAAc,GAAG,GAAG,CAAC;IAClC,IAAI,EAAE,CAAC;AACT,CAAC,CAAC;AAEF,kBAAe,iBAAiB,CAAC"}

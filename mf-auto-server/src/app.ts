@@ -2,7 +2,7 @@ import path from "path";
 import dotenv from "dotenv";
 import mongoose from "mongoose";
 import bodyParser from "body-parser";
-import express from "express";
+import express, { Request, Response, NextFunction } from "express";
 import fs from "fs";
 
 // Import routes for garage management system
@@ -42,8 +42,8 @@ process.on('uncaughtException', (error) => {
 });
 
 // Custom CORS middleware to handle all cases
-app.use((req, res, next) => {
-  const origin = req.headers.origin;
+app.use((_req: Request, res: Response, next: NextFunction): void => {
+  const origin = _req.headers.origin;
   
   // Set CORS headers for all responses
   if (origin && allowedOrigins.includes(origin)) {
@@ -58,16 +58,17 @@ app.use((req, res, next) => {
   res.header('Access-Control-Allow-Credentials', 'true');
   
   // Handle OPTIONS requests immediately and directly
-  if (req.method === 'OPTIONS') {
+  if (_req.method === 'OPTIONS') {
     console.log(`Handling OPTIONS preflight from origin: ${origin || 'unknown'}`);
-    return res.status(204).end(); // 204 is more standard for OPTIONS
+    res.status(204).end(); // 204 is more standard for OPTIONS
+    return;
   }
   
   next();
 });
 
 // Request logging middleware
-app.use((req, res, next) => {
+app.use((req: Request, _res: Response, next: NextFunction): void => {
   console.log(`${new Date().toISOString()} [${req.method}] ${req.originalUrl} - Origin: ${req.headers.origin || 'unknown'}`);
   next();
 });
@@ -85,7 +86,7 @@ mongoose
   .catch((err) => console.error("MongoDB connection error:", err));
 
 // CORS TEST ENDPOINT
-app.get('/cors-test', (req, res) => {
+app.get('/cors-test', (req: Request, res: Response): void => {
   res.status(200).json({
     message: 'CORS test successful',
     origin: req.headers.origin || 'unknown',
@@ -117,29 +118,30 @@ app.use("/api/appointments", appointmentRouter);
 app.use("/setup", setupRouter);
 
 // Test MongoDB connection
-app.get("/test-db", async (req, res) => {
+app.get("/test-db", async (_req: Request, res: Response): Promise<void> => {
   try {
     // Check connection status
     if (mongoose.connection.readyState === 1) {
-      return res.status(200).json({ 
+      const dbName = mongoose.connection.db?.databaseName;
+      res.status(200).json({ 
         message: "Database connection successful!",
         status: "connected",
-        database: mongoose.connection.db.databaseName
+        database: dbName
       });
     } else {
-      return res.status(500).json({ 
+      res.status(500).json({ 
         message: "Database not connected!",
         status: mongoose.connection.readyState
       });
     }
   } catch (error) {
     console.error("Database test error:", error);
-    return res.status(500).json({ message: "Database connection error", error });
+    res.status(500).json({ message: "Database connection error", error });
   }
 });
 
 // API root route - useful for health checks
-app.get("/", (req, res) => {
+app.get("/", (_req: Request, res: Response): void => {
   res.status(200).json({ 
     message: "Auto Garage Management API is running",
     environment: process.env.NODE_ENV || 'development',
@@ -148,7 +150,7 @@ app.get("/", (req, res) => {
 });
 
 // Base API route response - helps debug path issues
-app.get("/api", (req, res) => {
+app.get("/api", (_req: Request, res: Response): void => {
   res.status(200).json({ 
     message: "Auto Garage Management API endpoints available",
     docs: "See documentation for available endpoints",
@@ -175,14 +177,14 @@ if (!isDevelopment) {
     app.use(basePath, express.static(frontendBuildPath));
     
     // For any routes that don't match API routes, serve the React app
-    app.get(`${basePath}/*`, (req, res) => {
+    app.get(`${basePath}/*`, (_req: Request, res: Response): void => {
       const indexPath = path.join(frontendBuildPath, 'index.html');
-      console.log(`Serving index.html from: ${indexPath} for path: ${req.path}`);
+      console.log(`Serving index.html from: ${indexPath} for path: ${_req.path}`);
       res.sendFile(indexPath);
     });
     
     // Also handle root path redirects to the base path if needed
-    app.get('/', (req, res) => {
+    app.get('/', (_req: Request, res: Response): void => {
       res.redirect(basePath);
     });
     
@@ -194,7 +196,7 @@ if (!isDevelopment) {
 }
 
 // Global error handler
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+app.use((err: Error, _req: Request, res: Response, _next: NextFunction): void => {
   console.error('Unhandled error:', err);
   res.status(500).json({
     error: 'Internal server error',
@@ -203,7 +205,7 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 });
 
 // Handle 404 routes
-app.use((req, res) => {
+app.use((req: Request, res: Response): void => {
   console.log(`404 Not Found: ${req.method} ${req.originalUrl}`);
   res.status(404).json({ 
     error: 'Not Found',

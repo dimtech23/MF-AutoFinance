@@ -8,7 +8,7 @@ import bcrypt from 'bcrypt';
 
 
 // Get all clients
-export const getAllClients = async (req: Request, res: Response) => {
+export const getAllClients = async (req: Request, res: Response): Promise<Response> => {
   try {
     const clients = await Client.find().sort({ createdAt: -1 });
     
@@ -29,15 +29,15 @@ export const getAllClients = async (req: Request, res: Response) => {
       return res.status(200).json(limitedClients);
     }
     
-    res.status(200).json(clients);
+    return res.status(200).json(clients);
   } catch (error) {
     console.error('Error fetching clients:', error);
-    res.status(500).json({ message: 'Server error' });
+    return res.status(500).json({ message: 'Server error' });
   }
 };
 
 // Get a specific client by ID
-export const getClientById = async (req: Request, res: Response) => {
+export const getClientById = async (req: Request, res: Response): Promise<Response> => {
   try {
     const client = await Client.findById(req.params.id);
     if (!client) {
@@ -63,15 +63,15 @@ export const getClientById = async (req: Request, res: Response) => {
       return res.status(200).json(limitedClient);
     }
     
-    res.status(200).json(client);
+    return res.status(200).json(client);
   } catch (error) {
     console.error('Error fetching client:', error);
-    res.status(500).json({ message: 'Server error' });
+    return res.status(500).json({ message: 'Server error' });
   }
 };
 
 // Create a new client
-export const createClient = async (req: Request, res: Response) => {
+export const createClient = async (req: Request, res: Response): Promise<Response> => {
   try {
     // Only Admin and Accountant can create clients
     if (![(req as any).user.role === UserRole.ADMIN, (req as any).user.role === UserRole.ACCOUNTANT].includes(true)) {
@@ -84,18 +84,18 @@ export const createClient = async (req: Request, res: Response) => {
     });
     
     const savedClient = await newClient.save();
-    res.status(201).json(savedClient);
+    return res.status(201).json(savedClient);
   } catch (error) {
     console.error('Error creating client:', error);
     if (error instanceof mongoose.Error.ValidationError) {
       return res.status(400).json({ message: 'Validation error', errors: error.errors });
     }
-    res.status(500).json({ message: 'Server error' });
+    return res.status(500).json({ message: 'Server error' });
   }
 };
 
 // Update an existing client
-export const updateClient = async (req: Request, res: Response) => {
+export const updateClient = async (req: Request, res: Response): Promise<Response> => {
   try {
     // Only Admin and Accountant can update clients
     if (![(req as any).user.role === UserRole.ADMIN, (req as any).user.role === UserRole.ACCOUNTANT].includes(true)) {
@@ -121,18 +121,18 @@ export const updateClient = async (req: Request, res: Response) => {
     // Update related appointments after client update
     await updateRelatedAppointments(req.params.id, req.body);
     
-    res.status(200).json(updatedClient);
+    return res.status(200).json(updatedClient);
   } catch (error) {
     console.error('Error updating client:', error);
     if (error instanceof mongoose.Error.ValidationError) {
       return res.status(400).json({ message: 'Validation error', errors: error.errors });
     }
-    res.status(500).json({ message: 'Server error' });
+    return res.status(500).json({ message: 'Server error' });
   }
 };
 
 // Delete a client
-export const deleteClient = async (req: Request, res: Response) => {
+export const deleteClient = async (req: Request, res: Response): Promise<Response> => {
   try {
     // Only Admin can delete clients
     if ((req as any).user.role !== UserRole.ADMIN) {
@@ -145,15 +145,15 @@ export const deleteClient = async (req: Request, res: Response) => {
     }
     
     await Client.findByIdAndDelete(req.params.id);
-    res.status(200).json({ message: 'Client deleted successfully' });
+    return res.status(200).json({ message: 'Client deleted successfully' });
   } catch (error) {
     console.error('Error deleting client:', error);
-    res.status(500).json({ message: 'Server error' });
+    return res.status(500).json({ message: 'Server error' });
   }
 };
 
 // Get client repair history
-export const getClientHistory = async (req: Request, res: Response) => {
+export const getClientHistory = async (req: Request, res: Response): Promise<Response> => {
   try {
     const client = await Client.findById(req.params.id);
     if (!client) {
@@ -166,15 +166,15 @@ export const getClientHistory = async (req: Request, res: Response) => {
 
     
     // Everyone can view client history
-    res.status(200).json(repairHistory);
+    return res.status(200).json(repairHistory);
   } catch (error) {
     console.error('Error fetching client history:', error);
-    res.status(500).json({ message: 'Server error' });
+    return res.status(500).json({ message: 'Server error' });
   }
 };
 
 // Update client repair status
-export const updateClientStatus = async (req: Request, res: Response) => {
+export const updateClientStatus = async (req: Request, res: Response): Promise<Response> => {
   try {
     const { status } = req.body;
     
@@ -199,30 +199,30 @@ export const updateClientStatus = async (req: Request, res: Response) => {
     
     const updatedClient = await Client.findByIdAndUpdate(
       req.params.id,
-      { $set: { repairStatus: status } },
+      { 
+        $set: { 
+          repairStatus: status,
+          updatedBy: (req as any).user._id
+        }
+      },
       { new: true }
     );
     
-    res.status(200).json(updatedClient);
+    return res.status(200).json(updatedClient);
   } catch (error) {
     console.error('Error updating client status:', error);
-    res.status(500).json({ message: 'Server error' });
+    return res.status(500).json({ message: 'Server error' });
   }
 };
 
 // Update client payment status
-export const updatePaymentStatus = async (req: Request, res: Response) => {
+export const updatePaymentStatus = async (req: Request, res: Response): Promise<Response> => {
   try {
-    // Only Admin and Accountant can update payment status
-    if (![(req as any).user.role === UserRole.ADMIN, (req as any).user.role === UserRole.ACCOUNTANT].includes(true)) {
-      return res.status(403).json({ message: 'Not authorized to update payment status' });
-    }
-    
-    const { paymentStatus, partialPaymentAmount } = req.body;
+    const { paymentStatus } = req.body;
     
     // Validate the payment status
-    const validPaymentStatuses = ['paid', 'not_paid', 'partial'];
-    if (!validPaymentStatuses.includes(paymentStatus)) {
+    const validStatuses = ['pending', 'partial', 'paid'];
+    if (!validStatuses.includes(paymentStatus)) {
       return res.status(400).json({ message: 'Invalid payment status' });
     }
     
@@ -231,67 +231,63 @@ export const updatePaymentStatus = async (req: Request, res: Response) => {
       return res.status(404).json({ message: 'Client not found' });
     }
     
-    const updateData: any = { paymentStatus };
-    if (paymentStatus === 'partial') {
-      if (!partialPaymentAmount || partialPaymentAmount <= 0) {
-        return res.status(400).json({ message: 'Partial payment amount is required and must be greater than 0' });
-      }
-      updateData.partialPaymentAmount = partialPaymentAmount;
-    } else {
-      // Reset partial payment amount if status is not partial
-      updateData.partialPaymentAmount = 0;
-    }
-    
-    const updatedClient = await Client.findByIdAndUpdate(
-      req.params.id,
-      { $set: updateData },
-      { new: true }
-    );
-    
-    res.status(200).json(updatedClient);
-  } catch (error) {
-    console.error('Error updating payment status:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-};
-
-// Mark client vehicle as delivered
-export const markAsDelivered = async (req: Request, res: Response) => {
-  try {
-    // Only Admin and Accountant can mark as delivered
+    // Only Admin and Accountant can update payment status
     if (![(req as any).user.role === UserRole.ADMIN, (req as any).user.role === UserRole.ACCOUNTANT].includes(true)) {
-      return res.status(403).json({ message: 'Not authorized to mark as delivered' });
-    }
-    
-    const { deliveryNotes, deliveryImages } = req.body;
-    
-    const client = await Client.findById(req.params.id);
-    if (!client) {
-      return res.status(404).json({ message: 'Client not found' });
-    }
-    
-    // Check if the client's repair status is completed
-    if (client.repairStatus !== 'completed') {
-      return res.status(400).json({ message: 'Client repair must be completed before marking as delivered' });
+      return res.status(403).json({ message: 'Not authorized to update payment status' });
     }
     
     const updatedClient = await Client.findByIdAndUpdate(
       req.params.id,
-      {
-        $set: {
-          repairStatus: 'delivered',
-          deliveryNotes: deliveryNotes || '',
-          deliveryImages: deliveryImages || [],
-          deliveryDate: new Date()
+      { 
+        $set: { 
+          paymentStatus,
+          updatedBy: (req as any).user._id
         }
       },
       { new: true }
     );
     
-    res.status(200).json(updatedClient);
+    return res.status(200).json(updatedClient);
   } catch (error) {
-    console.error('Error marking as delivered:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error('Error updating payment status:', error);
+    return res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Mark client vehicle as delivered
+export const markAsDelivered = async (req: Request, res: Response): Promise<Response> => {
+  try {
+    const client = await Client.findById(req.params.id);
+    if (!client) {
+      return res.status(404).json({ message: 'Client not found' });
+    }
+    
+    // Only Admin and Accountant can mark as delivered
+    if (![(req as any).user.role === UserRole.ADMIN, (req as any).user.role === UserRole.ACCOUNTANT].includes(true)) {
+      return res.status(403).json({ message: 'Not authorized to mark client as delivered' });
+    }
+    
+    // Check if payment is complete
+    if (client.paymentStatus !== 'paid') {
+      return res.status(400).json({ message: 'Cannot mark as delivered until payment is complete' });
+    }
+    
+    const updatedClient = await Client.findByIdAndUpdate(
+      req.params.id,
+      { 
+        $set: { 
+          repairStatus: 'delivered',
+          deliveryDate: new Date(),
+          updatedBy: (req as any).user._id
+        }
+      },
+      { new: true }
+    );
+    
+    return res.status(200).json(updatedClient);
+  } catch (error) {
+    console.error('Error marking client as delivered:', error);
+    return res.status(500).json({ message: 'Server error' });
   }
 };
 
@@ -360,22 +356,25 @@ const updateRelatedAppointments = async (clientId: string, updatedFields: any): 
 
 
 // Register an admin (special function, typically used once for initial setup)
-export const registerAdmin = async (req: Request, res: Response) => {
+export const registerAdmin = async (req: Request, res: Response): Promise<Response> => {
   try {
-    const { firstName, lastName, email, password } = req.body;
-    
-    // Check if there's already an admin user
-    const existingAdmin = await User.findOne({ role: UserRole.ADMIN });
-    if (existingAdmin) {
-      return res.status(400).json({ message: 'Admin user already exists' });
+    // Check if any admin exists
+    const adminExists = await User.findOne({ role: UserRole.ADMIN });
+    if (adminExists) {
+      return res.status(403).json({ message: 'Admin user already exists' });
     }
     
+    const { firstName, lastName, email, phone, password } = req.body;
+    
+    // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
     
-    const newUser = new User({
+    // Create admin user with full permissions
+    const adminUser = new User({
       firstName,
       lastName,
       email,
+      phone,
       password: hashedPassword,
       role: UserRole.ADMIN,
       permissions: {
@@ -391,12 +390,24 @@ export const registerAdmin = async (req: Request, res: Response) => {
       status: 'active'
     });
     
-    await newUser.save();
+    await adminUser.save();
     
-    res.status(201).json({ message: 'Admin user created successfully' });
+    return res.status(201).json({ 
+      message: 'Admin user created successfully',
+      user: {
+        id: adminUser._id,
+        firstName: adminUser.firstName,
+        lastName: adminUser.lastName,
+        email: adminUser.email,
+        role: adminUser.role
+      }
+    });
   } catch (error) {
     console.error('Error creating admin user:', error);
-    res.status(500).json({ message: 'Server error' });
+    if (error instanceof mongoose.Error.ValidationError) {
+      return res.status(400).json({ message: 'Validation error', errors: error.errors });
+    }
+    return res.status(500).json({ message: 'Server error' });
   }
 };
 
@@ -518,47 +529,21 @@ export const getAllClientHistory = async (req: Request, res: Response) => {
 };
 
 // Get client summary statistics
-export const getClientSummary = async (req: Request, res: Response) => {
+export const getClientSummary = async (_req: Request, res: Response): Promise<Response> => {
   try {
-    // Get total number of clients
     const totalClients = await Client.countDocuments();
+    const activeClients = await Client.countDocuments({ repairStatus: { $in: ['waiting', 'in_progress'] } });
+    const completedClients = await Client.countDocuments({ repairStatus: 'completed' });
+    const deliveredClients = await Client.countDocuments({ repairStatus: 'delivered' });
     
-    // Get active clients (not cancelled)
-    const activeClients = await Client.countDocuments({
-      repairStatus: { $ne: 'cancelled' }
-    });
-    
-    // Get pending deliveries (completed but not delivered)
-    const pendingDeliveries = await Client.countDocuments({
-      repairStatus: 'completed',
-      deliveryDate: { $exists: false }
-    });
-    
-    // Get pending payments (not paid or partial)
-    const pendingPayments = await Client.countDocuments({
-      paymentStatus: { $in: ['not_paid', 'partial'] }
-    });
-    
-    // Get recent activities (clients created or updated in last 30 days)
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    
-    const recentActivities = await Client.countDocuments({
-      $or: [
-        { createdAt: { $gte: thirtyDaysAgo } },
-        { updatedAt: { $gte: thirtyDaysAgo } }
-      ]
-    });
-    
-    res.status(200).json({
+    return res.status(200).json({
       totalClients,
       activeClients,
-      pendingDeliveries,
-      pendingPayments,
-      recentActivities
+      completedClients,
+      deliveredClients
     });
   } catch (error) {
     console.error('Error fetching client summary:', error);
-    res.status(500).json({ message: 'Server error' });
+    return res.status(500).json({ message: 'Server error' });
   }
 };

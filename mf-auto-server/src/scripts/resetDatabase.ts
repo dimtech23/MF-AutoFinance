@@ -1,9 +1,9 @@
 import mongoose from 'mongoose';
-import { User } from '../models/User';
-import { Invoice } from '../models/Invoice';
-import { Client } from '../models/Client';
-import { Appointment } from '../models/Appointment';
-import { Budget } from '../models/Budget';
+import User from '../models/User';
+import Invoice from '../models/Invoice';
+import Client from '../models/Client';
+import Appointment from '../models/Appointment';
+import Budget from '../models/Budget';
 import dotenv from 'dotenv';
 
 dotenv.config();

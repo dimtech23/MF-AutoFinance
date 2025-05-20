@@ -1,4 +1,4 @@
-import mongoose, { Schema, Document } from 'mongoose';
+import mongoose, { Document } from 'mongoose';
 import { UserRole } from '../constants/roles';
 
 export interface UserDocument extends Document {

@@ -124,7 +124,7 @@ const WorkflowDiagram = () => (
       Session Management
     </text>
 
-    {/* DASHBOARD SECTION */}
+    {/* DASHBOARD SECTIONS */}
     <rect
       x="50"
       y="220"

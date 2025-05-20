@@ -3,7 +3,6 @@ import { Request, Response } from 'express';
 import Client from '../models/Client';
 import Invoice from '../models/Invoice';
 import Appointment from '../models/Appointment';
-import mongoose from 'mongoose';
 
 // Define types for financial data
 interface MonthlyFinancial {
@@ -24,7 +23,7 @@ interface VehicleMake {
 }
 
 // Get dashboard statistics
-export const getDashboardStats = async (req: Request, res: Response) => {
+export const getDashboardStats = async (req: Request, res: Response): Promise<Response> => {
   try {
     // Get time range from query parameters or default to 'month'
     const timeRange = req.query.timeRange as string || 'month';
@@ -76,7 +75,7 @@ export const getDashboardStats = async (req: Request, res: Response) => {
     const vehiclesByMake = calculateVehiclesByMake(clients);
     
     // Calculate appointment availability
-    const total = 50; // Example total capacity
+    const total = 50;
     const booked = await Appointment.countDocuments({
       date: { $gte: new Date() },
       status: { $in: ['scheduled', 'in_progress'] }
@@ -101,15 +100,15 @@ export const getDashboardStats = async (req: Request, res: Response) => {
       }
     };
     
-    res.status(200).json(dashboardStats);
+    return res.status(200).json(dashboardStats);
   } catch (error) {
     console.error('Error getting dashboard stats:', error);
-    res.status(500).json({ message: 'Server error', error });
+    return res.status(500).json({ message: 'Server error', error });
   }
 };
 
 // Get recent transactions
-export const getTransactions = async (req: Request, res: Response) => {
+export const getTransactions = async (_req: Request, res: Response): Promise<Response> => {
   try {
     // Fetch recent invoices
     const recentInvoices = await Invoice.find()
@@ -133,15 +132,15 @@ export const getTransactions = async (req: Request, res: Response) => {
       vehicleInfo: invoice.vehicleInfo || null
     }));
     
-    res.status(200).json(transactions);
+    return res.status(200).json(transactions);
   } catch (error) {
     console.error('Error getting transactions:', error);
-    res.status(500).json({ message: 'Server error', error });
+    return res.status(500).json({ message: 'Server error', error });
   }
 };
 
 // Get upcoming appointments
-export const getAppointments = async (req: Request, res: Response) => {
+export const getAppointments = async (_req: Request, res: Response): Promise<Response> => {
   try {
     // Fetch upcoming appointments
     const upcomingAppointments = await Appointment.find({
@@ -167,15 +166,15 @@ export const getAppointments = async (req: Request, res: Response) => {
       };
     });
     
-    res.status(200).json(formattedAppointments);
+    return res.status(200).json(formattedAppointments);
   } catch (error) {
     console.error('Error getting appointments:', error);
-    res.status(500).json({ message: 'Server error', error });
+    return res.status(500).json({ message: 'Server error', error });
   }
 };
 
 // Get inventory alerts (placeholder - would need a proper inventory system)
-export const getInventoryAlerts = async (req: Request, res: Response) => {
+export const getInventoryAlerts = async (_req: Request, res: Response): Promise<Response> => {
   try {
     // This is a placeholder for inventory alerts
     // In a real system, this would query an inventory collection
@@ -200,10 +199,10 @@ export const getInventoryAlerts = async (req: Request, res: Response) => {
       }
     ];
     
-    res.status(200).json(mockInventoryAlerts);
+    return res.status(200).json(mockInventoryAlerts);
   } catch (error) {
     console.error('Error getting inventory alerts:', error);
-    res.status(500).json({ message: 'Server error', error });
+    return res.status(500).json({ message: 'Server error', error });
   }
 };
 
