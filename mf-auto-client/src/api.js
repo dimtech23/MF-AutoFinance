@@ -262,6 +262,9 @@ export const clientsAPI = {
   delete: (id) => api.delete(`/api/clients/${id}`),
   updateStatus: (clientId, status) => api.patch(`/api/clients/${clientId}/status`, { status }),
   updatePayment: (clientId, paymentData) => api.patch(`/api/clients/${clientId}/payment`, paymentData),
+  markAsDelivered: (clientId, deliveryData) => api.patch(`/api/clients/${clientId}/delivery`, deliveryData),
+  generateCompletionPDF: (clientId) => api.get(`/api/clients/${clientId}/completion-pdf`),
+  generateDeliveryPDF: (clientId) => api.get(`/api/clients/${clientId}/delivery-pdf`),
   getHistory: (params = {}) => {
     // If params is a string, treat it as a clientId
     if (typeof params === 'string') {
@@ -282,7 +285,6 @@ export const clientsAPI = {
     return api.get(url);
   },
   getSummary: () => api.get('/api/clients/summary'),
-  markDelivered: (clientId, deliveryData) => api.patch(`/api/clients/${clientId}/delivery`, deliveryData),
   getClientDocuments: async (clientId) => {
     const response = await api.get(`/api/clients/${clientId}/documents`);
     return response.data;
@@ -290,7 +292,9 @@ export const clientsAPI = {
   // You can add this method if needed
   sendDocuments: async (clientId, documentUrls) => {
     return api.post(`/api/clients/${clientId}/send-documents`, { documentUrls });
-  }
+  },
+  // Add getRepairHistory for fetching repair history
+  getRepairHistory: (clientId) => api.get(`/api/clients/${clientId}/history`)
 };
 
 // Add error handler function
@@ -312,46 +316,105 @@ export const invoicesAPI = {
   delete: (id) => api.delete(`/api/invoices/${id}`),
   markAsPaid: (id) => api.patch(`/api/invoices/${id}/pay`),
   processPayment: (id, paymentData) => api.post(`/api/invoices/${id}/payment`, paymentData),
-  getPDF: (id) => api.get(`/api/invoices/${id}/pdf`, { responseType: 'blob' }),
+  getPDF: (id) => api.get(`/api/invoices/${id}/pdf`, { 
+    responseType: 'blob',
+    timeout: 30000, // 30 second timeout
+    headers: {
+      'Accept': 'application/pdf'
+    },
+    validateStatus: function (status) {
+      return status >= 200 && status < 300; // Only accept 2xx status codes
+    }
+  }),
   sendEmail: (id) => api.post(`/api/invoices/${id}/email`),
   exportExcel: (params = {}) => api.get('/api/invoices/export/excel', { params, responseType: 'blob' }),
   updateStatus: (id, status) => api.patch(`/api/invoices/${id}/status`, { status }),
-  exportToPdf: async (exportData) => {
-    try {
-      const response = await api.post('/api/invoices/export/pdf', exportData, {
-        responseType: 'blob'
-      });
-      
-      // Create a blob from the PDF data
-      const blob = new Blob([response.data], { type: 'application/pdf' });
-      
-      // Create a URL for the blob
-      const url = window.URL.createObjectURL(blob);
-      
-      // Create a temporary link element
-      const link = document.createElement('a');
-      link.href = url;
-      
-      // Generate filename based on date range and report type
-      const dateStr = exportData.dateRange === 'custom' 
-        ? `${format(new Date(exportData.customDateRange[0]), 'yyyy-MM-dd')}_to_${format(new Date(exportData.customDateRange[1]), 'yyyy-MM-dd')}`
-        : exportData.dateRange;
-      
-      link.download = `financial_report_${exportData.reportType}_${dateStr}.pdf`;
-      
-      // Append to body, click, and remove
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
-      // Clean up the URL
-      window.URL.revokeObjectURL(url);
-      
-      return { success: true };
-    } catch (error) {
-      console.error('Error exporting to PDF:', error);
-      toast.error('Failed to export PDF. Please try again.');
-      throw error;
+  exportToPdf: async (exportData, onProgress) => {
+    const MAX_RETRIES = 3;
+    const TIMEOUT = 30000; // 30 seconds
+    let retryCount = 0;
+
+    const downloadWithRetry = async () => {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), TIMEOUT);
+
+        const response = await api.post('/api/invoices/export/pdf', exportData, {
+          responseType: 'blob',
+          signal: controller.signal,
+          onDownloadProgress: (progressEvent) => {
+            if (onProgress && progressEvent.total) {
+              const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+              onProgress(percentCompleted);
+            }
+          }
+        });
+
+        clearTimeout(timeoutId);
+
+        // Validate response
+        if (!response.data || response.data.size === 0) {
+          throw new Error('Received empty PDF data');
+        }
+
+        // Verify PDF content type
+        if (response.headers['content-type'] !== 'application/pdf') {
+          throw new Error('Invalid response type');
+        }
+
+        // Create a blob from the PDF data
+        const blob = new Blob([response.data], { type: 'application/pdf' });
+        
+        // Verify blob size
+        if (blob.size === 0) {
+          throw new Error('Generated PDF is empty');
+        }
+
+        // Create a URL for the blob
+        const url = window.URL.createObjectURL(blob);
+        
+        // Create a temporary link element
+        const link = document.createElement('a');
+        link.href = url;
+        
+        // Generate filename based on date range and report type
+        const dateStr = exportData.dateRange === 'custom' 
+          ? `${format(new Date(exportData.customDateRange[0]), 'yyyy-MM-dd')}_to_${format(new Date(exportData.customDateRange[1]), 'yyyy-MM-dd')}`
+          : exportData.dateRange;
+        
+        link.download = `financial_report_${exportData.reportType}_${dateStr}.pdf`;
+        
+        // Append to body, click, and remove
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // Clean up the URL
+        window.URL.revokeObjectURL(url);
+        
+        return { success: true };
+      } catch (error) {
+        if (error.name === 'AbortError') {
+          throw new Error('PDF generation timed out');
+        }
+        throw error;
+      }
+    };
+
+    while (retryCount < MAX_RETRIES) {
+      try {
+        return await downloadWithRetry();
+      } catch (error) {
+        retryCount++;
+        if (retryCount === MAX_RETRIES) {
+          console.error('Error exporting to PDF after retries:', error);
+          toast.error(error.message || 'Failed to export PDF. Please try again.');
+          throw error;
+        }
+        // Wait before retrying (exponential backoff)
+        await new Promise(resolve => setTimeout(resolve, Math.pow(2, retryCount) * 1000));
+        toast.warning(`Retrying PDF export (${retryCount}/${MAX_RETRIES})...`);
+      }
     }
   },
   exportToExcel: async (exportData) => {

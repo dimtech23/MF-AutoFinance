@@ -323,32 +323,301 @@ const generatePDF = async (req, res) => {
         if (!invoice) {
             return res.status(404).json({ message: 'Invoice not found' });
         }
-        doc = createBufferedPDF({
-            size: 'A4',
-            margin: 50
-        });
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', `inline; filename="invoice-${invoice.invoiceNumber}.pdf"`);
         res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
         res.setHeader('Pragma', 'no-cache');
         res.setHeader('Expires', '0');
+        doc = createBufferedPDF({
+            size: 'A4',
+            margin: 50
+        });
         doc.pipe(res);
+        await withPDFDocument(doc, (d) => {
+            d.fontSize(20).text('MF Auto Finance', { align: 'center' });
+            d.fontSize(12).text('Financial Report', { align: 'center' });
+            d.moveDown();
+        });
+        await withPDFDocument(doc, (d) => {
+            d.fontSize(10);
+            d.text(`Report Type: ${reportType.charAt(0).toUpperCase() + reportType.slice(1)}`);
+            d.text(`Date Range: ${(0, date_fns_1.format)(startDate, 'MMM dd, yyyy')} to ${(0, date_fns_1.format)(endDate, 'MMM dd, yyyy')}`);
+            d.text(`Generated: ${(0, date_fns_1.format)(new Date(), 'MMM dd, yyyy HH:mm:ss')}`);
+            d.moveDown();
+        });
+        await withPDFDocument(doc, (d) => {
+            d.fontSize(14).text('Financial Summary', { underline: true });
+            d.moveDown();
+            const summaryData = [
+                ['Total Revenue', `D ${safeNumberFormat(summary.totalRevenue)}`],
+                ['Collection Rate', `${safePercentageFormat(summary.collectionRate, summary.totalRevenue)}%`],
+                ['Outstanding Amount', `D ${safeNumberFormat(summary.totalOutstanding)}`],
+                ['Average Invoice', `D ${safeNumberFormat(summary.averageInvoiceAmount)}`],
+                ['Total Invoices', summary.totalInvoices.toString()],
+                ['Paid Invoices', summary.paidInvoices.toString()],
+                ['Overdue Invoices', summary.overdueInvoices.toString()]
+            ];
+            let y = d.y;
+            const tableLeft = 50;
+            const colWidth = 250;
+            summaryData.forEach(([label, value]) => {
+                if (y > 750) {
+                    d.addPage();
+                    y = 50;
+                }
+                d.text(label, tableLeft, y);
+                d.text(value, tableLeft + colWidth, y);
+                y += 20;
+            });
+        });
+        if (Object.keys(summary.paymentMethods).length > 0) {
+            await withPDFDocument(doc, (d) => {
+                d.addPage();
+                d.fontSize(14).text('Payment Methods Distribution', { underline: true });
+                d.moveDown();
+                const paymentMethodsData = Object.entries(summary.paymentMethods)
+                    .map(([method, amount]) => [
+                    method,
+                    `D ${safeNumberFormat(amount)}`,
+                    `${safePercentageFormat(amount, summary.totalRevenue)}%`
+                ]);
+                let y = d.y;
+                const tableLeft = 50;
+                const colWidth = 250;
+                d.text('Method', tableLeft, y);
+                d.text('Amount', tableLeft + colWidth, y);
+                d.text('Percentage', tableLeft + colWidth * 2, y);
+                y += 20;
+                paymentMethodsData.forEach(([method, amount, percentage]) => {
+                    if (y > 750) {
+                        d.addPage();
+                        y = 50;
+                    }
+                    d.text(method, tableLeft, y);
+                    d.text(amount, tableLeft + colWidth, y);
+                    d.text(percentage, tableLeft + colWidth * 2, y);
+                    y += 20;
+                });
+            });
+        }
+        if (Object.keys(summary.serviceCategories).length > 0) {
+            await withPDFDocument(doc, (d) => {
+                d.addPage();
+                d.fontSize(14).text('Service Categories', { underline: true });
+                d.moveDown();
+                const serviceCategoriesData = Object.entries(summary.serviceCategories)
+                    .sort(([, a], [, b]) => safeNumber(b) - safeNumber(a))
+                    .map(([category, revenue]) => [
+                    category,
+                    `D ${safeNumberFormat(revenue)}`,
+                    `${safePercentageFormat(revenue, summary.totalRevenue)}%`
+                ]);
+                let y = d.y;
+                const tableLeft = 50;
+                const colWidth = 250;
+                d.text('Category', tableLeft, y);
+                d.text('Revenue', tableLeft + colWidth, y);
+                d.text('Percentage', tableLeft + colWidth * 2, y);
+                y += 20;
+                serviceCategoriesData.forEach(([category, revenue, percentage]) => {
+                    if (y > 750) {
+                        d.addPage();
+                        y = 50;
+                    }
+                    d.text(category, tableLeft, y);
+                    d.text(revenue, tableLeft + colWidth, y);
+                    d.text(percentage, tableLeft + colWidth * 2, y);
+                    y += 20;
+                });
+            });
+        }
+        if (reportType === 'all' || reportType === 'invoices') {
+            await withPDFDocument(doc, (d) => {
+                d.addPage();
+                d.fontSize(14).text('Invoice Details', { underline: true });
+                d.moveDown();
+                const headers = ['Invoice #', 'Date', 'Client', 'Amount', 'Status', 'Due Date'];
+                const colWidths = [80, 80, 150, 80, 80, 80];
+                let y = d.y;
+                const tableLeft = 50;
+                headers.forEach((header, i) => {
+                    d.text(header, tableLeft + colWidths.slice(0, i).reduce((a, b) => a + b, 0), y);
+                });
+                y += 20;
+                invoices.forEach(invoice => {
+                    if (y > 750) {
+                        d.addPage();
+                        y = 50;
+                    }
+                    try {
+                        d.text(invoice.invoiceNumber || 'N/A', tableLeft, y);
+                        d.text((0, date_fns_1.format)(invoice.issueDate, 'MMM dd, yyyy'), tableLeft + colWidths[0], y);
+                        d.text(invoice.customerInfo.name || 'N/A', tableLeft + colWidths[0] + colWidths[1], y);
+                        d.text(`D ${safeNumberFormat(invoice.total)}`, tableLeft + colWidths[0] + colWidths[1] + colWidths[2], y);
+                        d.text(invoice.status || 'N/A', tableLeft + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3], y);
+                        d.text((0, date_fns_1.format)(invoice.dueDate, 'MMM dd, yyyy'), tableLeft + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3] + colWidths[4], y);
+                        y += 20;
+                    }
+                    catch (err) {
+                        console.error('Error processing invoice row:', err);
+                    }
+                });
+            });
+        }
+        await withPDFDocument(doc, (d) => {
+            d.addPage();
+            d.fontSize(14).text('Aging Analysis', { underline: true });
+            d.moveDown();
+            const agingData = [
+                ['Current', `D ${safeNumberFormat(calculateAgingAnalysis(invoices).current)}`],
+                ['1-30 Days', `D ${safeNumberFormat(calculateAgingAnalysis(invoices).days30)}`],
+                ['31-60 Days', `D ${safeNumberFormat(calculateAgingAnalysis(invoices).days60)}`],
+                ['61-90 Days', `D ${safeNumberFormat(calculateAgingAnalysis(invoices).days90)}`],
+                ['Over 90 Days', `D ${safeNumberFormat(calculateAgingAnalysis(invoices).over90)}`]
+            ];
+            let y = d.y;
+            const tableLeft = 50;
+            const colWidth = 250;
+            agingData.forEach(([label, value]) => {
+                if (y > 750) {
+                    d.addPage();
+                    y = 50;
+                }
+                d.text(label, tableLeft, y);
+                d.text(value, tableLeft + colWidth, y);
+                y += 20;
+            });
+        });
+        await withPDFDocument(doc, (d) => {
+            d.addPage();
+            d.fontSize(14).text('Revenue Trends', { underline: true });
+            d.moveDown();
+            const trendsData = calculateTrends(invoices, startDate, endDate);
+            let y = d.y;
+            const tableLeft = 50;
+            const colWidth = 250;
+            trendsData.forEach((trend) => {
+                if (y > 750) {
+                    d.addPage();
+                    y = 50;
+                }
+                d.text(trend.period, tableLeft, y);
+                d.text(`D ${safeNumberFormat(trend.revenue)}`, tableLeft + colWidth, y);
+                d.text(trend.invoices.toString(), tableLeft + colWidth * 2, y);
+                d.text(`D ${safeNumberFormat(trend.averageAmount)}`, tableLeft + colWidth * 3, y);
+                d.text(`${safePercentageFormat(trend.collectionRate, trend.revenue)}%`, tableLeft + colWidth * 4, y);
+                y += 20;
+            });
+        });
+        await withPDFDocument(doc, (d) => {
+            d.addPage();
+            d.fontSize(14).text('Top Performing Clients', { underline: true });
+            d.moveDown();
+            const clientMetricsData = calculateClientMetrics(invoices);
+            let y = d.y;
+            const tableLeft = 50;
+            const colWidth = 250;
+            clientMetricsData.forEach((client) => {
+                if (y > 750) {
+                    d.addPage();
+                    y = 50;
+                }
+                d.text(client.clientName, tableLeft, y);
+                d.text(`D ${safeNumberFormat(client.totalSpent)}`, tableLeft + colWidth, y);
+                d.text(client.invoiceCount.toString(), tableLeft + colWidth * 2, y);
+                d.text(`D ${safeNumberFormat(client.averageInvoiceAmount)}`, tableLeft + colWidth * 3, y);
+                y += 20;
+            });
+        });
+        await withPDFDocument(doc, (d) => {
+            d.addPage();
+            d.fontSize(14).text('Tax Analysis', { underline: true });
+            d.moveDown();
+            const taxAnalysisData = calculateTaxAnalysis(invoices);
+            let y = d.y;
+            const tableLeft = 50;
+            const colWidth = 250;
+            Object.entries(taxAnalysisData.taxByCategory).forEach(([category, data]) => {
+                if (y > 750) {
+                    d.addPage();
+                    y = 50;
+                }
+                d.text(category, tableLeft, y);
+                d.text(`D ${safeNumberFormat(data.taxableAmount)}`, tableLeft + colWidth, y);
+                d.text(`D ${safeNumberFormat(data.taxAmount)}`, tableLeft + colWidth * 2, y);
+                y += 20;
+            });
+        });
+        await withPDFDocument(doc, (d) => {
+            d.addPage();
+            d.fontSize(14).text('Profitability Analysis', { underline: true });
+            d.moveDown();
+            const profitabilityData = calculateProfitabilityMetrics(invoices);
+            let y = d.y;
+            const tableLeft = 50;
+            const colWidth = 250;
+            Object.entries(profitabilityData.revenueByService).forEach(([service, data]) => {
+                if (y > 750) {
+                    d.addPage();
+                    y = 50;
+                }
+                d.text(service, tableLeft, y);
+                d.text(`D ${safeNumberFormat(data.revenue)}`, tableLeft + colWidth, y);
+                d.text(`D ${safeNumberFormat(data.cost)}`, tableLeft + colWidth * 2, y);
+                d.text(`D ${safeNumberFormat(data.profit)}`, tableLeft + colWidth * 3, y);
+                d.text(`${safePercentageFormat(data.margin, data.revenue)}%`, tableLeft + colWidth * 4, y);
+                y += 20;
+            });
+        });
+        await withPDFDocument(doc, (d) => {
+            d.addPage();
+            d.fontSize(14).text('Period Over Period Analysis', { underline: true });
+            d.moveDown();
+            const comparativeAnalysisData = calculateComparativeAnalysis(invoices, []);
+            let y = d.y;
+            const tableLeft = 50;
+            const colWidth = 250;
+            d.text('Previous Period', tableLeft, y);
+            d.text('Current Period', tableLeft + colWidth, y);
+            d.text('Period Over Period', tableLeft + colWidth * 2, y);
+            y += 20;
+            d.text(`Revenue: ${safeNumberFormat(comparativeAnalysisData.previousPeriod.revenue)}`, tableLeft, y);
+            d.text(`Revenue: ${safeNumberFormat(comparativeAnalysisData.periodOverPeriod.revenueChange)}%`, tableLeft + colWidth, y);
+            y += 20;
+            d.text(`Invoice Count: ${comparativeAnalysisData.previousPeriod.invoices}`, tableLeft, y);
+            d.text(`Invoice Count: ${comparativeAnalysisData.periodOverPeriod.invoiceCountChange}%`, tableLeft + colWidth, y);
+            y += 20;
+            d.text(`Collection Rate: ${safePercentageFormat(comparativeAnalysisData.previousPeriod.collectionRate)}%`, tableLeft, y);
+            d.text(`Collection Rate: ${safePercentageFormat(comparativeAnalysisData.periodOverPeriod.collectionRateChange)}%`, tableLeft + colWidth, y);
+            y += 20;
+        });
+        if (doc) {
+            const pages = doc.bufferedPageRange();
+            for (let i = 0; i < pages.count; i++) {
+                doc.switchToPage(i);
+                doc.fontSize(8).text(`Page ${i + 1} of ${pages.count}`, 297.64, 811.89, { align: 'center' });
+            }
+        }
         if (doc) {
             doc.end();
+            doc = null;
         }
-        return res.status(200).json({ message: 'PDF generated successfully' });
+        return;
     }
     catch (error) {
         console.error('Error generating PDF:', error);
         if (doc) {
             try {
                 doc.end();
+                doc = null;
             }
             catch (e) {
                 console.error('Error ending PDF document:', e);
             }
         }
-        return res.status(500).json({ message: 'Server error' });
+        if (!res.headersSent) {
+            return res.status(500).json({ message: 'Server error' });
+        }
     }
 };
 exports.generatePDF = generatePDF;
@@ -687,23 +956,29 @@ const exportFinancialReportPDF = async (req, res) => {
             .sort({ issueDate: -1 })
             .lean();
         if (!rawInvoices || rawInvoices.length === 0) {
-            return res.status(404).json({ message: 'No invoices found for the selected period' });
+            if (!res.headersSent) {
+                return res.status(404).json({ message: 'No invoices found for the selected period' });
+            }
+            return;
         }
         const invoices = rawInvoices
             .map(validateInvoiceData)
             .filter(invoice_1.isInvoiceData);
         if (invoices.length === 0) {
-            return res.status(400).json({ message: 'No valid invoice data found' });
+            if (!res.headersSent) {
+                return res.status(400).json({ message: 'No valid invoice data found' });
+            }
+            return;
         }
-        doc = createBufferedPDF({
-            size: 'A4',
-            margin: 50
-        });
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', `attachment; filename="financial_report_${reportType}_${(0, date_fns_1.format)(startDate, 'yyyy-MM-dd')}_to_${(0, date_fns_1.format)(endDate, 'yyyy-MM-dd')}.pdf"`);
         res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
         res.setHeader('Pragma', 'no-cache');
         res.setHeader('Expires', '0');
+        doc = createBufferedPDF({
+            size: 'A4',
+            margin: 50
+        });
         doc.pipe(res);
         const summary = {
             totalRevenue: 0,
@@ -1016,7 +1291,7 @@ const exportFinancialReportPDF = async (req, res) => {
             doc.end();
             doc = null;
         }
-        return res.status(200).json({ message: 'Financial report PDF generated successfully' });
+        return;
     }
     catch (error) {
         console.error('Error generating financial report PDF:', error);
@@ -1029,7 +1304,9 @@ const exportFinancialReportPDF = async (req, res) => {
                 console.error('Error ending PDF document:', e);
             }
         }
-        return res.status(500).json({ message: 'Server error' });
+        if (!res.headersSent) {
+            return res.status(500).json({ message: 'Server error' });
+        }
     }
 };
 exports.exportFinancialReportPDF = exportFinancialReportPDF;

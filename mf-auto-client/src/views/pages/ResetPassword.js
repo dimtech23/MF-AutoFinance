@@ -15,7 +15,7 @@ import {
   Link,
   Container
 } from "@mui/material";
-import { Mail, ArrowLeft } from "react-feather";
+import { Mail, ArrowLeft } from "lucide-react";
 import logo from "../../assets/img/brand/mfautos-logo.png"; // Update the path to your logo
 import "../../assets/css/auth.css"; // Import the custom auth styles
 

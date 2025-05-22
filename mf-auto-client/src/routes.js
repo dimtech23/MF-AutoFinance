@@ -6,6 +6,8 @@ import Invoices from "views/pages/Invoices.js";
 import UserManagement from "views/pages/UserManagement.js";
 import Login from "views/pages/Login.js";
 import ClientActivityHistory from "views/pages/ClientActivityHistory";
+import DeliveryDocs from "views/pages/DeliveryDocs";
+import { Truck } from "lucide-react";
 
 const routes = [
   {
@@ -70,6 +72,16 @@ const routes = [
     icon: "ni ni-key-25 text-info",
     component: Login,
     layout: "/auth"
+  },
+  {
+    path: "/admin/delivery-docs",
+    element: <DeliveryDocs />,
+    name: "Delivery Documentation",
+    icon: <Truck size={20} />,
+    badge: {
+      value: "New",
+      color: "error"
+    }
   }
 ];
 

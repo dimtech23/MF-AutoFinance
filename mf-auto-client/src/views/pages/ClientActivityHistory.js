@@ -21,7 +21,7 @@ import {
   DollarSign,
   Tag,
   AlertCircle
-} from "react-feather";
+} from "lucide-react";
 import {
   Box,
   Typography,

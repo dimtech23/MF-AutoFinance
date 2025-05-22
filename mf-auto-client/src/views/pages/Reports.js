@@ -30,27 +30,29 @@ import {
   List,
   ListItem,
   ListItemText,
+  LinearProgress,
 } from '@mui/material';
 import {
   Download as DownloadIcon,
-  PictureAsPdf as PdfIcon,
-  TableChart as ExcelIcon,
+  FileText as PdfIcon,
+  Table as ExcelIcon,
   Search as SearchIcon,
-  FilterList as FilterIcon,
+  Filter as FilterIcon,
   TrendingUp as TrendingUpIcon,
-  AccountBalance as AccountBalanceIcon,
+  Wallet as AccountBalanceIcon,
   Receipt as ReceiptIcon,
-  AttachMoney as MoneyIcon,
-  Warning as WarningIcon,
+  DollarSign as MoneyIcon,
+  AlertTriangle as WarningIcon,
   CheckCircle as CheckCircleIcon,
-  Schedule as ScheduleIcon,
-} from '@mui/icons-material';
-import { format, subDays, subMonths, subYears, startOfDay, endOfDay } from 'date-fns';
+  Clock as ScheduleIcon,
+} from 'lucide-react';
 import DatePicker from 'react-datepicker';
 import "react-datepicker/dist/react-datepicker.css";
 import { invoicesAPI, clientsAPI } from '../../api';
 import { formatCurrency, formatPercentage, formatDate } from '../../utility/formatters';
 import Header from "components/Headers/Header.js";
+import { format, startOfDay, endOfDay, subDays, subMonths, subYears } from "date-fns";
+import { toast } from 'react-hot-toast';
 
 const validateExportData = (data) => {
   const { dateRange, customDateRange, reportType, filters } = data;
@@ -112,6 +114,8 @@ const Reports = () => {
   });
   const [isExporting, setIsExporting] = useState(false);
   const [exportError, setExportError] = useState(null);
+  const [exportProgress, setExportProgress] = useState(0);
+  const [exportStatus, setExportStatus] = useState(null);
 
   useEffect(() => {
     fetchData();
@@ -263,35 +267,52 @@ const Reports = () => {
     setSummary(summary);
   };
 
-  const handleExport = async (format, reportType = 'all') => {
+  const handleExport = async (type, reportType) => {
     try {
       setIsExporting(true);
+      setExportProgress(0);
+      setExportStatus('Preparing export...');
       setExportError(null);
 
       const exportData = {
-        dateRange,
-        customDateRange,
-        reportType,
+        dateRange: dateRange,
+        customDateRange: dateRange === 'custom' ? [startDate, endDate] : null,
+        reportType: reportType,
         filters: {
           status: filterStatus,
           search: searchTerm
         }
       };
 
-      // Validate export data
-      const validatedData = validateExportData(exportData);
-
-      if (format === 'pdf') {
-        await invoicesAPI.exportToPdf(validatedData);
-      } else if (format === 'excel') {
-        await invoicesAPI.exportToExcel(validatedData);
+      if (type === 'pdf') {
+        setExportStatus('Generating PDF...');
+        await invoicesAPI.exportToPdf(exportData, (progress) => {
+          setExportProgress(progress);
+          if (progress < 30) {
+            setExportStatus('Preparing data...');
+          } else if (progress < 60) {
+            setExportStatus('Generating PDF...');
+          } else if (progress < 90) {
+            setExportStatus('Finalizing document...');
+          } else {
+            setExportStatus('Downloading...');
+          }
+        });
+      } else {
+        setExportStatus('Generating Excel file...');
+        await invoicesAPI.exportExcel(exportData);
       }
-    } catch (err) {
-      const errorMessage = err.message || err.response?.data?.message || `Failed to export ${format.toUpperCase()}. Please try again.`;
-      setExportError(errorMessage);
-      console.error(`Error exporting ${format}:`, err);
+
+      setExportStatus('Export completed successfully');
+      toast.success(`${type.toUpperCase()} export completed successfully`);
+    } catch (error) {
+      console.error(`Error exporting ${type}:`, error);
+      setExportError(error.message || `Failed to export ${type.toUpperCase()}. Please try again.`);
+      toast.error(error.message || `Failed to export ${type.toUpperCase()}. Please try again.`);
     } finally {
       setIsExporting(false);
+      setExportProgress(0);
+      setExportStatus(null);
     }
   };
 
@@ -625,23 +646,25 @@ const Reports = () => {
                 }
               />
             )}
-            <Button
-              variant="contained"
-              startIcon={isExporting ? <CircularProgress size={20} /> : <PdfIcon />}
-              onClick={() => handleExport('pdf', activeTab)}
-              disabled={loading || isExporting || invoices.length === 0}
-              sx={{ mr: 1 }}
-            >
-              {isExporting ? 'Exporting...' : 'Export PDF'}
-            </Button>
-            <Button
-              variant="contained"
-              startIcon={isExporting ? <CircularProgress size={20} /> : <ExcelIcon />}
-              onClick={() => handleExport('excel', activeTab)}
-              disabled={loading || isExporting || invoices.length === 0}
-            >
-              {isExporting ? 'Exporting...' : 'Export Excel'}
-            </Button>
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 3 }}>
+              <Button
+                variant="contained"
+                startIcon={isExporting ? <CircularProgress size={20} /> : <PdfIcon />}
+                onClick={() => handleExport('pdf', activeTab)}
+                disabled={loading || isExporting || invoices.length === 0}
+                sx={{ mr: 1 }}
+              >
+                {isExporting ? 'Exporting...' : 'Export PDF'}
+              </Button>
+              <Button
+                variant="contained"
+                startIcon={isExporting ? <CircularProgress size={20} /> : <ExcelIcon />}
+                onClick={() => handleExport('excel', activeTab)}
+                disabled={loading || isExporting || invoices.length === 0}
+              >
+                {isExporting ? 'Exporting...' : 'Export Excel'}
+              </Button>
+            </Box>
           </Box>
         </Box>
 
@@ -656,6 +679,19 @@ const Reports = () => {
           >
             {error || exportError}
           </Alert>
+        )}
+
+        {isExporting && (
+          <Box sx={{ mb: 3 }}>
+            <LinearProgress 
+              variant="determinate" 
+              value={exportProgress} 
+              sx={{ mb: 1 }}
+            />
+            <Typography variant="body2" color="text.secondary" align="center">
+              {exportStatus}
+            </Typography>
+          </Box>
         )}
 
         {loading ? (

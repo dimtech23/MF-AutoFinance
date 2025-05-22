@@ -132,3 +132,12 @@ export const STATUS_MAPS = {
     return (oldStatus !== 'completed' && oldStatus !== 'delivered') && 
            (newStatus === 'completed' || newStatus === 'delivered');
   };
+
+// Add the mapRepairStatusToAppointmentStatus export
+export const mapRepairStatusToAppointmentStatus = {
+  waiting: "scheduled",
+  in_progress: "in_progress",
+  completed: "completed",
+  delivered: "completed",
+  cancelled: "cancelled",
+};

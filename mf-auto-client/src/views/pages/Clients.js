@@ -1,17 +1,18 @@
-import React, { useState, useEffect, useContext } from "react";
+import React, { useState, useEffect, useContext, useCallback, useMemo } from "react";
 import { useHistory } from "react-router-dom";
 import { UserContext } from "../../Context/UserContext.js";
 import {
   getStatusColor,
   getStatusIcon,
-  mapStatus,
-  shouldCreateInvoice,
 } from "../../utility/statusMapper.js";
+import { generateServiceReport } from "../../utility/pdfGenerator.js";
 import AppointmentCalendar from "components/Calendar/AppointmentCalendar.js";
 import Header from "components/Headers/Header.js";
-import { clientsAPI, appointmentsAPI, invoicesAPI } from "../../api.js";
+import { clientsAPI, invoicesAPI } from "../../api.js";
 import { toast } from "react-toastify";
-import { format } from "date-fns";
+import { format, addDays, differenceInDays } from "date-fns";
+import axios from "axios";
+import debounce from "lodash/debounce";
 import Autocomplete from "@mui/material/Autocomplete";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
@@ -21,50 +22,35 @@ import {
   Plus,
   Filter,
   Download,
-  Edit,
-  Trash2,
   Search,
   Calendar,
-  Check,
   CheckCircle,
-  X,
-  Tool,
-  Clock,
-  DollarSign,
-  Info,
-  AlertTriangle,
   Phone,
-  Car,
-  FilePlus,
   FileText,
   Camera,
-  Clipboard,
-  XCircle,
   Tag,
   ChevronDown,
-} from "react-feather";
+  User,
+  Truck,
+  Wrench,
+  Clock,
+  XCircle,
+  DollarSign,
+  X,
+  AlertTriangle,
+} from "lucide-react";
 import {
   Container,
   Typography,
   Box,
   Grid,
   CircularProgress,
-  Alert,
   Card,
-  CardHeader,
   CardContent,
   Button,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   Paper,
-  Chip,
   TextField,
   InputAdornment,
-  IconButton,
   Dialog,
   DialogActions,
   DialogContent,
@@ -75,32 +61,24 @@ import {
   RadioGroup,
   FormControlLabel,
   Radio,
-  MenuItem,
   Divider,
-  Tooltip,
   Avatar,
   Tabs,
   Tab,
-  TextareaAutosize,
-  Stepper,
-  Step,
-  StepLabel,
+  Alert,
+  Chip,
+  IconButton,
   Badge,
   Accordion,
   AccordionSummary,
   AccordionDetails,
-  Menu,
-  ListItemIcon,
-  ListItemText,
-  List,
-  ListItem,
-  ListItemAvatar,
 } from "@mui/material";
-import axios from "axios";
+import ClientsTable from "components/ClientsTable";
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 const baseURL = process.env.REACT_APP_API_URL || "http://localhost:3000/api";
 
-// Predefined procedures for auto garage
 const repairProcedures = [
   { value: "oil_change", label: "Oil Change" },
   { value: "brake_service", label: "Brake Service" },
@@ -120,128 +98,214 @@ const repairProcedures = [
   { value: "glass_repair", label: "Windshield & Glass Repair" },
 ];
 
-const carMakes = [
-  "Toyota",
-  "Honda",
-  "Ford",
-  "Chevrolet",
-  "Nissan",
-  "BMW",
-  "Mercedes-Benz",
-  "Audi",
-  "Hyundai",
-  "Kia",
-  "Volkswagen",
-  "Mazda",
-  "Subaru",
-  "Lexus",
-  "Jeep",
-  "GMC",
-  "Ram",
-  "Dodge",
-];
-
-// Years array (for dropdown)
 const carYears = Array.from({ length: 30 }, (_, i) =>
   (new Date().getFullYear() - i).toString()
 );
 
-// Payment status options
-const paymentStatusOptions = [
-  { value: "paid", label: "Paid" },
-  { value: "not_paid", label: "Not Paid" },
-  { value: "partial", label: "Partial Payment" },
+const repairStatusOptions = [
+  { value: "waiting", label: "Waiting", color: "warning" },
+  { value: "in_progress", label: "In Progress", color: "info" },
 ];
 
-// Repair status options
-const repairStatusOptions = [
-  { value: "waiting", label: "Waiting" },
-  { value: "in_progress", label: "In Progress" },
-  { value: "completed", label: "Completed" },
-  { value: "delivered", label: "Delivered" },
-  { value: "cancelled", label: "Cancelled" },
+const allRepairStatusOptions = [
+  { value: "waiting", label: "Waiting", color: "warning" },
+  { value: "in_progress", label: "In Progress", color: "info" },
+  { value: "completed", label: "Completed", color: "success" },
+  { value: "delivered", label: "Delivered", color: "primary" },
+  { value: "cancelled", label: "Cancelled", color: "error" },
 ];
+
+const carModels = {
+  "Ford": ["F-150", "Mustang", "Explorer", "Escape", "Focus", "Fusion", "Edge", "Ranger", "Expedition"],
+  "Toyota": ["Camry", "Corolla", "RAV4", "Highlander", "Tacoma", "Tundra", "Sienna", "Prius", "4Runner"],
+  "Honda": ["Civic", "Accord", "CR-V", "Pilot", "Odyssey", "HR-V", "Ridgeline", "Passport"],
+  "Chevrolet": ["Silverado", "Malibu", "Equinox", "Tahoe", "Traverse", "Colorado", "Camaro", "Cruze"],
+  "Nissan": ["Altima", "Rogue", "Sentra", "Murano", "Pathfinder", "Frontier", "Titan", "Maxima"],
+  "Hyundai": ["Elantra", "Sonata", "Tucson", "Santa Fe", "Palisade", "Kona", "Accent", "Veloster"],
+  "Kia": ["Sorento", "Sportage", "Forte", "Optima", "Telluride", "Soul", "Rio", "Stinger"],
+  "Volkswagen": ["Jetta", "Passat", "Tiguan", "Atlas", "Golf", "Arteon", "Taos", "ID.4"],
+  "BMW": ["3 Series", "5 Series", "X3", "X5", "X7", "M3", "M5", "i3", "i4"],
+  "Mercedes-Benz": ["C-Class", "E-Class", "GLC", "GLE", "S-Class", "A-Class", "CLA", "GLA"]
+};
+
+const carColors = [
+  "Black", "White", "Silver", "Gray", "Red", "Blue", "Green", "Yellow", 
+  "Orange", "Purple", "Brown", "Beige", "Gold", "Navy", "Burgundy", "Teal"
+];
+
+// Define initial form state
+const initialFormState = {
+  clientName: "",
+  phoneNumber: "",
+  email: "",
+  carDetails: {
+    make: "",
+    model: "",
+    year: "",
+    licensePlate: "",
+    color: "",
+    vin: "",
+  },
+  issueDescription: "",
+  repairStatus: "waiting",
+  paymentStatus: "not_paid",
+  estimatedCost: "",
+  estimatedDuration: 1,
+  deliveryDate: addDays(new Date(), 1),
+  images: [],
+  deliveryImages: [],
+  notes: "",
+  createdAt: new Date(),
+  updatedAt: new Date(),
+};
+
+// Simplified status constants
+const REPAIR_STATUSES = {
+  WAITING: {
+    value: "waiting",
+    label: "Waiting",
+    color: "warning",
+    icon: Clock,
+    nextStatus: "in_progress",
+    nextLabel: "Start Repair"
+  },
+  IN_PROGRESS: {
+    value: "in_progress",
+    label: "In Progress",
+    color: "info",
+    icon: Wrench,
+    nextStatus: "completed",
+    nextLabel: "Complete Repair"
+  },
+  COMPLETED: {
+    value: "completed",
+    label: "Completed",
+    color: "success",
+    icon: CheckCircle,
+    nextStatus: "delivered",
+    nextLabel: "Mark Delivered",
+    requiresPayment: true
+  },
+  DELIVERED: {
+    value: "delivered",
+    label: "Delivered",
+    color: "primary",
+    icon: CheckCircle,
+    isFinal: true
+  }
+};
+
+const PAYMENT_STATUSES = {
+  NOT_PAID: {
+    value: "not_paid",
+    label: "Not Paid",
+    color: "error",
+    icon: XCircle,
+    nextStatus: "paid",
+    nextLabel: "Mark as Paid"
+  },
+  PAID: {
+    value: "paid",
+    label: "Paid",
+    color: "success",
+    icon: CheckCircle,
+    isFinal: true
+  },
+  PARTIAL: {
+    value: "partial",
+    label: "Partial Payment",
+    color: "warning",
+    icon: DollarSign,
+    nextStatus: "paid",
+    nextLabel: "Complete Payment"
+  }
+};
 
 const Clients = () => {
   const history = useHistory();
-  const { token, userRole } = useContext(UserContext);
+  const { token } = useContext(UserContext);
   const [clients, setClients] = useState([]);
   const [filteredClients, setFilteredClients] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState(null);
   const [dateRange, setDateRange] = useState([null, null]);
   const [startDate, endDate] = dateRange;
-  const [showPreDeliveryDialog, setShowPreDeliveryDialog] = useState(false);
-  const [clientToDeliver, setClientToDeliver] = useState(null);
-  const [preDeliveryImages, setPreDeliveryImages] = useState([]);
-  const [preDeliveryNotes, setPreDeliveryNotes] = useState("");
   const [showCalendarView, setShowCalendarView] = useState(false);
-
-  // Form state
   const [formOpen, setFormOpen] = useState(false);
   const [editMode, setEditMode] = useState(false);
-  const [selectedClient, setSelectedClient] = useState(null);
   const [formData, setFormData] = useState({
     clientName: "",
     phoneNumber: "",
+    email: "",
     carDetails: {
       make: "",
       model: "",
       year: "",
-      licensePlate: "",
       color: "",
-      vin: "",
+      licensePlate: "",
     },
-    procedures: [],
     issueDescription: "",
-    preExistingIssues: "",
+    procedures: [],
     estimatedDuration: 1,
-    deliveryDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000), // 2 days from now
+    deliveryDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000),
     paymentStatus: "not_paid",
     partialPaymentAmount: 0,
+    totalAmount: 0,
     repairStatus: "waiting",
     notes: "",
     createdAt: new Date(),
     images: [],
+    deliveryImages: [],
   });
-
-  // Client history dialog
   const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
   const [clientHistory, setClientHistory] = useState([]);
-  const [selectedClientForHistory, setSelectedClientForHistory] =
-    useState(null);
-
-  // Confirmation dialog
+  const [selectedClientForHistory, setSelectedClientForHistory] = useState(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [clientToDelete, setClientToDelete] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
+  const [selectedClientForDetails, setSelectedClientForDetails] = useState(null);
+  const [confirmationDialog, setConfirmationDialog] = useState({
+    open: false,
+    title: "",
+    message: "",
+    onConfirm: null,
+    clientId: null,
+    newStatus: null
+  });
+  const [activeTab, setActiveTab] = useState("all");
+  const [selectedClient, setSelectedClient] = useState(null);
+  const [showPreDeliveryDialog, setShowPreDeliveryDialog] = useState(false);
+  const [preDeliveryImages, setPreDeliveryImages] = useState([]);
+  const [preDeliveryNotes, setPreDeliveryNotes] = useState("");
 
   const getRepairStatusColor = (status) => getStatusColor(status, "repair");
   const getPaymentStatusColor = (status) => getStatusColor(status, "payment");
   const getPaymentStatusIcon = (status) => getStatusIcon(status, "payment");
 
-  // Tab state
-  const [activeTab, setActiveTab] = useState("all");
-
-  useEffect(() => {
-    const fetchClients = async () => {
-      setIsLoading(true);
-      try {
-        const response = await clientsAPI.getAll();
-        setClients(response.data);
-        setFilteredClients(response.data);
-      } catch (error) {
-        console.error("Error fetching clients:", error);
-        toast.error("Failed to load clients");
-      } finally {
-        setIsLoading(false);
+  // Move fetchClients definition to the top of the component
+  const fetchClients = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const response = await clientsAPI.getAll();
+      if (response && response.data) {
+        // Sort clients by createdAt in descending order (newest first)
+        const sortedClients = response.data.sort((a, b) => {
+          const dateA = new Date(a.createdAt || a.created_at);
+          const dateB = new Date(b.createdAt || b.created_at);
+          return dateB - dateA;
+        });
+        setClients(sortedClients);
+        setFilteredClients(sortedClients);
       }
-    };
-
-    if (token) {
-      fetchClients();
+    } catch (error) {
+      console.error("Error fetching clients:", error);
+      toast.error("Failed to fetch clients");
+    } finally {
+      setIsLoading(false);
     }
-  }, [token]);
+  }, []);
 
   // Apply filters when search term, filter status, or date range changes
   useEffect(() => {
@@ -286,6 +350,13 @@ const Clients = () => {
       });
     }
 
+    // Sort by createdAt in descending order (newest first)
+    result.sort((a, b) => {
+      const dateA = new Date(a.createdAt || a.created_at);
+      const dateB = new Date(b.createdAt || b.created_at);
+      return dateB - dateA;
+    });
+
     // Update filtered clients
     setFilteredClients(result);
   }, [clients, searchTerm, filterStatus, startDate, endDate]);
@@ -295,7 +366,10 @@ const Clients = () => {
 
     // Set filter based on tab
     if (newValue === "all") {
+      // Reset all filters when switching to "all" tab
       setFilterStatus(null);
+      setSearchTerm("");
+      setDateRange([null, null]);
     } else if (newValue === "waiting") {
       setFilterStatus({ value: "waiting", label: "Waiting" });
     } else if (newValue === "in_progress") {
@@ -309,32 +383,61 @@ const Clients = () => {
 
   const openClientForm = (client = null) => {
     if (client) {
-      // Edit mode
+      // Editing existing client - use all status options
+      setFormData({
+        ...client,
+        createdAt: new Date(client.createdAt),
+        deliveryDate: new Date(client.deliveryDate),
+        carDetails: {
+          ...client.carDetails,
+          year: client.carDetails.year || "",
+        },
+        procedures: client.procedures || [],
+        images: client.images || [],
+        deliveryImages: client.deliveryImages || [],
+      });
       setEditMode(true);
       setSelectedClient(client);
-      setFormData({
-        clientName: client.clientName,
-        phoneNumber: client.phoneNumber,
-        carDetails: { ...client.carDetails },
-        procedures: client.procedures,
-        issueDescription: client.issueDescription,
-        preExistingIssues: client.preExistingIssues,
-        estimatedDuration: client.estimatedDuration,
-        deliveryDate: new Date(client.deliveryDate),
-        paymentStatus: client.paymentStatus,
-        partialPaymentAmount: client.partialPaymentAmount,
-        repairStatus: client.repairStatus,
-        notes: client.notes || "",
-        createdAt: new Date(client.createdAt),
-        images: client.images || [],
-      });
     } else {
-      // Add mode
-      setEditMode(false);
-      setSelectedClient(null);
+      // New client - only allow waiting or in_progress
       setFormData({
         clientName: "",
         phoneNumber: "",
+        email: "",
+        carDetails: {
+          make: "",
+          model: "",
+          year: "",
+          color: "",
+          licensePlate: "",
+        },
+        issueDescription: "",
+        procedures: [],
+        repairStatus: "waiting", // Default to waiting for new clients
+        paymentStatus: "pending",
+        partialPaymentAmount: 0,
+        totalAmount: 0,
+        createdAt: new Date(),
+        deliveryDate: addDays(new Date(), 3),
+        estimatedDuration: 3,
+        images: [],
+        deliveryImages: [],
+        notes: "",
+      });
+      setEditMode(false);
+      setSelectedClient(null);
+    }
+    setFormOpen(true);
+  };
+
+  const closeClientForm = () => {
+    setFormOpen(false);
+    // Reset form data after modal is closed
+    setTimeout(() => {
+      setFormData({
+        clientName: "",
+        phoneNumber: "",
+        email: "",
         carDetails: {
           make: "",
           model: "",
@@ -343,43 +446,73 @@ const Clients = () => {
           color: "",
           vin: "",
         },
-        procedures: [],
         issueDescription: "",
-        preExistingIssues: "",
-        estimatedDuration: 1,
-        deliveryDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000), // 2 days from now
-        paymentStatus: "not_paid",
-        partialPaymentAmount: 0,
         repairStatus: "waiting",
+        paymentStatus: "pending",
+        estimatedCost: "",
+        estimatedDuration: 1,
+        deliveryDate: addDays(new Date(), 1),
+        images: [], // Reset images array
+        deliveryImages: [], // Reset delivery images array
         notes: "",
         createdAt: new Date(),
-        images: [],
+        updatedAt: new Date(),
       });
-    }
-    setFormOpen(true);
+    }, 300); // Small delay to ensure smooth transition
   };
 
-  const closeClientForm = () => {
-    setFormOpen(false);
+  // Create a debounced version of handleFormChange for text inputs
+  const debouncedHandleFormChange = useMemo(
+    () =>
+      debounce((field, value) => {
+        setFormData((prev) => ({
+          ...prev,
+          [field]: value,
+        }));
+      }, 100),
+    []
+  );
+
+  // Separate handler for immediate updates (like selects and dates)
+  const handleImmediateFormChange = (field, value) => {
+    setFormData((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
   };
 
-  const handleFormChange = (field, value) => {
-    if (field.includes(".")) {
-      const [parentField, childField] = field.split(".");
-      setFormData((prev) => ({
+  // Optimize car details handling
+  const handleCarDetailsChange = (field, value) => {
+    setFormData((prev) => {
+      const newCarDetails = { ...prev.carDetails };
+      
+      // Handle model autocomplete based on make
+      if (field === 'make') {
+        const availableModels = carModels[value] || [];
+        // Clear model if the new make doesn't support the current model
+        if (newCarDetails.model && !availableModels.includes(newCarDetails.model)) {
+          newCarDetails.model = '';
+        }
+        newCarDetails[field] = value;
+      } else {
+        newCarDetails[field] = value;
+      }
+
+      return {
         ...prev,
-        [parentField]: {
-          ...prev[parentField],
-          [childField]: value,
-        },
-      }));
-    } else {
-      setFormData((prev) => ({
-        ...prev,
-        [field]: value,
-      }));
-    }
+        carDetails: newCarDetails
+      };
+    });
   };
+
+  // Create debounced version of car details handler
+  const debouncedCarDetailsChange = useMemo(
+    () =>
+      debounce((field, value) => {
+        handleCarDetailsChange(field, value);
+      }, 100),
+    []
+  );
 
   const handleImageUpload = (e) => {
     // In a real app, this would handle file uploads
@@ -402,126 +535,128 @@ const Clients = () => {
     }
   };
 
+  // Add this function to check for duplicates
+  const checkForDuplicate = (clientData) => {
+    // Skip duplicate check if we're editing an existing client
+    if (clientData.id || clientData._id) {
+      return false;
+    }
+
+    // Only check for duplicates when creating a new client
+    return clients.some(
+      (client) =>
+        client.phoneNumber === clientData.phoneNumber &&
+        (client.id !== clientData.id && client._id !== clientData._id)
+    );
+  };
+
+  // Add validation helper functions
+  const validateClientForm = (formData) => {
+    const errors = [];
+    
+    // Basic validation - only check essential fields
+    if (!formData.clientName?.trim()) {
+      errors.push("Client name is required");
+    }
+    
+    // Only validate phone number for new clients
+    if (!formData.id && !formData._id) {
+      if (!formData.phoneNumber?.trim()) {
+        errors.push("Phone number is required");
+      } else if (!/^[0-9+\-\s()]{5,}$/.test(formData.phoneNumber.trim())) {
+        errors.push("Please enter a valid phone number (minimum 5 digits)");
+      }
+    }
+    
+    // Car details validation - at least one field should be filled
+    if (!formData.carDetails?.make?.trim() && 
+        !formData.carDetails?.model?.trim() && 
+        !formData.carDetails?.licensePlate?.trim()) {
+      errors.push("Please provide at least one vehicle detail (make, model, or license plate)");
+    }
+    
+    // Issue description validation
+    if (!formData.issueDescription?.trim()) {
+      errors.push("Please describe the issue or service needed");
+    }
+
+    // Duration validation
+    if (formData.estimatedDuration === null || formData.estimatedDuration <= 0) {
+      errors.push("Please enter a valid estimated duration");
+    }
+
+    // Delivery date validation
+    if (!formData.deliveryDate) {
+      errors.push("Please select an expected delivery date");
+    }
+    
+    return errors;
+  };
+
+  // Update the handleSubmitClient function
   const handleSubmitClient = async () => {
-    // Validate form
-    if (!formData.clientName || !formData.phoneNumber) {
-      toast.error("Please enter client name and phone number");
-      return;
-    }
-
-    if (
-      !formData.carDetails.make ||
-      !formData.carDetails.model ||
-      !formData.carDetails.licensePlate
-    ) {
-      toast.error("Please enter vehicle details");
-      return;
-    }
-
-    if (formData.procedures.length === 0) {
-      toast.error("Please select at least one repair procedure");
-      return;
-    }
-
-    if (!formData.issueDescription) {
-      toast.error("Please enter issue description");
-      return;
-    }
-
-    if (
-      formData.paymentStatus === "partial" &&
-      (!formData.partialPaymentAmount || formData.partialPaymentAmount <= 0)
-    ) {
-      toast.error("Please enter partial payment amount");
-      return;
-    }
-
     try {
-      let response;
-      if (editMode && selectedClient) {
-        response = await clientsAPI.update(selectedClient.id, formData);
-        // Update local state
-        const updatedClients = clients.map((client) =>
-          client.id === selectedClient.id ? response.data : client
-        );
-        setClients(updatedClients);
-        toast.success("Client record updated successfully");
-
-        // Now update the appointment if applicable
-        if (formData.repairStatus !== "cancelled") {
-          // Create appointment data from client data
-          const appointmentData = {
-            title: `${formData.clientName} - ${formData.carDetails.make} ${formData.carDetails.model}`,
-            start: new Date(),
-            end: new Date(formData.deliveryDate),
-            clientId: response.data.id,
-            description: formData.issueDescription,
-            status: mapStatus(formData.repairStatus, "repair", "appointment"),
-            // Add other relevant fields
-          };
-
-          // If editing and appointment exists, update it
-          if (selectedClient.appointmentId) {
-            await appointmentsAPI.update(
-              selectedClient.appointmentId,
-              appointmentData
-            );
-            toast.info("Appointment updated");
-          }
-          // If no existing appointment but client is in a status that needs one
-          else if (["waiting", "in_progress"].includes(formData.repairStatus)) {
-            const appointmentResponse = await appointmentsAPI.create(
-              appointmentData
-            );
-            // Update client with appointment ID reference
-            await clientsAPI.update(response.data.id, {
-              appointmentId: appointmentResponse.data.id,
-            });
-            toast.info("New appointment created");
-          }
-        }
-        // If cancelled and has appointment, cancel that too
-        else if (selectedClient.appointmentId) {
-          await appointmentsAPI.update(selectedClient.appointmentId, {
-            status: "cancelled",
-          });
-          toast.info("Appointment cancelled");
-        }
-      } else {
-        // Creating new client
-        response = await clientsAPI.create(formData);
-        // Update local state
-        setClients([response.data, ...clients]);
-        toast.success("Client added successfully");
-
-        // Create a new appointment for this client
-        if (formData.repairStatus !== "cancelled") {
-          const appointmentData = {
-            title: `${formData.clientName} - ${formData.carDetails.make} ${formData.carDetails.model}`,
-            start: new Date(),
-            end: new Date(formData.deliveryDate),
-            clientId: response.data.id,
-            description: formData.issueDescription,
-            status: mapStatus(formData.repairStatus, "repair", "appointment"),
-            // Add other relevant fields
-          };
-
-          const appointmentResponse = await appointmentsAPI.create(
-            appointmentData
-          );
-          // Update client with appointment ID reference
-          await clientsAPI.update(response.data.id, {
-            appointmentId: appointmentResponse.data.id,
-          });
-          toast.info("New appointment created");
-        }
+      // Validate form
+      const validationErrors = validateClientForm(formData);
+      if (validationErrors.length > 0) {
+        toast.error(validationErrors[0]);
+        return;
       }
 
-      // Close the form
+      // Check for duplicates only when creating a new client
+      if (!formData.id && !formData._id && checkForDuplicate(formData)) {
+        toast.error("A client with this phone number already exists");
+        return;
+      }
+
+      setIsSubmitting(true);
+
+      // Prepare client data
+      const clientData = { ...formData };
+      
+      // Remove _id and id when creating a new client
+      if (!clientData.id && !clientData._id) {
+        delete clientData._id;
+        delete clientData.id;
+      }
+
+      // Ensure license plate is uppercase
+      if (clientData.carDetails?.licensePlate) {
+        clientData.carDetails.licensePlate = clientData.carDetails.licensePlate.toUpperCase();
+      }
+
+      let clientResponse;
+      if (clientData.id || clientData._id) {
+        // Update existing client
+        const clientId = clientData.id || clientData._id;
+        clientResponse = await clientsAPI.update(clientId, clientData);
+        
+        // Update the clients list with the new data
+        setClients(prevClients => 
+          prevClients.map(client => 
+            (client.id === clientId || client._id === clientId) 
+              ? { ...clientResponse.data, id: clientResponse.data._id || clientResponse.data.id }
+              : client
+          )
+        );
+      } else {
+        // Create new client
+        clientResponse = await clientsAPI.create(clientData);
+        
+        // Add the new client to the list
+        setClients(prevClients => [
+          ...prevClients,
+          { ...clientResponse.data, id: clientResponse.data._id || clientResponse.data.id }
+        ]);
+      }
+
+      toast.success(clientData.id || clientData._id ? "Client updated successfully" : "Client created successfully");
       closeClientForm();
     } catch (error) {
       console.error("Error saving client:", error);
       toast.error(error.response?.data?.message || "Failed to save client");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -554,115 +689,89 @@ const Clients = () => {
   //  CLIENT STATUS UPDATE HANDLER
   // ==========================================
 
+  // Add new function to handle status change confirmation
+  const handleStatusChangeConfirmation = (clientId, newStatus) => {
+    const client = clients.find(c => c.id === clientId || c._id === clientId);
+    if (!client) return;
+
+    let title = "Confirm Status Change";
+    let message = `Are you sure you want to mark this repair as ${newStatus.replace("_", " ")}?`;
+
+    if (newStatus === "completed") {
+      message += "\n\nThis will allow you to proceed with delivery once payment is completed.";
+    } else if (newStatus === "delivered") {
+      message += "\n\nThis will generate a comprehensive service and delivery report.";
+    }
+
+    setConfirmationDialog({
+      open: true,
+      title,
+      message,
+      onConfirm: () => handleUpdateStatus(clientId, newStatus),
+      clientId,
+      newStatus
+    });
+  };
+
+  // Add new function to close confirmation dialog
+  const closeConfirmationDialog = () => {
+    setConfirmationDialog({
+      open: false,
+      title: "",
+      message: "",
+      onConfirm: null,
+      clientId: null,
+      newStatus: null
+    });
+  };
+
+  // Update the handleUpdateStatus function to use clientsAPI
   const handleUpdateStatus = async (clientId, newStatus) => {
     try {
-      setIsLoading(true);
-      // Get the client before updating to compare old status
-      const client = clients.find((c) => c.id === clientId || c._id === clientId);
-      
-      if (!client) {
-        toast.error("Client not found");
-        setIsLoading(false);
-        return;
-      }
-  
-      const oldStatus = client.repairStatus;
-  
-      // Call API to update client status
+      // Update status first
       const response = await clientsAPI.updateStatus(clientId, newStatus);
-      
-      if (!response || !response.data) {
-        throw new Error("Failed to update client status");
-      }
-      
-      console.log(`Client status updated successfully: ${clientId} -> ${newStatus}`);
-  
-      // Map client repair status to appointment status using your existing mapper
-      const appointmentStatus = mapStatus(newStatus, 'repair', 'appointment');
-      
-      // Find all related appointments for this client and update them
-      try {
-        const appointmentsResponse = await appointmentsAPI.getAll({ clientId });
-        
-        if (appointmentsResponse.data && Array.isArray(appointmentsResponse.data)) {
-          const clientAppointments = appointmentsResponse.data;
+      const updatedClient = response.data;
+
+      if (newStatus === "delivered") {
+        try {
+          // Generate service report only when marking as delivered
+          const pdfResult = await generateServiceReport(updatedClient);
           
-          // Process repair/maintenance appointments
-          const repairAppointments = clientAppointments.filter(
-            app => app.type === 'repair' || app.type === 'maintenance'
-          );
-          
-          for (const appointment of repairAppointments) {
-            // Only update if status needs to change
-            if (appointment.status !== appointmentStatus) {
-              await appointmentsAPI.updateStatus(
-                appointment._id || appointment.id, 
-                appointmentStatus
-              );
-              console.log(`Updated appointment ${appointment._id || appointment.id} to ${appointmentStatus}`);
-            }
+          if (pdfResult.success) {
+            toast.success("Service completed and report generated successfully");
+          } else {
+            // Show warning but don't block the status update
+            toast.warning("Status updated but failed to generate service report. You can download it later from the client history.");
+            console.error("PDF Generation Error:", pdfResult.error);
           }
+        } catch (pdfError) {
+          // Show warning but don't block the status update
+          toast.warning("Status updated but failed to generate service report. You can download it later from the client history.");
+          console.error("PDF Generation Error:", pdfError);
         }
-      } catch (appointmentError) {
-        console.error("Error updating related appointments:", appointmentError);
-        // Continue with client update even if appointment updates fail
+      } else {
+        // For other status updates, just show success message
+        toast.success("Status updated successfully");
       }
-  
-      // Update local state for immediate UI refresh
-      const updatedClients = clients.map((c) => {
-        if (c.id === clientId || c._id === clientId) {
-          return {
-            ...c,
-            repairStatus: newStatus,
-          };
-        }
-        return c;
-      });
-  
-      setClients(updatedClients);
-      setFilteredClients(prevFiltered => prevFiltered.map(c => {
-        if (c.id === clientId || c._id === clientId) {
-          return {
-            ...c,
-            repairStatus: newStatus,
-          };
-        }
-        return c;
-      }));
-      
-      toast.success(`Status updated to ${newStatus.replace("_", " ")}`);
-  
-      // Notify dashboard via custom event to update appointment calendar
-      const updateEvent = new CustomEvent('client-updated', {
+
+      // Close the confirmation dialog
+      closeConfirmationDialog();
+
+      // Refresh client list
+      fetchClients();
+
+      // Dispatch event for calendar update
+      window.dispatchEvent(new CustomEvent('client-updated', {
         detail: {
           clientId,
           status: newStatus,
-          appointmentStatus,
+          action: 'status-updated',
           timestamp: new Date().getTime()
         }
-      });
-      window.dispatchEvent(updateEvent);
-  
-      // If status changed to completed, offer to create invoice using your utility
-      if (shouldCreateInvoice(oldStatus, newStatus)) {
-        const createInvoice = window.confirm(
-          "Repair marked as completed. Would you like to create an invoice now?"
-        );
-  
-        if (createInvoice) {
-          // Navigate to invoices page with client ID
-          history.push({
-            pathname: "/admin/invoices",
-            state: { createFromClient: clientId },
-          });
-        }
-      }
-      
-      setIsLoading(false);
+      }));
     } catch (error) {
       console.error("Error updating status:", error);
       toast.error("Failed to update status: " + (error.message || "Unknown error"));
-      setIsLoading(false);
     }
   };
   
@@ -765,7 +874,7 @@ const handleUpdatePayment = async (clientId, newPaymentStatus, amount = 0) => {
 
 
   const openPreDeliveryDialog = (client) => {
-    setClientToDeliver(client);
+    setSelectedClient(client);
     setPreDeliveryImages([]);
     setPreDeliveryNotes("");
     setShowPreDeliveryDialog(true);
@@ -789,50 +898,101 @@ const handleUpdatePayment = async (clientId, newPaymentStatus, amount = 0) => {
   };
 
   const handleCompleteDelivery = async () => {
-    if (!clientToDeliver) return;
-
     try {
-      // First, upload any delivery images
-      // In a real implementation, you would upload images to your server
-      // For now, we'll just send the URLs
+      if (!selectedClient) {
+        toast.error("No client selected for delivery");
+        return;
+      }
+
+      // Validate prerequisites
+      if (selectedClient.repairStatus !== "completed") {
+        toast.error("Repair must be completed before delivery");
+        return;
+      }
+
+      if (selectedClient.paymentStatus !== "paid") {
+        toast.error("Payment must be completed before delivery");
+        return;
+      }
+
+      setIsLoading(true);
+
+      // Prepare delivery data
       const deliveryData = {
+        deliveryDate: new Date(),
         deliveryNotes: preDeliveryNotes,
         deliveryImages: preDeliveryImages,
+        status: "delivered"
       };
 
-      const response = await clientsAPI.markDelivered(
-        clientToDeliver.id,
-        deliveryData
+      // Update client status to delivered
+      const deliveryResponse = await clientsAPI.markAsDelivered(selectedClient.id || selectedClient._id, deliveryData);
+
+      if (!deliveryResponse || !deliveryResponse.data) {
+        throw new Error("Failed to update delivery status");
+      }
+
+      // Update the clients list with the new data
+      const updatedClient = { ...deliveryResponse.data, id: deliveryResponse.data._id || deliveryResponse.data.id };
+      
+      setClients(prevClients => 
+        prevClients.map(client => 
+          (client.id === selectedClient.id || client._id === selectedClient._id)
+            ? updatedClient
+            : client
+        )
       );
 
-      // Update local state
-      const updatedClients = clients.map((client) => {
-        if (client.id === clientToDeliver.id) {
-          return response.data;
-        }
-        return client;
-      });
+      // Update filtered clients as well
+      setFilteredClients(prevFiltered => 
+        prevFiltered.map(client => 
+          (client.id === selectedClient.id || client._id === selectedClient._id)
+            ? updatedClient
+            : client
+        )
+      );
 
-      setClients(updatedClients);
-      toast.success("Vehicle marked as delivered");
+      // Generate delivery PDF
+      try {
+        const pdfResponse = await clientsAPI.generateDeliveryPDF(selectedClient.id || selectedClient._id);
+        if (pdfResponse && pdfResponse.data) {
+          // Open PDF in new tab
+          window.open(pdfResponse.data.pdfUrl, '_blank');
+        }
+      } catch (pdfError) {
+        console.error("Error generating delivery PDF:", pdfError);
+        // Don't show error to user, as this is not critical
+      }
+
+      // Reset delivery state and close modal
       setShowPreDeliveryDialog(false);
+      setSelectedClient(null);
+      setPreDeliveryImages([]);
+      setPreDeliveryNotes("");
+
+      toast.success("Client marked as delivered successfully");
+
+      // Dispatch event for calendar update
+      window.dispatchEvent(new CustomEvent('client-updated', {
+        detail: {
+          clientId: selectedClient.id || selectedClient._id,
+          status: 'delivered',
+          action: 'delivered',
+          timestamp: new Date().getTime()
+        }
+      }));
     } catch (error) {
       console.error("Error completing delivery:", error);
-      toast.error("Failed to mark vehicle as delivered");
+      toast.error(error.response?.data?.message || "Failed to complete delivery");
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const openClientHistory = async (client) => {
+  const openClientHistory = (client) => {
+    setSelectedClient(client);
     setSelectedClientForHistory(client);
-
-    try {
-      const response = await clientsAPI.getHistory(client.id);
-      setClientHistory(response.data);
-      setHistoryDialogOpen(true);
-    } catch (error) {
-      console.error("Error fetching client history:", error);
-      toast.error("Failed to load client history");
-    }
+    setHistoryDialogOpen(true);
   };
 
   const exportToCSV = () => {
@@ -893,6 +1053,38 @@ const handleUpdatePayment = async (clientId, newPaymentStatus, amount = 0) => {
     }
   };
 
+  // Add useEffect to fetch clients on component mount
+  useEffect(() => {
+    fetchClients();
+  }, [fetchClients]); // Add fetchClients to dependency array
+
+  // Add new function to open client details
+  const openClientDetails = (client) => {
+    setSelectedClientForDetails(client);
+    setDetailsDialogOpen(true);
+  };
+
+  // Add new function to close client details
+  const closeClientDetails = () => {
+    setDetailsDialogOpen(false);
+    setSelectedClientForDetails(null);
+  };
+
+  // Add this function near other handlers
+  const handleDownloadServiceReport = async (client) => {
+    try {
+      const pdfResult = await generateServiceReport(client);
+      if (pdfResult.success) {
+        toast.success("Service report downloaded successfully");
+      } else {
+        toast.error(pdfResult.error || "Failed to generate service report");
+      }
+    } catch (error) {
+      console.error("Error generating service report:", error);
+      toast.error("Failed to generate service report");
+    }
+  };
+
   if (isLoading) {
     return (
       <>
@@ -913,6 +1105,18 @@ const handleUpdatePayment = async (clientId, newPaymentStatus, amount = 0) => {
 
   return (
     <>
+      <ToastContainer
+        position="top-right"
+        autoClose={5000}
+        hideProgressBar={false}
+        newestOnTop
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme="light"
+      />
       <Header />
       <Container
         maxWidth={false}
@@ -995,7 +1199,7 @@ const handleUpdatePayment = async (clientId, newPaymentStatus, amount = 0) => {
                   <CardContent>
                     <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
                       <Avatar sx={{ bgcolor: "warning.light", mr: 2 }}>
-                        <Tool size={20} />
+                        <Wrench size={20} />
                       </Avatar>
                       <Typography color="warning.main" variant="h6">
                         Active Repairs
@@ -1211,14 +1415,12 @@ const handleUpdatePayment = async (clientId, newPaymentStatus, amount = 0) => {
               <Box sx={{ pt: 2 }}>
                 <ClientsTable
                   clients={filteredClients}
-                  onView={openClientHistory}
+                  onView={openClientDetails}
                   onEdit={openClientForm}
                   onDelete={openDeleteConfirmation}
-                  onUpdateStatus={handleUpdateStatus}
+                  onUpdateStatus={handleStatusChangeConfirmation}
                   onUpdatePayment={handleUpdatePayment}
                   onMarkDelivered={openPreDeliveryDialog}
-                  getStatusColor={getStatusColor}
-                  getStatusIcon={getStatusIcon}
                   formatDate={formatDate}
                 />
               </Box>
@@ -1251,7 +1453,7 @@ const handleUpdatePayment = async (clientId, newPaymentStatus, amount = 0) => {
                   required
                   value={formData.clientName}
                   onChange={(e) =>
-                    handleFormChange("clientName", e.target.value)
+                    handleImmediateFormChange("clientName", e.target.value)
                   }
                 />
               </Grid>
@@ -1263,7 +1465,7 @@ const handleUpdatePayment = async (clientId, newPaymentStatus, amount = 0) => {
                   required
                   value={formData.phoneNumber}
                   onChange={(e) =>
-                    handleFormChange("phoneNumber", e.target.value)
+                    handleImmediateFormChange("phoneNumber", e.target.value)
                   }
                   InputProps={{
                     startAdornment: (
@@ -1282,29 +1484,37 @@ const handleUpdatePayment = async (clientId, newPaymentStatus, amount = 0) => {
                 </Typography>
               </Grid>
 
-              <Grid item xs={12} md={4}>
+              <Grid item xs={12} md={6}>
                 <Autocomplete
-                  options={carMakes}
-                  freeSolo
+                  options={Object.keys(carModels)}
                   value={formData.carDetails.make}
-                  onChange={(event, newValue) =>
-                    handleFormChange("carDetails.make", newValue)
-                  }
+                  onChange={(event, newValue) => handleCarDetailsChange("make", newValue)}
                   renderInput={(params) => (
-                    <TextField {...params} label="Make" fullWidth required />
+                    <TextField
+                      {...params}
+                      label="Make"
+                      fullWidth
+                      required
+                    />
                   )}
                 />
               </Grid>
 
-              <Grid item xs={12} md={4}>
-                <TextField
-                  label="Model"
-                  fullWidth
-                  required
+              <Grid item xs={12} md={6}>
+                <Autocomplete
+                  options={carModels[formData.carDetails.make] || []}
                   value={formData.carDetails.model}
-                  onChange={(e) =>
-                    handleFormChange("carDetails.model", e.target.value)
-                  }
+                  onChange={(event, newValue) => handleCarDetailsChange("model", newValue)}
+                  disabled={!formData.carDetails.make}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Model"
+                      fullWidth
+                      required
+                      helperText={!formData.carDetails.make ? "Select make first" : ""}
+                    />
+                  )}
                 />
               </Grid>
 
@@ -1314,7 +1524,7 @@ const handleUpdatePayment = async (clientId, newPaymentStatus, amount = 0) => {
                   freeSolo
                   value={formData.carDetails.year}
                   onChange={(event, newValue) =>
-                    handleFormChange("carDetails.year", newValue)
+                    handleImmediateFormChange("carDetails.year", newValue)
                   }
                   renderInput={(params) => (
                     <TextField {...params} label="Year" fullWidth />
@@ -1329,7 +1539,7 @@ const handleUpdatePayment = async (clientId, newPaymentStatus, amount = 0) => {
                   required
                   value={formData.carDetails.licensePlate}
                   onChange={(e) =>
-                    handleFormChange("carDetails.licensePlate", e.target.value)
+                    handleCarDetailsChange("licensePlate", e.target.value)
                   }
                   InputProps={{
                     startAdornment: (
@@ -1342,13 +1552,16 @@ const handleUpdatePayment = async (clientId, newPaymentStatus, amount = 0) => {
               </Grid>
 
               <Grid item xs={12} md={4}>
-                <TextField
-                  label="Color"
-                  fullWidth
+                <Autocomplete
+                  options={carColors}
+                  freeSolo
                   value={formData.carDetails.color}
-                  onChange={(e) =>
-                    handleFormChange("carDetails.color", e.target.value)
+                  onChange={(event, newValue) =>
+                    handleImmediateFormChange("carDetails.color", newValue)
                   }
+                  renderInput={(params) => (
+                    <TextField {...params} label="Color" fullWidth />
+                  )}
                 />
               </Grid>
 
@@ -1358,7 +1571,7 @@ const handleUpdatePayment = async (clientId, newPaymentStatus, amount = 0) => {
                   fullWidth
                   value={formData.carDetails.vin}
                   onChange={(e) =>
-                    handleFormChange("carDetails.vin", e.target.value)
+                    handleImmediateFormChange("carDetails.vin", e.target.value)
                   }
                 />
               </Grid>
@@ -1380,7 +1593,7 @@ const handleUpdatePayment = async (clientId, newPaymentStatus, amount = 0) => {
                   options={repairProcedures}
                   value={formData.procedures}
                   onChange={(selectedOptions) =>
-                    handleFormChange("procedures", selectedOptions || [])
+                    handleImmediateFormChange("procedures", selectedOptions || [])
                   }
                   placeholder="Select repair procedures..."
                   isSearchable
@@ -1390,6 +1603,12 @@ const handleUpdatePayment = async (clientId, newPaymentStatus, amount = 0) => {
                       backgroundColor: "white",
                       zIndex: 9999,
                       boxShadow: "0 4px 8px rgba(0, 0, 0, 0.15)",
+                      maxHeight: "300px"
+                    }),
+                    menuList: (provided) => ({
+                      ...provided,
+                      maxHeight: "300px",
+                      padding: "8px 0"
                     }),
                     option: (provided, state) => ({
                       ...provided,
@@ -1400,6 +1619,10 @@ const handleUpdatePayment = async (clientId, newPaymentStatus, amount = 0) => {
                         : "white",
                       color: state.isSelected ? "white" : "black",
                       padding: "10px 15px",
+                      cursor: "pointer",
+                      '&:active': {
+                        backgroundColor: state.isSelected ? "#1976d2" : "#e8f0fe"
+                      }
                     }),
                     control: (provided, state) => ({
                       ...provided,
@@ -1410,7 +1633,30 @@ const handleUpdatePayment = async (clientId, newPaymentStatus, amount = 0) => {
                       "&:hover": {
                         borderColor: state.isFocused ? "#1976d2" : "#adb5bd",
                       },
+                      minHeight: "42px"
                     }),
+                    valueContainer: (provided) => ({
+                      ...provided,
+                      padding: "2px 8px"
+                    }),
+                    multiValue: (provided) => ({
+                      ...provided,
+                      backgroundColor: "#e8f0fe",
+                      borderRadius: "4px"
+                    }),
+                    multiValueLabel: (provided) => ({
+                      ...provided,
+                      color: "#1976d2",
+                      padding: "2px 6px"
+                    }),
+                    multiValueRemove: (provided) => ({
+                      ...provided,
+                      color: "#1976d2",
+                      '&:hover': {
+                        backgroundColor: "#bbdefb",
+                        color: "#1565c0"
+                      }
+                    })
                   }}
                   theme={(theme) => ({
                     ...theme,
@@ -1418,7 +1664,9 @@ const handleUpdatePayment = async (clientId, newPaymentStatus, amount = 0) => {
                       ...theme.colors,
                       primary: "#1976d2",
                       primary25: "#e8f0fe",
-                    },
+                      primary50: "#bbdefb",
+                      primary75: "#90caf9"
+                    }
                   })}
                 />
               </Grid>
@@ -1432,7 +1680,7 @@ const handleUpdatePayment = async (clientId, newPaymentStatus, amount = 0) => {
                   rows={2}
                   value={formData.issueDescription}
                   onChange={(e) =>
-                    handleFormChange("issueDescription", e.target.value)
+                    handleImmediateFormChange("issueDescription", e.target.value)
                   }
                   placeholder="Describe the issues that need to be repaired"
                 />
@@ -1446,7 +1694,7 @@ const handleUpdatePayment = async (clientId, newPaymentStatus, amount = 0) => {
                   rows={2}
                   value={formData.preExistingIssues}
                   onChange={(e) =>
-                    handleFormChange("preExistingIssues", e.target.value)
+                    handleImmediateFormChange("preExistingIssues", e.target.value)
                   }
                   placeholder="Document any pre-existing damage or issues (dents, scratches, etc.)"
                 />
@@ -1455,29 +1703,82 @@ const handleUpdatePayment = async (clientId, newPaymentStatus, amount = 0) => {
               <Grid item xs={12} md={6}>
                 <TextField
                   label="Estimated Duration (days)"
-                  type="number"
+                  type="text"
+                  inputMode="numeric"
+                  value={formData.estimatedDuration === null ? '' : formData.estimatedDuration}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    // Allow empty value
+                    if (value === '') {
+                      handleImmediateFormChange("estimatedDuration", null);
+                      // Reset delivery date when duration is cleared
+                      handleImmediateFormChange("deliveryDate", null);
+                    } else {
+                      // Only allow numbers
+                      const numValue = parseInt(value);
+                      if (!isNaN(numValue)) {
+                        handleImmediateFormChange("estimatedDuration", numValue);
+                        // Update delivery date based on new duration
+                        const newDeliveryDate = addDays(new Date(formData.createdAt), numValue);
+                        handleImmediateFormChange("deliveryDate", newDeliveryDate);
+                      }
+                    }
+                  }}
+                  onBlur={(e) => {
+                    // If empty or invalid, set to default of 1
+                    const value = e.target.value;
+                    if (!value || isNaN(parseInt(value)) || parseInt(value) <= 0) {
+                      handleImmediateFormChange("estimatedDuration", 1);
+                      const newDeliveryDate = addDays(new Date(formData.createdAt), 1);
+                      handleImmediateFormChange("deliveryDate", newDeliveryDate);
+                    }
+                  }}
                   fullWidth
-                  value={formData.estimatedDuration}
-                  onChange={(e) =>
-                    handleFormChange(
-                      "estimatedDuration",
-                      parseInt(e.target.value) || 1
-                    )
-                  }
-                  InputProps={{ inputProps: { min: 1 } }}
+                  required
+                  error={formData.estimatedDuration === null}
+                  helperText={formData.estimatedDuration === null ? "Duration is required" : "Enter number of days for repair"}
+                  InputProps={{
+                    inputProps: { 
+                      min: 1,
+                      pattern: '[0-9]*'
+                    }
+                  }}
                 />
               </Grid>
 
               <Grid item xs={12} md={6}>
                 <DatePicker
                   selected={formData.deliveryDate}
-                  onChange={(date) => handleFormChange("deliveryDate", date)}
+                  onChange={(date) => {
+                    if (!date) {
+                      // If date is cleared, also clear duration
+                      handleImmediateFormChange("deliveryDate", null);
+                      handleImmediateFormChange("estimatedDuration", null);
+                    } else {
+                      const duration = differenceInDays(date, new Date(formData.createdAt));
+                      setFormData(prev => ({
+                        ...prev,
+                        deliveryDate: date,
+                        estimatedDuration: Math.max(1, duration)
+                      }));
+                    }
+                  }}
                   dateFormat="MMMM d, yyyy"
+                  minDate={new Date()}
                   customInput={
                     <TextField
                       label="Expected Delivery Date"
                       fullWidth
                       required
+                      error={formData.deliveryDate === null}
+                      helperText={formData.deliveryDate === null ? "Delivery date is required" : ""}
+                      InputProps={{
+                        endAdornment: (
+                          <InputAdornment position="end">
+                            <Calendar size={20} />
+                          </InputAdornment>
+                        )
+                      }}
                     />
                   }
                 />
@@ -1501,7 +1802,7 @@ const handleUpdatePayment = async (clientId, newPaymentStatus, amount = 0) => {
                     name="payment-status"
                     value={formData.paymentStatus}
                     onChange={(e) =>
-                      handleFormChange("paymentStatus", e.target.value)
+                      handleImmediateFormChange("paymentStatus", e.target.value)
                     }
                   >
                     <FormControlLabel
@@ -1529,7 +1830,7 @@ const handleUpdatePayment = async (clientId, newPaymentStatus, amount = 0) => {
                     type="number"
                     value={formData.partialPaymentAmount}
                     onChange={(e) =>
-                      handleFormChange(
+                      handleImmediateFormChange(
                         "partialPaymentAmount",
                         parseFloat(e.target.value) || 0
                       )
@@ -1545,42 +1846,39 @@ const handleUpdatePayment = async (clientId, newPaymentStatus, amount = 0) => {
               </Grid>
 
               <Grid item xs={12} md={6}>
-                <FormControl fullWidth>
-                  <FormLabel id="repair-status-label">Repair Status</FormLabel>
+                <FormControl component="fieldset">
+                  <FormLabel component="legend">Repair Status</FormLabel>
                   <RadioGroup
                     row
-                    aria-labelledby="repair-status-label"
-                    name="repair-status"
                     value={formData.repairStatus}
-                    onChange={(e) =>
-                      handleFormChange("repairStatus", e.target.value)
-                    }
+                    onChange={(e) => handleImmediateFormChange("repairStatus", e.target.value)}
                   >
-                    <FormControlLabel
-                      value="waiting"
-                      control={<Radio />}
-                      label="Waiting"
-                    />
-                    <FormControlLabel
-                      value="in_progress"
-                      control={<Radio />}
-                      label="In Progress"
-                    />
-                    <FormControlLabel
-                      value="completed"
-                      control={<Radio />}
-                      label="Completed"
-                    />
-                    <FormControlLabel
-                      value="delivered"
-                      control={<Radio />}
-                      label="Delivered"
-                    />
-                    <FormControlLabel
-                      value="cancelled"
-                      control={<Radio />}
-                      label="Cancelled"
-                    />
+                    {(editMode ? allRepairStatusOptions : repairStatusOptions).map((option) => (
+                      <FormControlLabel
+                        key={option.value}
+                        value={option.value}
+                        control={
+                          <Radio 
+                            sx={{
+                              color: `${option.color}.main`,
+                              '&.Mui-checked': {
+                                color: `${option.color}.main`,
+                              },
+                            }}
+                          />
+                        }
+                        label={
+                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                            <Chip
+                              size="small"
+                              label={option.label}
+                              color={option.color}
+                              sx={{ mr: 1 }}
+                            />
+                          </Box>
+                        }
+                      />
+                    ))}
                   </RadioGroup>
                 </FormControl>
               </Grid>
@@ -1592,7 +1890,7 @@ const handleUpdatePayment = async (clientId, newPaymentStatus, amount = 0) => {
                   multiline
                   rows={2}
                   value={formData.notes}
-                  onChange={(e) => handleFormChange("notes", e.target.value)}
+                  onChange={(e) => handleImmediateFormChange("notes", e.target.value)}
                   placeholder="Any additional notes about this repair"
                 />
               </Grid>
@@ -1659,7 +1957,7 @@ const handleUpdatePayment = async (clientId, newPaymentStatus, amount = 0) => {
                           onClick={() => {
                             const updatedImages = [...formData.images];
                             updatedImages.splice(index, 1);
-                            handleFormChange("images", updatedImages);
+                            handleImmediateFormChange("images", updatedImages);
                           }}
                         >
                           <X size={16} />
@@ -1677,8 +1975,10 @@ const handleUpdatePayment = async (clientId, newPaymentStatus, amount = 0) => {
               onClick={handleSubmitClient}
               variant="contained"
               color="primary"
+              disabled={isSubmitting || isLoading}
+              startIcon={isSubmitting ? <CircularProgress size={20} /> : null}
             >
-              {editMode ? "Update" : "Save"}
+              {isSubmitting ? "Saving..." : (editMode ? "Update" : "Add")} Client
             </Button>
           </DialogActions>
         </Dialog>
@@ -1688,100 +1988,264 @@ const handleUpdatePayment = async (clientId, newPaymentStatus, amount = 0) => {
           onClose={() => setHistoryDialogOpen(false)}
           maxWidth="md"
           fullWidth
+          PaperProps={{
+            sx: {
+              borderRadius: 2,
+              boxShadow: 3
+            }
+          }}
         >
           <DialogTitle>
-            <Box sx={{ display: "flex", alignItems: "center" }}>
-              <FileText size={20} style={{ marginRight: 8 }} />
-              Client History: {selectedClientForHistory?.clientName}
+            <Box sx={{ 
+              display: "flex", 
+              flexDirection: { xs: 'column', sm: 'row' },
+              alignItems: { xs: 'flex-start', sm: 'center' },
+              justifyContent: 'space-between',
+              gap: 2
+            }}>
+              <Box sx={{ display: "flex", alignItems: "center" }}>
+                <Avatar sx={{ bgcolor: 'primary.main', mr: 2 }}>
+                  <FileText size={20} />
+                </Avatar>
+                <Box>
+                  <Typography variant="h6" component="div">
+                    {selectedClientForHistory?.clientName}
+                  </Typography>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Service History
+                  </Typography>
+                </Box>
+              </Box>
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                <Chip
+                  label={selectedClientForHistory?.repairStatus.replace("_", " ")}
+                  color={getRepairStatusColor(selectedClientForHistory?.repairStatus)}
+                  size="small"
+                />
+                <Chip
+                  label={selectedClientForHistory?.paymentStatus.replace("_", " ")}
+                  color={getPaymentStatusColor(selectedClientForHistory?.paymentStatus)}
+                  size="small"
+                  icon={getPaymentStatusIcon(selectedClientForHistory?.paymentStatus)}
+                />
+              </Box>
             </Box>
           </DialogTitle>
           <DialogContent>
             {clientHistory.length > 0 ? (
               <>
-                <Typography variant="subtitle1" gutterBottom>
-                  Vehicle: {selectedClientForHistory?.carDetails.year}{" "}
-                  {selectedClientForHistory?.carDetails.make}{" "}
-                  {selectedClientForHistory?.carDetails.model} (
-                  {selectedClientForHistory?.carDetails.licensePlate})
-                </Typography>
+                {/* Vehicle Information Card */}
+                <Card sx={{ mb: 3, borderRadius: 2, boxShadow: 1 }}>
+                  <CardContent>
+                    <Grid container spacing={2}>
+                      <Grid item xs={12} sm={6}>
+                        <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                          Vehicle Details
+                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Truck size={16} />
+                          <Typography variant="body1">
+                            {selectedClientForHistory?.carDetails.year}{" "}
+                            {selectedClientForHistory?.carDetails.make}{" "}
+                            {selectedClientForHistory?.carDetails.model}
+                          </Typography>
+                        </Box>
+                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                          License: {selectedClientForHistory?.carDetails.licensePlate}
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                          Contact Information
+                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <User size={16} />
+                          <Typography variant="body2">
+                            {selectedClientForHistory?.phoneNumber}
+                          </Typography>
+                        </Box>
+                        {selectedClientForHistory?.email && (
+                          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                            {selectedClientForHistory?.email}
+                          </Typography>
+                        )}
+                      </Grid>
+                    </Grid>
+                  </CardContent>
+                </Card>
 
-                <Box sx={{ mt: 3 }}>
+                {/* Service History Timeline */}
+                <Typography variant="subtitle1" gutterBottom sx={{ mb: 2 }}>
+                  Service Records
+                </Typography>
+                <Box sx={{ 
+                  display: 'flex', 
+                  flexDirection: 'column', 
+                  gap: 2,
+                  '& .MuiAccordion-root': {
+                    borderRadius: 2,
+                    boxShadow: 1,
+                    '&:before': { display: 'none' },
+                    '&.Mui-expanded': {
+                      margin: '8px 0',
+                      boxShadow: 2
+                    }
+                  }
+                }}>
                   {clientHistory.map((record, index) => (
-                    <Accordion key={index} sx={{ mb: 1 }}>
+                    <Accordion 
+                      key={index}
+                      sx={{ 
+                        borderLeft: '4px solid',
+                        borderColor: getRepairStatusColor(record.repairStatus)
+                      }}
+                    >
                       <AccordionSummary
                         expandIcon={<ChevronDown />}
                         aria-controls={`history-content-${index}`}
                         id={`history-header-${index}`}
+                        sx={{
+                          '& .MuiAccordionSummary-content': {
+                            margin: '12px 0'
+                          }
+                        }}
                       >
-                        <Box
-                          sx={{
-                            display: "flex",
-                            alignItems: "center",
-                            width: "100%",
-                            justifyContent: "space-between",
-                          }}
-                        >
-                          <Typography>
-                            {formatDate(record.date)} -{" "}
-                            {record.procedures.map((p) => p.label).join(", ")}
-                          </Typography>
-                          <Chip
-                            label={record.repairStatus.replace("_", " ")}
-                            color={getRepairStatusColor(record.repairStatus)}
-                            size="small"
-                            sx={{ ml: 2 }}
-                          />
+                        <Box sx={{ 
+                          display: "flex", 
+                          alignItems: "center", 
+                          width: "100%",
+                          gap: 2
+                        }}>
+                          <Box sx={{ 
+                            display: 'flex', 
+                            alignItems: 'center',
+                            minWidth: { xs: 'auto', sm: '200px' }
+                          }}>
+                            <Calendar size={16} style={{ marginRight: 8 }} />
+                            <Typography variant="body2">
+                              {formatDate(record.date)}
+                            </Typography>
+                          </Box>
+                          <Box sx={{ 
+                            flex: 1,
+                            display: 'flex',
+                            flexDirection: { xs: 'column', sm: 'row' },
+                            alignItems: { xs: 'flex-start', sm: 'center' },
+                            gap: { xs: 1, sm: 2 }
+                          }}>
+                            <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                              {record.procedures.map((p) => p.label).join(", ")}
+                            </Typography>
+                            <Chip
+                              label={record.repairStatus.replace("_", " ")}
+                              color={getRepairStatusColor(record.repairStatus)}
+                              size="small"
+                              sx={{ 
+                                height: 24,
+                                '& .MuiChip-label': { px: 1 }
+                              }}
+                            />
+                          </Box>
                         </Box>
                       </AccordionSummary>
                       <AccordionDetails>
                         <Grid container spacing={2}>
-                          <Grid item xs={12}>
-                            <Typography variant="subtitle2">
-                              Issue Description:
-                            </Typography>
-                            <Typography variant="body2" paragraph>
-                              {record.issueDescription}
-                            </Typography>
-                          </Grid>
-
-                          <Grid item xs={12} md={6}>
-                            <Typography variant="subtitle2">
-                              Procedures:
-                            </Typography>
-                            <Box sx={{ mt: 1 }}>
-                              {record.procedures.map((procedure, i) => (
-                                <Chip
-                                  key={i}
-                                  label={procedure.label}
-                                  size="small"
-                                  sx={{ mr: 1, mb: 1 }}
-                                />
-                              ))}
-                            </Box>
-                          </Grid>
-
-                          <Grid item xs={12} md={6}>
-                            <Typography variant="subtitle2">
-                              Payment Status:
-                            </Typography>
-                            <Chip
-                              label={record.paymentStatus.replace("_", " ")}
-                              color={getPaymentStatusColor(
-                                record.paymentStatus
-                              )}
-                              icon={getPaymentStatusIcon(record.paymentStatus)}
-                              sx={{ mt: 1 }}
-                            />
-                          </Grid>
-
+                          {record.procedures.length > 0 && (
+                            <Grid item xs={12}>
+                              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                                Procedures Performed
+                              </Typography>
+                              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                                {record.procedures.map((procedure, idx) => (
+                                  <Chip
+                                    key={idx}
+                                    label={procedure.label}
+                                    size="small"
+                                    variant="outlined"
+                                    sx={{ 
+                                      height: 24,
+                                      '& .MuiChip-label': { px: 1 }
+                                    }}
+                                  />
+                                ))}
+                              </Box>
+                            </Grid>
+                          )}
+                          
+                          {record.estimatedCost && (
+                            <Grid item xs={12} sm={6}>
+                              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                                Estimated Cost
+                              </Typography>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <DollarSign size={16} />
+                                <Typography variant="body1">
+                                  {record.estimatedCost.toLocaleString()}
+                                </Typography>
+                              </Box>
+                            </Grid>
+                          )}
+                          
+                          {record.estimatedDuration && (
+                            <Grid item xs={12} sm={6}>
+                              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                                Estimated Duration
+                              </Typography>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <Clock size={16} />
+                                <Typography variant="body1">
+                                  {record.estimatedDuration} day{record.estimatedDuration !== 1 ? 's' : ''}
+                                </Typography>
+                              </Box>
+                            </Grid>
+                          )}
+                          
                           {record.notes && (
                             <Grid item xs={12}>
-                              <Typography variant="subtitle2">
-                                Notes:
+                              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                                Notes
                               </Typography>
-                              <Typography variant="body2">
-                                {record.notes}
+                              <Paper 
+                                variant="outlined" 
+                                sx={{ 
+                                  p: 2,
+                                  bgcolor: 'background.default',
+                                  borderRadius: 1
+                                }}
+                              >
+                                <Typography variant="body2">
+                                  {record.notes}
+                                </Typography>
+                              </Paper>
+                            </Grid>
+                          )}
+                          
+                          {record.images && record.images.length > 0 && (
+                            <Grid item xs={12}>
+                              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                                Service Images
                               </Typography>
+                              <Box sx={{ 
+                                display: 'flex', 
+                                gap: 1, 
+                                flexWrap: 'wrap',
+                                '& img': {
+                                  width: 100,
+                                  height: 100,
+                                  objectFit: 'cover',
+                                  borderRadius: 1,
+                                  cursor: 'pointer'
+                                }
+                              }}>
+                                {record.images.map((image, idx) => (
+                                  <img 
+                                    key={idx}
+                                    src={image}
+                                    alt={`Service image ${idx + 1}`}
+                                    onClick={() => window.open(image, '_blank')}
+                                  />
+                                ))}
+                              </Box>
                             </Grid>
                           )}
                         </Grid>
@@ -1791,22 +2255,38 @@ const handleUpdatePayment = async (clientId, newPaymentStatus, amount = 0) => {
                 </Box>
               </>
             ) : (
-              <Box
-                sx={{
-                  display: "flex",
-                  justifyContent: "center",
-                  alignItems: "center",
-                  height: 200,
-                }}
-              >
-                <Typography variant="subtitle1" color="textSecondary">
-                  No previous records found for this client
+              <Box sx={{
+                display: "flex",
+                flexDirection: 'column',
+                justifyContent: "center",
+                alignItems: "center",
+                height: 200,
+                gap: 2
+              }}>
+                <FileText size={48} color="#ccc" />
+                <Typography variant="subtitle1" color="text.secondary">
+                  No service history found for this client
                 </Typography>
               </Box>
             )}
           </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setHistoryDialogOpen(false)}>Close</Button>
+          <DialogActions sx={{ p: 2, gap: 1 }}>
+            <Button 
+              onClick={() => setHistoryDialogOpen(false)}
+              variant="outlined"
+            >
+              Close
+            </Button>
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={() => {
+                setHistoryDialogOpen(false);
+                openClientForm(selectedClientForHistory);
+              }}
+            >
+              Update Record
+            </Button>
           </DialogActions>
         </Dialog>
         {/* Pre-Delivery Documentation Dialog */}
@@ -1819,86 +2299,22 @@ const handleUpdatePayment = async (clientId, newPaymentStatus, amount = 0) => {
           <DialogTitle>
             <Box sx={{ display: "flex", alignItems: "center" }}>
               <CheckCircle size={20} style={{ marginRight: 8 }} />
-              Delivery Documentation
+              Confirm Delivery
             </Box>
           </DialogTitle>
           <DialogContent>
             <Alert severity="info" sx={{ mb: 3 }}>
-              Take photos of the vehicle and document its condition before
-              delivery to the client.
+              Please confirm that the vehicle is ready for delivery to the client.
             </Alert>
 
             <Typography variant="subtitle1" gutterBottom>
-              Vehicle: {clientToDeliver?.carDetails.year}{" "}
-              {clientToDeliver?.carDetails.make}{" "}
-              {clientToDeliver?.carDetails.model} (
-              {clientToDeliver?.carDetails.licensePlate})
+              Vehicle: {selectedClient?.carDetails.year}{" "}
+              {selectedClient?.carDetails.make}{" "}
+              {selectedClient?.carDetails.model} (
+              {selectedClient?.carDetails.licensePlate})
             </Typography>
 
             <Box sx={{ mt: 3 }}>
-              <Typography variant="subtitle2" gutterBottom>
-                Upload Delivery Images:
-              </Typography>
-              <Button
-                variant="outlined"
-                component="label"
-                startIcon={<Camera />}
-                sx={{ mb: 2 }}
-              >
-                Take Photos
-                <input
-                  type="file"
-                  hidden
-                  multiple
-                  accept="image/*"
-                  onChange={handleDeliveryImageUpload}
-                />
-              </Button>
-
-              {preDeliveryImages.length > 0 && (
-                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mb: 3 }}>
-                  {preDeliveryImages.map((image, index) => (
-                    <Box
-                      key={index}
-                      sx={{
-                        position: "relative",
-                        width: 120,
-                        height: 120,
-                        borderRadius: 1,
-                        overflow: "hidden",
-                        border: "1px solid #ccc",
-                      }}
-                    >
-                      <img
-                        src={image.url}
-                        alt={`Delivery image ${index + 1}`}
-                        style={{
-                          width: "100%",
-                          height: "100%",
-                          objectFit: "cover",
-                        }}
-                      />
-                      <IconButton
-                        size="small"
-                        sx={{
-                          position: "absolute",
-                          top: 0,
-                          right: 0,
-                          bgcolor: "rgba(255,255,255,0.7)",
-                        }}
-                        onClick={() => {
-                          const updatedImages = [...preDeliveryImages];
-                          updatedImages.splice(index, 1);
-                          setPreDeliveryImages(updatedImages);
-                        }}
-                      >
-                        <X size={16} />
-                      </IconButton>
-                    </Box>
-                  ))}
-                </Box>
-              )}
-
               <Typography variant="subtitle2" gutterBottom>
                 Delivery Notes:
               </Typography>
@@ -1906,7 +2322,7 @@ const handleUpdatePayment = async (clientId, newPaymentStatus, amount = 0) => {
                 fullWidth
                 multiline
                 rows={4}
-                placeholder="Enter notes about vehicle condition, items returned to customer, etc."
+                placeholder="Enter any additional notes about the delivery..."
                 value={preDeliveryNotes}
                 onChange={(e) => setPreDeliveryNotes(e.target.value)}
                 sx={{ mb: 2 }}
@@ -1946,408 +2362,367 @@ const handleUpdatePayment = async (clientId, newPaymentStatus, amount = 0) => {
             </Button>
           </DialogActions>
         </Dialog>
-      </Container>
-    </>
-  );
-};
-
-
-// ==========================================
-//  CLIENT TABLE  
-// ==========================================
-
-const ClientsTable = ({
-  clients,
-  onView,
-  onEdit,
-  onDelete,
-  onUpdateStatus,
-  onUpdatePayment,
-  onMarkDelivered,
-  getStatusColor,
-  getStatusIcon,
-  formatDate,
-}) => {
-  const [statusMenuAnchorEl, setStatusMenuAnchorEl] = useState(null);
-  const [paymentMenuAnchorEl, setPaymentMenuAnchorEl] = useState(null);
-  const [selectedClientId, setSelectedClientId] = useState(null);
-  const [partialPaymentAmount, setPartialPaymentAmount] = useState("");
-  const [showPartialDialog, setShowPartialDialog] = useState(false);
-
-  // Fixed handlers with stopPropagation to prevent event bubbling
-  const handleStatusMenuOpen = (event, clientId) => {
-    event.stopPropagation(); // Prevent event bubbling
-    setStatusMenuAnchorEl(event.currentTarget);
-    setSelectedClientId(clientId);
-  };
-
-  const handleStatusMenuClose = (event) => {
-    if (event) event.stopPropagation();
-    setStatusMenuAnchorEl(null);
-    setSelectedClientId(null);
-  };
-
-  const handlePaymentMenuOpen = (event, clientId) => {
-    event.stopPropagation(); // Prevent event bubbling
-    setPaymentMenuAnchorEl(event.currentTarget);
-    setSelectedClientId(clientId);
-  };
-
-  const handlePaymentMenuClose = (event) => {
-    if (event) event.stopPropagation();
-    setPaymentMenuAnchorEl(null);
-    setSelectedClientId(null);
-  };
-
-  const handleStatusUpdate = (event, newStatus) => {
-    if (event) event.stopPropagation();
-    if (selectedClientId) {
-      onUpdateStatus(selectedClientId, newStatus);
-    }
-    handleStatusMenuClose();
-  };
-
-  const handlePaymentUpdate = (event, newStatus) => {
-    if (event) event.stopPropagation();
-    if (selectedClientId) {
-      if (newStatus === "partial") {
-        setShowPartialDialog(true);
-      } else {
-        onUpdatePayment(selectedClientId, newStatus);
-      }
-    }
-    handlePaymentMenuClose();
-  };
-
-  const handlePartialPaymentSubmit = (event) => {
-    if (event) event.stopPropagation();
-    if (selectedClientId && partialPaymentAmount) {
-      onUpdatePayment(
-        selectedClientId,
-        "partial",
-        parseFloat(partialPaymentAmount)
-      );
-      setShowPartialDialog(false);
-      setPartialPaymentAmount("");
-    }
-  };
-
-  return (
-    <>
-      <TableContainer component={Paper}>
-        <Table aria-label="clients table">
-          <TableHead>
-            <TableRow>
-              <TableCell>Client</TableCell>
-              <TableCell>Vehicle</TableCell>
-              <TableCell>Issue & Procedures</TableCell>
-              <TableCell>Dates</TableCell>
-              <TableCell align="center">Repair Status</TableCell>
-              <TableCell align="center">Payment</TableCell>
-              <TableCell align="center">Actions</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {clients.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={7} align="center">
-                  <Typography variant="body1" sx={{ py: 5 }}>
-                    No clients found
-                  </Typography>
-                </TableCell>
-              </TableRow>
-            ) : (
-              clients.map((client) => (
-                <TableRow key={client.id || client._id}>
-                  <TableCell>
-                    <Box sx={{ display: "flex", flexDirection: "column" }}>
-                      <Typography variant="subtitle2">
-                        {client.clientName}
+        {/* Add new Client Details Dialog */}
+        <Dialog
+          open={detailsDialogOpen}
+          onClose={closeClientDetails}
+          maxWidth="md"
+          fullWidth
+        >
+          <DialogTitle>
+            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <Box sx={{ display: "flex", alignItems: "center" }}>
+                <User size={20} style={{ marginRight: 8 }} />
+                <Typography variant="h6">
+                  Client Details: {selectedClientForDetails?.clientName}
+                </Typography>
+              </Box>
+              <Box>
+                <Button
+                  size="small"
+                  onClick={() => {
+                    closeClientDetails();
+                    openClientHistory(selectedClientForDetails);
+                  }}
+                  startIcon={<FileText size={16} />}
+                >
+                  View History
+                </Button>
+              </Box>
+            </Box>
+          </DialogTitle>
+          <DialogContent>
+            {selectedClientForDetails && (
+              <Grid container spacing={3}>
+                {/* Client Information */}
+                <Grid item xs={12} md={6}>
+                  <Paper sx={{ p: 2 }}>
+                    <Typography variant="subtitle1" gutterBottom>
+                      Client Information
+                    </Typography>
+                    <Box sx={{ mt: 2 }}>
+                      <Typography variant="body2" color="textSecondary">
+                        Name
+                      </Typography>
+                      <Typography variant="body1" paragraph>
+                        {selectedClientForDetails.clientName}
                       </Typography>
                       <Typography variant="body2" color="textSecondary">
-                        {client.phoneNumber}
+                        Contact
+                      </Typography>
+                      <Typography variant="body1" paragraph>
+                        Phone: {selectedClientForDetails.phoneNumber}
+                        {selectedClientForDetails.email && (
+                          <Box component="span" sx={{ display: "block" }}>
+                            Email: {selectedClientForDetails.email}
+                          </Box>
+                        )}
                       </Typography>
                     </Box>
-                  </TableCell>
-                  <TableCell>
-                    <Box sx={{ display: "flex", flexDirection: "column" }}>
-                      <Typography variant="subtitle2">
-                        {client.carDetails.year} {client.carDetails.make}{" "}
-                        {client.carDetails.model}
+                  </Paper>
+                </Grid>
+
+                {/* Vehicle Information */}
+                <Grid item xs={12} md={6}>
+                  <Paper sx={{ p: 2 }}>
+                    <Typography variant="subtitle1" gutterBottom>
+                      Vehicle Information
+                    </Typography>
+                    <Box sx={{ mt: 2 }}>
+                      <Typography variant="body2" color="textSecondary">
+                        Vehicle Details
                       </Typography>
-                      <Chip
-                        label={client.carDetails.licensePlate}
-                        size="small"
-                        variant="outlined"
-                        sx={{ mt: 0.5, maxWidth: "fit-content" }}
-                      />
-                    </Box>
-                  </TableCell>
-                  <TableCell>
-                    <Tooltip title={client.issueDescription}>
-                      <Typography variant="body2" noWrap sx={{ maxWidth: 200 }}>
-                        {client.issueDescription}
+                      <Typography variant="body1" paragraph>
+                        {selectedClientForDetails.carDetails?.year}{" "}
+                        {selectedClientForDetails.carDetails?.make}{" "}
+                        {selectedClientForDetails.carDetails?.model}
                       </Typography>
-                    </Tooltip>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        flexWrap: "wrap",
-                        gap: 0.5,
-                        mt: 0.5,
-                      }}
-                    >
-                      {client.procedures && client.procedures.slice(0, 2).map((procedure, i) => (
-                        <Chip
-                          key={i}
-                          label={procedure.label}
-                          size="small"
-                          sx={{ fontSize: "0.7rem" }}
-                        />
-                      ))}
-                      {client.procedures && client.procedures.length > 2 && (
-                        <Chip
-                          label={`+${client.procedures.length - 2}`}
-                          size="small"
-                          variant="outlined"
-                        />
+                      <Typography variant="body2" color="textSecondary">
+                        License Plate
+                      </Typography>
+                      <Typography variant="body1" paragraph>
+                        {selectedClientForDetails.carDetails?.licensePlate || "N/A"}
+                      </Typography>
+                      {selectedClientForDetails.carDetails?.vin && (
+                        <>
+                          <Typography variant="body2" color="textSecondary">
+                            VIN
+                          </Typography>
+                          <Typography variant="body1" paragraph>
+                            {selectedClientForDetails.carDetails.vin}
+                          </Typography>
+                        </>
                       )}
                     </Box>
-                  </TableCell>
-                  <TableCell>
-                    <Box sx={{ display: "flex", flexDirection: "column" }}>
-                      <Box sx={{ display: "flex", alignItems: "center" }}>
-                        <Typography variant="caption" sx={{ mr: 1 }}>
-                          Created:
+                  </Paper>
+                </Grid>
+
+                {/* Repair Information */}
+                <Grid item xs={12}>
+                  <Paper sx={{ p: 2 }}>
+                    <Typography variant="subtitle1" gutterBottom>
+                      Repair Information
+                    </Typography>
+                    <Grid container spacing={2}>
+                      <Grid item xs={12} md={6}>
+                        <Typography variant="body2" color="textSecondary">
+                          Issue Description
                         </Typography>
-                        <Typography variant="body2">
-                          {formatDate(client.createdAt)}
+                        <Typography variant="body1" paragraph>
+                          {selectedClientForDetails.issueDescription}
                         </Typography>
-                      </Box>
-                      <Box
-                        sx={{ display: "flex", alignItems: "center", mt: 0.5 }}
-                      >
-                        <Typography variant="caption" sx={{ mr: 1 }}>
-                          Delivery:
-                        </Typography>
-                        <Typography variant="body2">
-                          {formatDate(client.deliveryDate)}
-                        </Typography>
-                      </Box>
-                    </Box>
-                  </TableCell>
-                  <TableCell align="center">
-                    <Box>
-                      <Button
-                        variant="outlined"
-                        size="small"
-                        color={getStatusColor(client.repairStatus, "repair")}
-                        startIcon={React.createElement(
-                          getStatusIcon(client.repairStatus, "repair"),
-                          { size: 16 }
+                        {selectedClientForDetails.preExistingIssues && (
+                          <>
+                            <Typography variant="body2" color="textSecondary">
+                              Pre-existing Issues
+                            </Typography>
+                            <Typography variant="body1" paragraph>
+                              {selectedClientForDetails.preExistingIssues}
+                            </Typography>
+                          </>
                         )}
-                        onClick={(e) => handleStatusMenuOpen(e, client.id || client._id)}
-                        aria-haspopup="true"
-                        aria-expanded={statusMenuAnchorEl ? "true" : undefined}
-                        sx={{ textTransform: "capitalize" }}
-                        data-testid={`status-button-${client.id || client._id}`}
-                      >
-                        {client.repairStatus.replace("_", " ")}
-                      </Button>
-                    </Box>
-                  </TableCell>
-                  <TableCell align="center">
-                    <Box>
-                      <Button
-                        variant="outlined"
-                        size="small"
-                        color={getStatusColor(client.paymentStatus, "payment")}
-                        startIcon={React.createElement(
-                          getStatusIcon(client.paymentStatus, "payment"),
-                          { size: 16 }
+                      </Grid>
+                      <Grid item xs={12} md={6}>
+                        <Typography variant="body2" color="textSecondary">
+                          Procedures
+                        </Typography>
+                        <Box sx={{ mt: 1, mb: 2 }}>
+                          {selectedClientForDetails.procedures?.length > 0 ? (
+                            selectedClientForDetails.procedures.map((procedure, index) => (
+                              <Chip
+                                key={index}
+                                label={procedure.label || procedure}
+                                size="small"
+                                sx={{ mr: 1, mb: 1 }}
+                              />
+                            ))
+                          ) : (
+                            <Typography variant="body2" color="textSecondary">
+                              No procedures listed
+                            </Typography>
+                          )}
+                        </Box>
+                        <Typography variant="body2" color="textSecondary">
+                          Estimated Duration
+                        </Typography>
+                        <Typography variant="body1" paragraph>
+                          {selectedClientForDetails.estimatedDuration} days
+                        </Typography>
+                      </Grid>
+                    </Grid>
+                  </Paper>
+                </Grid>
+
+                {/* Status and Payment Information */}
+                <Grid item xs={12}>
+                  <Paper sx={{ p: 2 }}>
+                    <Typography variant="subtitle1" gutterBottom>
+                      Status and Payment
+                    </Typography>
+                    <Grid container spacing={2}>
+                      <Grid item xs={12} md={6}>
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}>
+                          <Typography variant="body2" color="textSecondary">
+                            Repair Status:
+                          </Typography>
+                          <Chip
+                            label={selectedClientForDetails.repairStatus?.replace("_", " ")}
+                            color={getStatusColor(selectedClientForDetails.repairStatus, "repair")}
+                            icon={getStatusIcon(selectedClientForDetails.repairStatus, "repair")}
+                          />
+                        </Box>
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                          <Typography variant="body2" color="textSecondary">
+                            Payment Status:
+                          </Typography>
+                          <Chip
+                            label={selectedClientForDetails.paymentStatus?.replace("_", " ")}
+                            color={getStatusColor(selectedClientForDetails.paymentStatus, "payment")}
+                            icon={getStatusIcon(selectedClientForDetails.paymentStatus, "payment")}
+                          />
+                        </Box>
+                      </Grid>
+                      <Grid item xs={12} md={6}>
+                        <Typography variant="body2" color="textSecondary">
+                          Dates
+                        </Typography>
+                        <Typography variant="body1">
+                          Created: {formatDate(selectedClientForDetails.createdAt)}
+                        </Typography>
+                        {selectedClientForDetails.deliveryDate && (
+                          <Typography variant="body1">
+                            Expected Delivery: {formatDate(selectedClientForDetails.deliveryDate)}
+                          </Typography>
                         )}
-                        onClick={(e) => handlePaymentMenuOpen(e, client.id || client._id)}
-                        aria-haspopup="true"
-                        aria-expanded={paymentMenuAnchorEl ? "true" : undefined}
-                        sx={{ textTransform: "capitalize" }}
-                        data-testid={`payment-button-${client.id || client._id}`}
-                      >
-                        {client.paymentStatus === "partial"
-                          ? `Partial (D${client.partialPaymentAmount})`
-                          : client.paymentStatus.replace("_", " ")}
-                      </Button>
-                    </Box>
-                  </TableCell>
-                  <TableCell align="center">
-                    <Box sx={{ display: "flex", justifyContent: "center" }}>
-                      <Tooltip title="View History">
-                        <IconButton
-                          size="small"
-                          color="primary"
-                          onClick={(e) => { 
-                            e.stopPropagation();
-                            onView(client);
-                          }}
-                          data-testid={`view-button-${client.id || client._id}`}
-                        >
-                          <FileText size={18} />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Edit Client">
-                        <IconButton
-                          size="small"
-                          color="primary"
-                          onClick={(e) => { 
-                            e.stopPropagation();
-                            onEdit(client);
-                          }}
-                          data-testid={`edit-button-${client.id || client._id}`}
-                        >
-                          <Edit size={18} />
-                        </IconButton>
-                      </Tooltip>
-                      {client.repairStatus === "completed" && (
-                        <Tooltip title="Mark as Delivered">
-                          <IconButton
-                            size="small"
-                            color="success"
-                            onClick={(e) => { 
-                              e.stopPropagation();
-                              onMarkDelivered(client);
-                            }}
-                            data-testid={`deliver-button-${client.id || client._id}`}
-                          >
-                            <CheckCircle size={18} />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                      <Tooltip title="Delete">
-                        <IconButton
-                          size="small"
-                          color="error"
-                          onClick={(e) => { 
-                            e.stopPropagation();
-                            onDelete(client);
-                          }}
-                          data-testid={`delete-button-${client.id || client._id}`}
-                        >
-                          <Trash2 size={18} />
-                        </IconButton>
-                      </Tooltip>
-                    </Box>
-                  </TableCell>
-                </TableRow>
-              ))
+                      </Grid>
+                    </Grid>
+                  </Paper>
+                </Grid>
+
+                {/* Images Section */}
+                {(selectedClientForDetails.images?.length > 0 || selectedClientForDetails.deliveryImages?.length > 0) && (
+                  <Grid item xs={12}>
+                    <Paper sx={{ p: 2 }}>
+                      <Typography variant="subtitle1" gutterBottom>
+                        Images
+                      </Typography>
+                      <Grid container spacing={2}>
+                        {selectedClientForDetails.images?.length > 0 && (
+                          <Grid item xs={12}>
+                            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                              Initial Images
+                            </Typography>
+                            <Box sx={{ 
+                              display: "grid", 
+                              gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))",
+                              gap: 2,
+                              '& img': {
+                                width: '100%',
+                                height: 150,
+                                objectFit: 'cover',
+                                borderRadius: 1,
+                                cursor: 'pointer',
+                                transition: 'transform 0.2s',
+                                '&:hover': {
+                                  transform: 'scale(1.05)'
+                                }
+                              }
+                            }}>
+                              {selectedClientForDetails.images.map((image, index) => (
+                                <Box
+                                  key={index}
+                                  component="img"
+                                  src={typeof image === 'string' ? image : image.url}
+                                  alt={`Initial image ${index + 1}`}
+                                  onClick={() => window.open(typeof image === 'string' ? image : image.url, "_blank")}
+                                  sx={{
+                                    boxShadow: 1,
+                                    '&:hover': {
+                                      boxShadow: 3
+                                    }
+                                  }}
+                                />
+                              ))}
+                            </Box>
+                          </Grid>
+                        )}
+                        {selectedClientForDetails.deliveryImages?.length > 0 && (
+                          <Grid item xs={12}>
+                            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                              Delivery Images
+                            </Typography>
+                            <Box sx={{ 
+                              display: "grid", 
+                              gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))",
+                              gap: 2,
+                              '& img': {
+                                width: '100%',
+                                height: 150,
+                                objectFit: 'cover',
+                                borderRadius: 1,
+                                cursor: 'pointer',
+                                transition: 'transform 0.2s',
+                                '&:hover': {
+                                  transform: 'scale(1.05)'
+                                }
+                              }
+                            }}>
+                              {selectedClientForDetails.deliveryImages.map((image, index) => (
+                                <Box
+                                  key={index}
+                                  component="img"
+                                  src={typeof image === 'string' ? image : image.url}
+                                  alt={`Delivery image ${index + 1}`}
+                                  onClick={() => window.open(typeof image === 'string' ? image : image.url, "_blank")}
+                                  sx={{
+                                    boxShadow: 1,
+                                    '&:hover': {
+                                      boxShadow: 3
+                                    }
+                                  }}
+                                />
+                              ))}
+                            </Box>
+                          </Grid>
+                        )}
+                      </Grid>
+                    </Paper>
+                  </Grid>
+                )}
+
+                {/* Notes Section */}
+                {selectedClientForDetails.notes && (
+                  <Grid item xs={12}>
+                    <Paper sx={{ p: 2 }}>
+                      <Typography variant="subtitle1" gutterBottom>
+                        Notes
+                      </Typography>
+                      <Typography variant="body1">
+                        {selectedClientForDetails.notes}
+                      </Typography>
+                    </Paper>
+                  </Grid>
+                )}
+              </Grid>
             )}
-          </TableBody>
-        </Table>
-      </TableContainer>
-
-      {/* Status Change Menu */}
-      <Menu
-        anchorEl={statusMenuAnchorEl}
-        open={Boolean(statusMenuAnchorEl)}
-        onClose={handleStatusMenuClose}
-      >
-        <MenuItem onClick={(e) => handleStatusUpdate(e, "waiting")} data-testid="status-waiting">
-          <ListItemIcon>
-            <Clock size={16} />
-          </ListItemIcon>
-          Waiting
-        </MenuItem>
-        <MenuItem onClick={(e) => handleStatusUpdate(e, "in_progress")} data-testid="status-in-progress">
-          <ListItemIcon>
-            <Tool size={16} />
-          </ListItemIcon>
-          In Progress
-        </MenuItem>
-        <MenuItem onClick={(e) => handleStatusUpdate(e, "completed")} data-testid="status-completed">
-          <ListItemIcon>
-            <Check size={16} />
-          </ListItemIcon>
-          Completed
-        </MenuItem>
-        <MenuItem onClick={(e) => handleStatusUpdate(e, "delivered")} data-testid="status-delivered">
-          <ListItemIcon>
-            <CheckCircle size={16} />
-          </ListItemIcon>
-          Delivered
-        </MenuItem>
-        <MenuItem onClick={(e) => handleStatusUpdate(e, "cancelled")} data-testid="status-cancelled">
-          <ListItemIcon>
-            <X size={16} />
-          </ListItemIcon>
-          Cancelled
-        </MenuItem>
-      </Menu>
-
-      {/* Payment Change Menu */}
-      <Menu
-        anchorEl={paymentMenuAnchorEl}
-        open={Boolean(paymentMenuAnchorEl)}
-        onClose={handlePaymentMenuClose}
-      >
-        <MenuItem onClick={(e) => handlePaymentUpdate(e, "paid")} data-testid="payment-paid">
-          <ListItemIcon>
-            <CheckCircle size={16} />
-          </ListItemIcon>
-          Paid
-        </MenuItem>
-        <MenuItem onClick={(e) => handlePaymentUpdate(e, "not_paid")} data-testid="payment-not-paid">
-          <ListItemIcon>
-            <XCircle size={16} />
-          </ListItemIcon>
-          Not Paid
-        </MenuItem>
-        <MenuItem onClick={(e) => handlePaymentUpdate(e, "partial")} data-testid="payment-partial">
-          <ListItemIcon>
-            <DollarSign size={16} />
-          </ListItemIcon>
-          Partial Payment
-        </MenuItem>
-      </Menu>
-
-      {/* Partial Payment Dialog */}
-      <Dialog
-        open={showPartialDialog}
-        onClose={(e) => {
-          e && e.stopPropagation();
-          setShowPartialDialog(false);
-        }}
-      >
-        <DialogTitle>Enter Partial Payment Amount</DialogTitle>
-        <DialogContent>
-          <TextField
-            autoFocus
-            margin="dense"
-            label="Amount"
-            type="number"
-            fullWidth
-            value={partialPaymentAmount}
-            onChange={(e) => setPartialPaymentAmount(e.target.value)}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">D</InputAdornment>
-              ),
-            }}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={(e) => {
-            e.stopPropagation();
-            setShowPartialDialog(false);
-          }}>
-            Cancel
-          </Button>
-          <Button 
-            onClick={handlePartialPaymentSubmit} 
-            color="primary" 
-            data-testid="submit-partial-payment"
-          >
-            Submit
-          </Button>
-        </DialogActions>
-      </Dialog>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={closeClientDetails}>Close</Button>
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={() => {
+                closeClientDetails();
+                openClientForm(selectedClientForDetails);
+              }}
+            >
+              Edit Client
+            </Button>
+          </DialogActions>
+        </Dialog>
+        
+        {/* Status Change Confirmation Dialog */}
+        <Dialog
+          open={confirmationDialog.open}
+          onClose={closeConfirmationDialog}
+          maxWidth="sm"
+          fullWidth
+          PaperProps={{
+            sx: {
+              borderRadius: 2,
+              boxShadow: 3
+            }
+          }}
+        >
+          <DialogTitle>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <AlertTriangle size={20} />
+              {confirmationDialog.title}
+            </Box>
+          </DialogTitle>
+          <DialogContent>
+            <DialogContentText sx={{ whiteSpace: 'pre-line' }}>
+              {confirmationDialog.message}
+            </DialogContentText>
+          </DialogContent>
+          <DialogActions sx={{ p: 2, gap: 1 }}>
+            <Button 
+              onClick={closeConfirmationDialog}
+              variant="outlined"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => confirmationDialog.onConfirm?.()}
+              variant="contained"
+              color="primary"
+              autoFocus
+            >
+              Confirm
+            </Button>
+          </DialogActions>
+        </Dialog>
+      </Container>
     </>
   );
 };

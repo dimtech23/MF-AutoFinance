@@ -30,14 +30,14 @@ import {
   CheckCircle,
   Clock,
   XCircle,
-  Tool,
+  Wrench,
   Link,
   CornerDownRight,
   Copy,
   User,
   X,
   AlertTriangle,
-} from "react-feather";
+} from "lucide-react";
 import {
   Container,
   Typography,
@@ -739,8 +739,37 @@ const Invoices = () => {
 
   const handleDownloadPDF = async (invoiceId) => {
     try {
+      console.log('Starting PDF download for invoice:', invoiceId);
+      
+      // Show loading state
+      toast.info('Generating PDF...', { autoClose: false, toastId: 'pdf-loading' });
+      
       const response = await invoicesAPI.getPDF(invoiceId);
+      
+      // Log response details
+      console.log('PDF Response:', {
+        status: response.status,
+        headers: response.headers,
+        dataSize: response.data?.size,
+        contentType: response.headers['content-type']
+      });
+
+      if (!response.data || response.data.size === 0) {
+        throw new Error('Received empty PDF data');
+      }
+
+      // Updated content type validation to handle PDF with charset
+      const contentType = response.headers['content-type'];
+      if (!contentType || !contentType.toLowerCase().includes('application/pdf')) {
+        throw new Error(`Invalid content type: ${contentType}`);
+      }
+
       const blob = new Blob([response.data], { type: 'application/pdf' });
+      
+      if (blob.size === 0) {
+        throw new Error('Generated PDF blob is empty');
+      }
+
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -749,9 +778,33 @@ const Invoices = () => {
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
+
+      // Dismiss loading toast and show success
+      toast.dismiss('pdf-loading');
+      toast.success('PDF downloaded successfully');
     } catch (error) {
-      console.error('Error downloading PDF:', error);
-      toast.error('Failed to download PDF');
+      console.error('Error downloading PDF:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        headers: error.response?.headers
+      });
+      
+      // Dismiss loading toast
+      toast.dismiss('pdf-loading');
+      
+      // Show specific error message
+      if (error.response?.status === 404) {
+        toast.error('Invoice PDF not found');
+      } else if (error.response?.status === 500) {
+        toast.error('Server error while generating PDF');
+      } else if (error.message.includes('content type')) {
+        toast.error('Invalid PDF format received');
+      } else if (error.message.includes('empty')) {
+        toast.error('Generated PDF is empty');
+      } else {
+        toast.error(error.response?.data?.message || 'Failed to download PDF');
+      }
     }
   };
 

@@ -23,8 +23,48 @@ import {
   ChevronDown,
   ChevronUp,
   Search,
-} from "react-feather";
-
+  Clock,
+  CheckCircle,
+  XCircle,
+  Wrench,
+  Truck,
+  FileText,
+  ChevronRight,
+  ChevronLeft,
+  Upload,
+  Edit,
+  Eye,
+  Camera,
+  Phone,
+  Mail,
+  User,
+  Tag,
+  Info,
+  Settings,
+  LogOut,
+  Menu,
+  Bell,
+  Star,
+  Heart,
+  MessageSquare,
+  Share2,
+  MoreVertical,
+  MoreHorizontal,
+  Grid as GridIcon,
+  List,
+  BarChart2,
+  PieChart as PieChartIcon,
+  LineChart as LineChartIcon,
+  Zap,
+  Battery,
+  Wifi,
+  Cloud,
+  CloudRain,
+  CloudSnow,
+  CloudLightning,
+  Sun,
+  Moon
+} from "lucide-react";
 import {
   Container,
   Typography,
@@ -64,7 +104,6 @@ import {
 } from "@mui/material";
 import {
   BarChart,
-  Bar,
   LineChart,
   Line,
   XAxis,
@@ -76,7 +115,9 @@ import {
   PieChart,
   Pie,
   Cell,
+  Bar,
 } from "recharts";
+import { LineChart as MuiLineChart, Line as MuiLine, XAxis as MuiXAxis, YAxis as MuiYAxis, Tooltip as MuiTooltip, Legend as MuiLegend } from '@mui/x-charts';
 
 const COLORS = [
   "#0088FE",
@@ -1160,7 +1201,7 @@ const Budget = () => {
                         action={
                           <Button
                             size="small"
-                            startIcon={<Download size={16} />}
+                            startIcon={<Download />}
                             onClick={() => exportBudgetToCSV(activeBudget)}
                           >
                             Export
@@ -1227,7 +1268,7 @@ const Budget = () => {
                     InputProps={{
                       startAdornment: (
                         <InputAdornment position="start">
-                          <Search size={20} />
+                          <Search />
                         </InputAdornment>
                       ),
                     }}
@@ -1345,7 +1386,7 @@ const Budget = () => {
                                   color="primary"
                                   onClick={() => handleOpenDialog(budget)}
                                 >
-                                  <Edit2 size={18} />
+                                  <Edit />
                                 </IconButton>
                               </Tooltip>
                               <Tooltip title="Delete">
@@ -1354,7 +1395,7 @@ const Budget = () => {
                                   color="error"
                                   onClick={() => handleOpenDeleteDialog(budget)}
                                 >
-                                  <Trash2 size={18} />
+                                  <Trash2 />
                                 </IconButton>
                               </Tooltip>
                             </Box>
@@ -1673,7 +1714,7 @@ const Budget = () => {
             color="inherit"
             onClick={() => setSnackbarOpen(false)}
           >
-            <X size={16} />
+            <X />
           </IconButton>
         }
       />

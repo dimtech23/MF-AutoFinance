@@ -13,7 +13,7 @@ import {
   Container,
   CircularProgress,
 } from "@mui/material";
-import { Visibility, VisibilityOff, Mail, Lock } from "@mui/icons-material";
+import { Eye, EyeOff, Mail, Lock } from "lucide-react";
 import { UserContext } from "../../Context/UserContext";
 import { authAPI } from "../../api";
 import logo from "../../assets/img/brand/mfautos-logo.jpg";
@@ -142,7 +142,7 @@ const Login = () => {
                     InputProps={{
                       startAdornment: (
                         <InputAdornment position="start">
-                          <Mail className="input-icon" />
+                          <Mail />
                         </InputAdornment>
                       ),
                     }}
@@ -161,17 +161,17 @@ const Login = () => {
                     InputProps={{
                       startAdornment: (
                         <InputAdornment position="start">
-                          <Lock className="input-icon" />
+                          <Lock />
                         </InputAdornment>
                       ),
                       endAdornment: (
                         <InputAdornment position="end">
                           <IconButton
+                            aria-label="toggle password visibility"
                             onClick={() => setShowPassword(!showPassword)}
                             edge="end"
-                            disabled={loading || serverStatus !== "online"}
                           >
-                            {showPassword ? <VisibilityOff /> : <Visibility />}
+                            {showPassword ? <EyeOff /> : <Eye />}
                           </IconButton>
                         </InputAdornment>
                       ),

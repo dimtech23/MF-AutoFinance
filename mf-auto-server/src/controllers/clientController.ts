@@ -159,13 +159,13 @@ export const getClientHistory = async (req: Request, res: Response): Promise<Res
     if (!client) {
       return res.status(404).json({ message: 'Client not found' });
     }
-    
-    // In a real application, you would fetch the client's repair history from a separate collection
-    // For now, we'll return a placeholder response
-    const repairHistory: any[] = [];
 
-    
-    // Everyone can view client history
+    // Fetch all repair appointments for this client
+    const repairHistory = await Appointment.find({
+      clientId: client._id,
+      type: 'repair'
+    }).sort({ date: -1 });
+
     return res.status(200).json(repairHistory);
   } catch (error) {
     console.error('Error fetching client history:', error);

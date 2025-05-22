@@ -1174,76 +1174,78 @@ const AppointmentCalendar = ({
       end: endDate,
     });
 
-    // Fill in the days of the week
-    let dayOfWeekStart = startDate.getDay();
-    for (let i = 0; i < dayOfWeekStart; i++) {
-      days.push(
-        <Grid
-          item
-          key={`empty-${i}`}
-          xs={true}
-          sx={{
-            height: { xs: 100, sm: 120 },
-            border: "1px solid #eee",
-            p: { xs: 0.5, sm: 1 },
-            bgcolor: "#f9f9f9",
-          }}
-        />
-      );
-    }
+    // Calculate the total number of cells needed (including empty cells)
+    const totalCells = Math.ceil((daysInMonth.length + startDate.getDay()) / 7) * 7;
 
-    // Add the days of the month
-    for (let i = 0; i < daysInMonth.length; i++) {
-      const day = daysInMonth[i];
-      const formattedDate = format(day, dateFormat);
-      const dayAppointments = getAppointmentsForDay(day);
-      const isSelectedDate = isSameDay(day, selectedDate);
-      const isCurrentDay = isToday(day);
-
-      days.push(
-        <Grid
-          item
-          key={day.toString()}
-          xs={true}
-          sx={{
-            height: { xs: 100, sm: 180 },
-            border: "1px solid #eee",
-            p: { xs: 0.5, sm: 1 },
-            position: "relative",
-            bgcolor: isSelectedDate
-              ? "primary.light"
-              : isCurrentDay
-              ? "#e6f7ff"
-              : "white",
-            "&:hover": {
-              bgcolor: isSelectedDate ? "primary.light" : "#f5f5f5",
-            },
-            color: !isSameMonth(day, monthStart)
-              ? "#ccc"
-              : isCurrentDay
-              ? "primary.main"
-              : "inherit",
-          }}
-          data-testid={`calendar-day-${format(day, "yyyy-MM-dd")}`}
-        >
-          {/* Date number */}
-          <Typography
-            variant="body2"
+    // Fill in all cells (empty + days)
+    for (let i = 0; i < totalCells; i++) {
+      const dayIndex = i - startDate.getDay();
+      const day = dayIndex >= 0 && dayIndex < daysInMonth.length ? daysInMonth[dayIndex] : null;
+      
+      if (!day) {
+        // Empty cell for days before month start or after month end
+        days.push(
+          <Grid
+            item
+            key={`empty-${i}`}
+            xs={true}
             sx={{
-              position: "absolute",
-              top: { xs: 2, sm: 5 },
-              right: { xs: 4, sm: 8 },
-              fontWeight: isCurrentDay ? "bold" : "normal",
-              color: isCurrentDay ? "primary.main" : "inherit",
-              zIndex: 1,
-              fontSize: { xs: '0.75rem', sm: '0.875rem' }
+              height: { xs: 100, sm: 120 },
+              border: "1px solid #eee",
+              p: { xs: 0.5, sm: 1 },
+              bgcolor: "#f9f9f9",
             }}
-          >
-            {formattedDate}
-          </Typography>
+          />
+        );
+      } else {
+        const formattedDate = format(day, dateFormat);
+        const dayAppointments = getAppointmentsForDay(day);
+        const isSelectedDate = isSameDay(day, selectedDate);
+        const isCurrentDay = isToday(day);
 
-          {/* Appointments container */}
-          {dayAppointments.length > 0 && (
+        days.push(
+          <Grid
+            item
+            key={day.toString()}
+            xs={true}
+            sx={{
+              height: { xs: 100, sm: 180 },
+              border: "1px solid #eee",
+              p: { xs: 0.5, sm: 1 },
+              position: "relative",
+              bgcolor: isSelectedDate
+                ? "primary.light"
+                : isCurrentDay
+                ? "#e6f7ff"
+                : "white",
+              "&:hover": {
+                bgcolor: isSelectedDate ? "primary.light" : "#f5f5f5",
+              },
+              color: !isSameMonth(day, monthStart)
+                ? "#ccc"
+                : isCurrentDay
+                ? "primary.main"
+                : "inherit",
+            }}
+            data-testid={`calendar-day-${format(day, "yyyy-MM-dd")}`}
+          >
+            {/* Date number */}
+            <Typography
+              variant="body2"
+              sx={{
+                position: "absolute",
+                top: { xs: 2, sm: 5 },
+                right: { xs: 4, sm: 8 },
+                fontWeight: isCurrentDay ? "bold" : "normal",
+                color: isCurrentDay ? "primary.main" : "inherit",
+                zIndex: 1,
+                fontSize: { xs: '0.75rem', sm: '0.875rem' }
+              }}
+            >
+              {formattedDate}
+            </Typography>
+
+            {/* Appointments container */}
             <Box sx={{ 
               mt: { xs: 3, sm: 4 }, 
               position: "relative", 
@@ -1265,26 +1267,27 @@ const AppointmentCalendar = ({
                 renderAppointmentIndicator(appointment, day)
               )}
             </Box>
-          )}
 
-          {/* Click overlay */}
-          <Box
-            onClick={() => onDateClick(day)}
-            sx={{
-              position: "absolute",
-              top: 0,
-              left: 0,
-              width: "100%",
-              height: "100%",
-              cursor: "pointer",
-              zIndex: 2,
-            }}
-            data-testid={`calendar-day-overlay-${format(day, "yyyy-MM-dd")}`}
-          />
-        </Grid>
-      );
+            {/* Click overlay */}
+            <Box
+              onClick={() => onDateClick(day)}
+              sx={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                width: "100%",
+                height: "100%",
+                cursor: "pointer",
+                zIndex: 2,
+              }}
+              data-testid={`calendar-day-overlay-${format(day, "yyyy-MM-dd")}`}
+            />
+          </Grid>
+        );
+      }
 
-      if ((i + dayOfWeekStart + 1) % 7 === 0 || i === daysInMonth.length - 1) {
+      // Create a new row after every 7 cells
+      if ((i + 1) % 7 === 0) {
         rows.push(
           <Grid container key={`row-${i}`}>
             {days}

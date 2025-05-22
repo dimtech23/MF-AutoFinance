@@ -4,22 +4,15 @@ import { UserContext } from "../../Context/UserContext.js";
 import Header from "components/Headers/Header.js";
 import { toast } from "react-toastify";
 import { 
-  // Plus, 
   Edit, 
   Trash2, 
   Search,
   UserPlus,
   Lock,
-  // Mail,
-  // Phone,
-  // Award,
-  // User,
   Users,
-  // ShieldCheck,
-  // RefreshCw,
   EyeOff,
   Eye
-} from "react-feather";
+} from "lucide-react";
 import {
   Container,
   Typography,
@@ -27,9 +20,6 @@ import {
   Grid,
   CircularProgress,
   Alert,
-  // Card,
-  // CardHeader,
-  // CardContent,
   Button,
   Table,
   TableBody,
@@ -49,9 +39,7 @@ import {
   DialogContentText,
   DialogTitle,
   FormControl,
-  // FormLabel,
   FormControlLabel,
-  // FormHelperText,
   Switch,
   MenuItem,
   InputLabel,
@@ -59,17 +47,8 @@ import {
   Divider,
   Tooltip,
   Avatar
-  // List,
-  // ListItem,
-  // ListItemText,
-  // ListItemIcon,
-  // ListItemAvatar,
-  // ListItemSecondaryAction
 } from "@mui/material";
 import { styled } from "@mui/material/styles";
-// import axios from "axios";
-
-// const baseURL = process.env.REACT_APP_API_URL || "http://localhost:3000/api";
 
 // Role options
 const roleOptions = [
