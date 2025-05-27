@@ -1,7 +1,10 @@
 {
   "files": {
-    "main.css": "/static/css/main.24fd109f.css",
-    "main.js": "/static/js/main.e4e36d57.js",
+    "main.css": "/static/css/main.68015d5c.css",
+    "main.js": "/static/js/main.078f72b2.js",
+    "static/js/239.6d085a20.chunk.js": "/static/js/239.6d085a20.chunk.js",
+    "static/js/213.d3692b5c.chunk.js": "/static/js/213.d3692b5c.chunk.js",
+    "static/js/455.19d8e0e4.chunk.js": "/static/js/455.19d8e0e4.chunk.js",
     "static/media/fa-solid-900.svg": "/static/media/fa-solid-900.13de59f1a36b6cb4bca0.svg",
     "static/media/fa-brands-400.svg": "/static/media/fa-brands-400.216edb96b562c79adc09.svg",
     "static/media/mfautos-logo.jpg": "/static/media/mfautos-logo.e29ba08dd02fc4cb36e8.jpg",
@@ -24,11 +27,14 @@
     "static/media/nucleo-icons.woff": "/static/media/nucleo-icons.c82c9b7c40130b7116d3.woff",
     "static/media/nucleo-icons.woff2": "/static/media/nucleo-icons.cba267483aa6a7cb6e33.woff2",
     "index.html": "/index.html",
-    "main.24fd109f.css.map": "/static/css/main.24fd109f.css.map",
-    "main.e4e36d57.js.map": "/static/js/main.e4e36d57.js.map"
+    "main.68015d5c.css.map": "/static/css/main.68015d5c.css.map",
+    "main.078f72b2.js.map": "/static/js/main.078f72b2.js.map",
+    "239.6d085a20.chunk.js.map": "/static/js/239.6d085a20.chunk.js.map",
+    "213.d3692b5c.chunk.js.map": "/static/js/213.d3692b5c.chunk.js.map",
+    "455.19d8e0e4.chunk.js.map": "/static/js/455.19d8e0e4.chunk.js.map"
   },
   "entrypoints": [
-    "static/css/main.24fd109f.css",
-    "static/js/main.e4e36d57.js"
+    "static/css/main.68015d5c.css",
+    "static/js/main.078f72b2.js"
   ]
 }

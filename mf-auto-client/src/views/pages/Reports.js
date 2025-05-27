@@ -276,7 +276,7 @@ const Reports = () => {
 
       const exportData = {
         dateRange: dateRange,
-        customDateRange: dateRange === 'custom' ? [startDate, endDate] : null,
+        customDateRange: dateRange === 'custom' ? customDateRange : null,
         reportType: reportType,
         filters: {
           status: filterStatus,
@@ -306,9 +306,9 @@ const Reports = () => {
       setExportStatus('Export completed successfully');
       toast.success(`${type.toUpperCase()} export completed successfully`);
     } catch (error) {
-      console.error(`Error exporting ${type}:`, error);
-      setExportError(error.message || `Failed to export ${type.toUpperCase()}. Please try again.`);
-      toast.error(error.message || `Failed to export ${type.toUpperCase()}. Please try again.`);
+      console.error('Export error:', error);
+      setExportError(error.message || 'Failed to export report');
+      toast.error('Failed to export report');
     } finally {
       setIsExporting(false);
       setExportProgress(0);
