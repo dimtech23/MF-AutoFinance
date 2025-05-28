@@ -14,6 +14,8 @@ export interface AppointmentDocument extends Document {
   createdBy: mongoose.Schema.Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
+  deliveryDate?: Date;
+  estimatedDuration?: number;
 }
 
 const AppointmentSchema = new mongoose.Schema({
@@ -36,6 +38,8 @@ const AppointmentSchema = new mongoose.Schema({
   description: { type: String },
   invoiceId: { type: Schema.Types.ObjectId, ref: 'Invoice' },
   createdBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+  deliveryDate: { type: Date },
+  estimatedDuration: { type: Number, default: 1 }
 }, {
   timestamps: true
 });

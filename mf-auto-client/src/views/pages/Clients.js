@@ -307,6 +307,11 @@ const Clients = () => {
     }
   }, []);
 
+  // Add useEffect for initial client fetch
+  useEffect(() => {
+    fetchClients();
+  }, [fetchClients]); // Only depend on fetchClients since it's memoized
+
   // Apply filters when search term, filter status, or date range changes
   useEffect(() => {
     let result = [...clients];
@@ -626,38 +631,104 @@ const Clients = () => {
       }
 
       let clientResponse;
-      if (clientData.id || clientData._id) {
-        // Update existing client
-        const clientId = clientData.id || clientData._id;
-        clientResponse = await clientsAPI.update(clientId, clientData);
+      const isUpdate = !!(clientData.id || clientData._id);
+      const clientId = clientData.id || clientData._id;
+
+      try {
+        if (isUpdate) {
+          // Update existing client
+          clientResponse = await clientsAPI.update(clientId, clientData);
+        } else {
+          // Create new client
+          clientResponse = await clientsAPI.create(clientData);
+        }
+
+        // Ensure we have a consistent ID format
+        const responseId = clientResponse.data._id || clientResponse.data.id;
         
         // Update the clients list with the new data
-        setClients(prevClients => 
-          prevClients.map(client => 
-            (client.id === clientId || client._id === clientId) 
-              ? { ...clientResponse.data, id: clientResponse.data._id || clientResponse.data.id }
-              : client
-          )
-        );
-      } else {
-        // Create new client
-        clientResponse = await clientsAPI.create(clientData);
-        
-        // Add the new client to the list
-        setClients(prevClients => [
-          ...prevClients,
-          { ...clientResponse.data, id: clientResponse.data._id || clientResponse.data.id }
-        ]);
-      }
+        setClients(prevClients => {
+          if (isUpdate) {
+            // Update existing client
+            return prevClients.map(client => 
+              (client.id === clientId || client._id === clientId) 
+                ? { ...clientResponse.data, id: responseId }
+                : client
+            );
+          } else {
+            // Add new client
+            return [...prevClients, { ...clientResponse.data, id: responseId }];
+          }
+        });
 
-      toast.success(clientData.id || clientData._id ? "Client updated successfully" : "Client created successfully");
-      closeClientForm();
+        // Dispatch event for calendar update
+        window.dispatchEvent(new CustomEvent('client-updated', {
+          detail: {
+            clientId: responseId,
+            action: isUpdate ? 'client-updated' : 'client-created',
+            timestamp: new Date().getTime()
+          }
+        }));
+
+        // Show success message
+        toast.success(isUpdate ? "Client updated successfully" : "Client created successfully");
+        
+        // Close the form
+        closeClientForm();
+
+        // Refresh the client list to ensure we have the latest data
+        await fetchClients();
+      } catch (apiError) {
+        console.error("API Error:", apiError);
+        throw apiError; // Re-throw to be caught by outer catch
+      }
     } catch (error) {
       console.error("Error saving client:", error);
-      toast.error(error.response?.data?.message || "Failed to save client");
-    } finally {
-      setIsSubmitting(false);
+      console.error("Error generating service report:", error);
+      toast.error("Failed to generate service report");
     }
+  };
+
+  // Add back the missing functions
+  const formatDate = (date) => {
+    if (!date) return "N/A";
+    return format(new Date(date), "MMM d, yyyy");
+  };
+
+  const exportToCSV = () => {
+    const headers = [
+      "ID", "Client", "Phone", "Vehicle", "Procedures", "Issue", "Status", "Payment Status",
+    ];
+    const csvData = filteredClients.map((client) => [
+      client.id,
+      client.clientName,
+      client.phoneNumber,
+      `${client.carDetails.year} ${client.carDetails.make} ${client.carDetails.model} (${client.carDetails.licensePlate})`,
+      client.procedures.map((p) => p.label).join(", "),
+      client.issueDescription,
+      client.repairStatus.replace("_", " "),
+      client.paymentStatus.replace("_", " "),
+    ]);
+
+    const csvContent = [headers.join(","), ...csvData.map((row) => row.join(","))].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", `clients_${format(new Date(), "yyyy-MM-dd")}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const openClientDetails = (client) => {
+    setSelectedClientForDetails(client);
+    setDetailsDialogOpen(true);
+  };
+
+  const closeClientDetails = () => {
+    setDetailsDialogOpen(false);
+    setSelectedClientForDetails(null);
   };
 
   const openDeleteConfirmation = (client) => {
@@ -670,11 +741,7 @@ const Clients = () => {
 
     try {
       await clientsAPI.delete(clientToDelete.id);
-
-      // Update local state
-      const updatedClients = clients.filter(
-        (client) => client.id !== clientToDelete.id
-      );
+      const updatedClients = clients.filter((client) => client.id !== clientToDelete.id);
       setClients(updatedClients);
       toast.success("Client record deleted successfully");
       setDeleteDialogOpen(false);
@@ -685,11 +752,6 @@ const Clients = () => {
     }
   };
 
-  // ==========================================
-  //  CLIENT STATUS UPDATE HANDLER
-  // ==========================================
-
-  // Add new function to handle status change confirmation
   const handleStatusChangeConfirmation = (clientId, newStatus) => {
     const client = clients.find(c => c.id === clientId || c._id === clientId);
     if (!client) return;
@@ -713,7 +775,6 @@ const Clients = () => {
     });
   };
 
-  // Add new function to close confirmation dialog
   const closeConfirmationDialog = () => {
     setConfirmationDialog({
       open: false,
@@ -725,154 +786,6 @@ const Clients = () => {
     });
   };
 
-  // Update the handleUpdateStatus function to use clientsAPI
-  const handleUpdateStatus = async (clientId, newStatus) => {
-    try {
-      // Update status first
-      const response = await clientsAPI.updateStatus(clientId, newStatus);
-      const updatedClient = response.data;
-
-      if (newStatus === "delivered") {
-        try {
-          // Generate service report only when marking as delivered
-          const pdfResult = await generateServiceReport(updatedClient);
-          
-          if (pdfResult.success) {
-            toast.success("Service completed and report generated successfully");
-          } else {
-            // Show warning but don't block the status update
-            toast.warning("Status updated but failed to generate service report. You can download it later from the client history.");
-            console.error("PDF Generation Error:", pdfResult.error);
-          }
-        } catch (pdfError) {
-          // Show warning but don't block the status update
-          toast.warning("Status updated but failed to generate service report. You can download it later from the client history.");
-          console.error("PDF Generation Error:", pdfError);
-        }
-      } else {
-        // For other status updates, just show success message
-        toast.success("Status updated successfully");
-      }
-
-      // Close the confirmation dialog
-      closeConfirmationDialog();
-
-      // Refresh client list
-      fetchClients();
-
-      // Dispatch event for calendar update
-      window.dispatchEvent(new CustomEvent('client-updated', {
-        detail: {
-          clientId,
-          status: newStatus,
-          action: 'status-updated',
-          timestamp: new Date().getTime()
-        }
-      }));
-    } catch (error) {
-      console.error("Error updating status:", error);
-      toast.error("Failed to update status: " + (error.message || "Unknown error"));
-    }
-  };
-  
-// ==========================================
-//  ENHANCED CLIENT PAYMENT UPDATE HANDLER 
-// ==========================================
-
-const handleUpdatePayment = async (clientId, newPaymentStatus, amount = 0) => {
-  try {
-    setIsLoading(true);
-    
-    const paymentData = {
-      paymentStatus: newPaymentStatus,
-      partialPaymentAmount: newPaymentStatus === "partial" ? amount : 0,
-    };
-    
-    // Call API to update payment status
-    const response = await clientsAPI.updatePayment(clientId, paymentData);
-    
-    if (!response || !response.data) {
-      throw new Error("Failed to update payment status");
-    }
-    
-    console.log(`Client payment status updated successfully: ${clientId} -> ${newPaymentStatus}`);
-
-    // Update local state
-    const updatedClients = clients.map((client) => {
-      if (client.id === clientId || client._id === clientId) {
-        return {
-          ...client,
-          paymentStatus: newPaymentStatus,
-          partialPaymentAmount: newPaymentStatus === "partial" ? amount : 0,
-        };
-      }
-      return client;
-    });
-
-    setClients(updatedClients);
-    setFilteredClients(prevFiltered => prevFiltered.map(client => {
-      if (client.id === clientId || client._id === clientId) {
-        return {
-          ...client,
-          paymentStatus: newPaymentStatus,
-          partialPaymentAmount: newPaymentStatus === "partial" ? amount : 0,
-        };
-      }
-      return client;
-    }));
-    
-    // Find associated invoices and update their status if needed
-    try {
-      const client = clients.find(c => c.id === clientId || c._id === clientId);
-      if (client) {
-        const invoicesResponse = await invoicesAPI.getAll({ clientId });
-        
-        if (invoicesResponse.data && Array.isArray(invoicesResponse.data)) {
-          const clientInvoices = invoicesResponse.data;
-          
-          // Map payment status to invoice status for any unpaid invoices
-          const newInvoiceStatus = newPaymentStatus === 'paid' ? 'paid' : 
-                                  newPaymentStatus === 'partial' ? 'pending' : 'pending';
-          
-          for (const invoice of clientInvoices) {
-            // Only update unpaid/pending invoices
-            if (invoice.status !== 'paid' && invoice.status !== 'cancelled') {
-              await invoicesAPI.updateStatus(
-                invoice._id || invoice.id, 
-                newInvoiceStatus
-              );
-              console.log(`Updated invoice ${invoice._id || invoice.id} to ${newInvoiceStatus}`);
-            }
-          }
-        }
-      }
-    } catch (invoiceError) {
-      console.error("Error updating related invoices:", invoiceError);
-      // Continue with client update even if invoice updates fail
-    }
-    
-    toast.success(`Payment status updated to ${newPaymentStatus.replace("_", " ")}`);
-    
-    // Notify other components via custom event
-    const updateEvent = new CustomEvent('payment-updated', {
-      detail: {
-        clientId,
-        status: newPaymentStatus,
-        amount: newPaymentStatus === "partial" ? amount : 0,
-        timestamp: new Date().getTime()
-      }
-    });
-    window.dispatchEvent(updateEvent);
-    
-    setIsLoading(false);
-  } catch (error) {
-    console.error("Error updating payment status:", error);
-    toast.error("Failed to update payment status: " + (error.message || "Unknown error"));
-    setIsLoading(false);
-  }
-};
-
-
   const openPreDeliveryDialog = (client) => {
     setSelectedClient(client);
     setPreDeliveryImages([]);
@@ -880,31 +793,13 @@ const handleUpdatePayment = async (clientId, newPaymentStatus, amount = 0) => {
     setShowPreDeliveryDialog(true);
   };
 
-  const handleDeliveryImageUpload = (e) => {
-    // In a real app, this would handle file uploads
-    // For this demo, we'll just simulate adding image data
-    const files = Array.from(e.target.files);
-    if (files.length > 0) {
-      // Create array of image file names (simulating actual upload)
-      const newImages = files.map((file) => ({
-        name: file.name,
-        url: URL.createObjectURL(file), // This creates a temporary URL for preview
-        uploadDate: new Date(),
-      }));
-
-      setPreDeliveryImages([...preDeliveryImages, ...newImages]);
-      toast.success(`${files.length} image(s) uploaded`);
-    }
-  };
-
   const handleCompleteDelivery = async () => {
-    try {
-      if (!selectedClient) {
-        toast.error("No client selected for delivery");
-        return;
-      }
+    if (!selectedClient) {
+      toast.error("No client selected for delivery");
+      return;
+    }
 
-      // Validate prerequisites
+    try {
       if (selectedClient.repairStatus !== "completed") {
         toast.error("Repair must be completed before delivery");
         return;
@@ -916,8 +811,6 @@ const handleUpdatePayment = async (clientId, newPaymentStatus, amount = 0) => {
       }
 
       setIsLoading(true);
-
-      // Prepare delivery data
       const deliveryData = {
         deliveryDate: new Date(),
         deliveryNotes: preDeliveryNotes,
@@ -925,15 +818,19 @@ const handleUpdatePayment = async (clientId, newPaymentStatus, amount = 0) => {
         status: "delivered"
       };
 
-      // Update client status to delivered
-      const deliveryResponse = await clientsAPI.markAsDelivered(selectedClient.id || selectedClient._id, deliveryData);
+      const deliveryResponse = await clientsAPI.markAsDelivered(
+        selectedClient.id || selectedClient._id, 
+        deliveryData
+      );
 
-      if (!deliveryResponse || !deliveryResponse.data) {
+      if (!deliveryResponse?.data) {
         throw new Error("Failed to update delivery status");
       }
 
-      // Update the clients list with the new data
-      const updatedClient = { ...deliveryResponse.data, id: deliveryResponse.data._id || deliveryResponse.data.id };
+      const updatedClient = { 
+        ...deliveryResponse.data, 
+        id: deliveryResponse.data._id || deliveryResponse.data.id 
+      };
       
       setClients(prevClients => 
         prevClients.map(client => 
@@ -943,7 +840,6 @@ const handleUpdatePayment = async (clientId, newPaymentStatus, amount = 0) => {
         )
       );
 
-      // Update filtered clients as well
       setFilteredClients(prevFiltered => 
         prevFiltered.map(client => 
           (client.id === selectedClient.id || client._id === selectedClient._id)
@@ -952,19 +848,7 @@ const handleUpdatePayment = async (clientId, newPaymentStatus, amount = 0) => {
         )
       );
 
-      // Generate delivery PDF
-      try {
-        const pdfResponse = await clientsAPI.generateDeliveryPDF(selectedClient.id || selectedClient._id);
-        if (pdfResponse && pdfResponse.data) {
-          // Open PDF in new tab
-          window.open(pdfResponse.data.pdfUrl, '_blank');
-        }
-      } catch (pdfError) {
-        console.error("Error generating delivery PDF:", pdfError);
-        // Don't show error to user, as this is not critical
-      }
-
-      // Reset delivery state and close modal
+      // Reset state
       setShowPreDeliveryDialog(false);
       setSelectedClient(null);
       setPreDeliveryImages([]);
@@ -995,93 +879,129 @@ const handleUpdatePayment = async (clientId, newPaymentStatus, amount = 0) => {
     setHistoryDialogOpen(true);
   };
 
-  const exportToCSV = () => {
-    const headers = [
-      "ID",
-      "Client",
-      "Phone",
-      "Vehicle",
-      "Procedures",
-      "Issue",
-      "Status",
-      "Payment Status",
-    ];
-    const csvData = filteredClients.map((client) => [
-      client.id,
-      client.clientName,
-      client.phoneNumber,
-      `${client.carDetails.year} ${client.carDetails.make} ${client.carDetails.model} (${client.carDetails.licensePlate})`,
-      client.procedures.map((p) => p.label).join(", "),
-      client.issueDescription,
-      client.repairStatus.replace("_", " "),
-      client.paymentStatus.replace("_", " "),
-    ]);
+  // Optimize form handling with debounced updates
+  const debouncedFormChange = useCallback(
+    debounce((field, value) => {
+      setFormData(prev => ({
+        ...prev,
+        [field]: value
+      }));
+    }, 100),
+    []
+  );
 
-    // Create CSV content
-    const csvContent = [
-      headers.join(","),
-      ...csvData.map((row) => row.join(",")),
-    ].join("\n");
-
-    // Create download link
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.setAttribute(
-      "download",
-      `clients_${format(new Date(), "yyyy-MM-dd")}.csv`
-    );
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  // Update the form change handler to use debouncing
+  const handleFormChange = (field, value) => {
+    // For immediate UI feedback
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+    
+    // Debounce the actual state update
+    debouncedFormChange(field, value);
   };
 
-  const formatDate = (date) => {
-    if (!date) return "N/A";
-    return format(new Date(date), "MMM d, yyyy");
-  };
-
-  const handleSendDocuments = async (client) => {
+  // Add the missing functions
+  const handleUpdateStatus = async (clientId, newStatus) => {
     try {
-      const documentUrls = await clientsAPI.getClientDocuments(client.id);
-      await clientsAPI.sendDocuments(client.id, documentUrls);
-      toast.success("Documents sent successfully");
+      setIsLoading(true);
+      const response = await clientsAPI.updateStatus(clientId, newStatus);
+      
+      if (!response?.data) {
+        throw new Error("Failed to update status");
+      }
+
+      const updatedClient = { 
+        ...response.data, 
+        id: response.data._id || response.data.id 
+      };
+
+      // Update clients list
+      setClients(prevClients => 
+        prevClients.map(client => 
+          (client.id === clientId || client._id === clientId)
+            ? updatedClient
+            : client
+        )
+      );
+
+      // Update filtered clients
+      setFilteredClients(prevFiltered => 
+        prevFiltered.map(client => 
+          (client.id === clientId || client._id === clientId)
+            ? updatedClient
+            : client
+        )
+      );
+
+      // Close confirmation dialog
+      closeConfirmationDialog();
+
+      // Show success message
+      toast.success(`Status updated to ${newStatus.replace("_", " ")}`);
+
+      // Dispatch event for calendar update
+      window.dispatchEvent(new CustomEvent('client-updated', {
+        detail: {
+          clientId,
+          status: newStatus,
+          action: 'status-updated',
+          timestamp: new Date().getTime()
+        }
+      }));
     } catch (error) {
-      console.error("Error sending documents:", error);
-      toast.error("Failed to send documents");
+      console.error("Error updating status:", error);
+      toast.error(error.response?.data?.message || "Failed to update status");
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  // Add useEffect to fetch clients on component mount
-  useEffect(() => {
-    fetchClients();
-  }, [fetchClients]); // Add fetchClients to dependency array
-
-  // Add new function to open client details
-  const openClientDetails = (client) => {
-    setSelectedClientForDetails(client);
-    setDetailsDialogOpen(true);
-  };
-
-  // Add new function to close client details
-  const closeClientDetails = () => {
-    setDetailsDialogOpen(false);
-    setSelectedClientForDetails(null);
-  };
-
-  // Add this function near other handlers
-  const handleDownloadServiceReport = async (client) => {
+  const handleUpdatePayment = async (clientId, newPaymentStatus) => {
     try {
-      const pdfResult = await generateServiceReport(client);
-      if (pdfResult.success) {
-        toast.success("Service report downloaded successfully");
-      } else {
-        toast.error(pdfResult.error || "Failed to generate service report");
+      setIsLoading(true);
+      const response = await clientsAPI.updatePaymentStatus(clientId, newPaymentStatus);
+      
+      if (!response?.data) {
+        throw new Error("Failed to update payment status");
+      }
+
+      const updatedClient = { 
+        ...response.data, 
+        id: response.data._id || response.data.id 
+      };
+
+      // Update clients list
+      setClients(prevClients => 
+        prevClients.map(client => 
+          (client.id === clientId || client._id === clientId)
+            ? updatedClient
+            : client
+        )
+      );
+
+      // Update filtered clients
+      setFilteredClients(prevFiltered => 
+        prevFiltered.map(client => 
+          (client.id === clientId || client._id === clientId)
+            ? updatedClient
+            : client
+        )
+      );
+
+      // Show success message
+      toast.success(`Payment status updated to ${newPaymentStatus.replace("_", " ")}`);
+
+      // If payment is marked as paid and repair is completed, enable delivery
+      if (newPaymentStatus === "paid" && updatedClient.repairStatus === "completed") {
+        toast.info("Payment completed. You can now proceed with delivery.");
       }
     } catch (error) {
-      console.error("Error generating service report:", error);
-      toast.error("Failed to generate service report");
+      console.error("Error updating payment status:", error);
+      toast.error(error.response?.data?.message || "Failed to update payment status");
+    } finally {
+      setIsLoading(false);
     }
   };
 

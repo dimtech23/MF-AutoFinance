@@ -122,9 +122,9 @@ const mapRepairStatusToAppointmentStatus = {
 
 const AppointmentCalendar = ({ 
   isFullPage = false,
-  onError = (error) => console.error(error)  // Add default error handler
+  onError = (error) => console.error(error)
 }) => {
-  const theme = useTheme();  // Add theme hook
+  const theme = useTheme();
   const { token } = useContext(UserContext);
   
   // State declarations
@@ -138,10 +138,11 @@ const AppointmentCalendar = ({
   const [appointmentFormOpen, setAppointmentFormOpen] = useState(false);
   const [showMilestones, setShowMilestones] = useState(false);
   const [selectedMilestoneType, setSelectedMilestoneType] = useState("");
-  const [showAllAppointments, setShowAllAppointments] = useState(false);  // Add this state
+  const [showAllAppointments, setShowAllAppointments] = useState(false);
   const [syncStatus, setSyncStatus] = useState({
     isSyncing: false,
     lastSync: null,
+    syncInProgress: false
   });
   const [formData, setFormData] = useState({
     id: "",
@@ -159,11 +160,12 @@ const AppointmentCalendar = ({
   const [typeFilter, setTypeFilter] = useState("all");
 
   // Update handleApiError to use the onError prop
-  const handleApiError = (error, context) => {
+  const handleApiError = useCallback((error, context) => {
     console.error(`Error in ${context}:`, error);
-    setError(error.message || `An error occurred while ${context}`);
-    onError(error);  // Use the provided error handler
-  };
+    const errorMessage = error?.response?.data?.message || error?.message || `An error occurred while ${context}`;
+    setError(errorMessage);
+    onError(error);
+  }, [onError]);
 
   // Define filterAppointments function at the top level
   const filterAppointments = useCallback((allAppointments, status, type, date, showAll) => {
@@ -302,256 +304,41 @@ const AppointmentCalendar = ({
     return appointment;
   };
 
-  // Generate appointments from clients and invoices data
-  const generateAppointmentsFromData = useCallback(
-    (clientsList = [], invoicesList = []) => {
-      console.log("Generating appointments from data:", {
-        clientsCount: clientsList.length,
-        invoicesCount: invoicesList.length,
-      });
-
-      const generatedAppointments = [];
-
-      // Process client data to create appointments
-      clientsList.forEach((client, index) => {
-        // Create initial appointment for when the vehicle was dropped off
-        const dropOffDate = client.createdAt
-          ? new Date(client.createdAt)
-          : new Date();
-
-        generatedAppointments.push({
-          id: `client-dropoff-${client.id || client._id || index}`,
-          title: `Initial Assessment - ${client.clientName}`,
-          date: dropOffDate,
-          time: format(dropOffDate, "HH:mm"),
-          clientId: client.id || client._id || index,
-          clientName: client.clientName,
-          vehicleInfo: client.carDetails
-            ? `${client.carDetails.year || ""} ${client.carDetails.make || ""} ${
-                client.carDetails.model || ""
-              }`.trim()
-            : "Vehicle info not available",
-          type: "inspection",
-          status: "completed",
-          description:
-            client.issueDescription ||
-            `Initial assessment for ${client.clientName}`,
-          invoiceId: "",
-          createdBy: client.createdBy || "",
-          createdAt: dropOffDate,
-        });
-
-        // Add appointment for ongoing work based on repair status
-        // Use estimated duration and delivery date for proper visualization
-        let workAppointmentDate = dropOffDate;
-        let deliveryDate;
-
-        if (client.deliveryDate) {
-          deliveryDate = new Date(client.deliveryDate);
-        } else {
-          // If no delivery date, use estimated duration
-          const duration = client.estimatedDuration || 3; // Default to 3 days if not specified
-          deliveryDate = addDays(dropOffDate, duration);
-        }
-
-        // Determine appointment type and status based on client's repair status
-        const repairStatus = client.repairStatus || "waiting";
-        const appointmentStatus =
-          mapRepairStatusToAppointmentStatus[repairStatus] || "scheduled";
-        const appointmentType =
-          repairStatus === "delivered" ? "delivery" : "repair";
-
-        generatedAppointments.push({
-          id: `client-work-${client.id || client._id || index}`,
-          title:
-            repairStatus === "delivered"
-              ? `Delivery - ${client.clientName}`
-              : `${repairStatus === "completed" ? "Completed" : "Service"} - ${
-                  client.clientName
-                }`,
-          date: workAppointmentDate,
-          time: format(workAppointmentDate, "HH:mm"),
-          clientId: client.id || client._id || index,
-          clientName: client.clientName,
-          vehicleInfo: client.carDetails
-            ? `${client.carDetails.year || ""} ${
-                client.carDetails.make || ""
-              } ${client.carDetails.model || ""}`.trim()
-            : "Vehicle info not available",
-          type: appointmentType,
-          status: appointmentStatus,
-          description:
-            client.issueDescription || `Service for ${client.clientName}`,
-          invoiceId: "",
-          createdBy: client.createdBy || "",
-          createdAt: dropOffDate,
-          estimatedDuration: client.estimatedDuration || 3,
-          deliveryDate: deliveryDate,
-          allDay: true, // Repair appointments span multiple days
-        });
-      });
-
-      // Add appointments for invoices
-      if (invoicesList && invoicesList.length > 0) {
-        invoicesList.forEach((invoice, index) => {
-          const invoiceDate = invoice.createdAt
-            ? new Date(invoice.createdAt)
-            : invoice.issueDate
-            ? new Date(invoice.issueDate)
-            : new Date();
-
-          generatedAppointments.push({
-            id: `invoice-${invoice.id || invoice._id || index}`,
-            title: `Invoice Review - ${
-              invoice.customerInfo?.name ||
-              invoice.customerName ||
-              `Customer ${index + 1}`
-            }`,
-            date: invoiceDate,
-            time: format(invoiceDate, "HH:mm"),
-            clientId: invoice.customerInfo?.id || invoice.clientId || "",
-            clientName:
-              invoice.customerInfo?.name ||
-              invoice.customerName ||
-              `Customer ${index + 1}`,
-            vehicleInfo: invoice.vehicleInfo
-              ? `${invoice.vehicleInfo.year || ""} ${
-                  invoice.vehicleInfo.make || ""
-                } ${invoice.vehicleInfo.model || ""}`.trim()
-              : "",
-            type: "invoice",
-            status: "scheduled",
-            description: `Review invoice #${
-              invoice.invoiceNumber || index + 1
-            }`,
-            invoiceId: invoice.id || invoice._id || index,
-            createdBy: invoice.createdBy || "",
-            createdAt: invoiceDate,
-            estimatedDuration: 1, // Invoice reviews typically take 1 day
-            allDay: false,
-          });
-        });
-      }
-
-      console.log(`Generated ${generatedAppointments.length} appointments`);
-      return generatedAppointments;
-    },
-    []
-  );
-
-  // Add function to generate service milestones
-  const generateServiceMilestones = useCallback((appointment) => {
-    if (appointment.type !== 'repair' || !appointment.deliveryDate) return [];
-
-    const startDate = new Date(appointment.date);
-    const endDate = new Date(appointment.deliveryDate);
-    const duration = differenceInDays(endDate, startDate);
-
-    // Generate milestones based on service duration
-    const milestones = [];
-    const milestoneDates = [];
-
-    // Always add diagnosis milestone at start
-    milestoneDates.push({
-      date: startDate,
-      type: 'diagnosis',
-      label: 'Diagnosis Complete'
-    });
-
-    // For longer services, add more milestones
-    if (duration >= 3) {
-      // Add parts ordered milestone
-      milestoneDates.push({
-        date: addDays(startDate, Math.floor(duration * 0.2)),
-        type: 'parts_ordered',
-        label: 'Parts Ordered'
-      });
-
-      // Add work started milestone
-      milestoneDates.push({
-        date: addDays(startDate, Math.floor(duration * 0.4)),
-        type: 'work_started',
-        label: 'Work Started'
-      });
-
-      // Add work completed milestone
-      milestoneDates.push({
-        date: addDays(startDate, Math.floor(duration * 0.8)),
-        type: 'work_completed',
-        label: 'Work Completed'
-      });
-    }
-
-    // Always add quality check and ready for delivery milestones
-    milestoneDates.push({
-      date: addDays(endDate, -1),
-      type: 'quality_check',
-      label: 'Quality Check'
-    });
-
-    milestoneDates.push({
-      date: endDate,
-      type: 'ready_for_delivery',
-      label: 'Ready for Delivery'
-    });
-
-    // Create milestone appointments
-    milestoneDates.forEach(({ date, type, label }) => {
-      milestones.push({
-        id: `${appointment.id}-milestone-${type}`,
-        title: `${label} - ${appointment.clientName}`,
-        date: date,
-        time: appointment.time,
-        clientId: appointment.clientId,
-        clientName: appointment.clientName,
-        vehicleInfo: appointment.vehicleInfo,
-        type: 'milestone',
-        status: 'scheduled',
-        description: `${label} for ${appointment.vehicleInfo}`,
-        parentAppointmentId: appointment.id,
-        milestoneType: type,
-        allDay: true
-      });
-    });
-
-    return milestones;
-  }, []);
-
-  // Update the fetchAppointments function to use caching
-  const fetchAppointments = useCallback(async () => {
-    if (syncStatus.isSyncing) {
-      console.log("Sync already in progress, skipping...");
+  // Memoize fetchAppointments to prevent recreation on every render
+  const fetchAppointments = useCallback(async (forceRefresh = false) => {
+    if (syncStatus.syncInProgress) {
+      console.log('Sync already in progress, skipping fetch');
       return;
     }
-  
-    setSyncStatus((prev) => ({ ...prev, isSyncing: true, syncError: null }));
-    setLoading(true);
-    setError(null);
-  
+
+    setSyncStatus(prev => ({
+      ...prev,
+      syncInProgress: true
+    }));
+
     try {
-      const monthKey = format(currentMonth, "yyyy-MM");
+      const monthKey = format(currentMonth, 'yyyy-MM');
       
-      // Check if we have cached data for this month
-      if (fetchAppointments.cache && fetchAppointments.cache[monthKey]) {
-        const cachedData = fetchAppointments.cache[monthKey];
-        const cacheAge = Date.now() - cachedData.timestamp;
+      // Check cache first unless force refresh
+      if (!forceRefresh && fetchAppointments.cache?.[monthKey]) {
+        const cached = fetchAppointments.cache[monthKey];
+        const cacheAge = Date.now() - cached.timestamp;
         
         // Use cache if it's less than 5 minutes old
         if (cacheAge < 5 * 60 * 1000) {
-          console.log("Using cached appointments data");
-          setAppointments(cachedData.appointments);
-          filterAppointments(
-            cachedData.appointments,
+          console.log('Using cached appointments');
+          setAppointments(cached.appointments);
+          const filtered = filterAppointments(
+            cached.appointments,
             statusFilter,
             typeFilter,
             selectedDate,
             showAllAppointments
           );
-          setSyncStatus((prev) => ({
+          setFilteredAppointments(filtered);
+          setSyncStatus(prev => ({
             ...prev,
-            lastSync: new Date(cachedData.timestamp),
-            isSyncing: false,
-            syncError: null,
+            syncInProgress: false
           }));
           setLoading(false);
           return;
@@ -559,26 +346,23 @@ const AppointmentCalendar = ({
       }
 
       console.log(`Fetching appointments for ${format(currentMonth, "MMMM yyyy")}`);
-  
-      // Get date range for current month
+
       const firstDay = startOfMonth(currentMonth);
       const lastDay = endOfMonth(currentMonth);
-  
-      // Fetch appointments from API
+
       const response = await appointmentsAPI.getAll({
         startDate: firstDay.toISOString(),
         endDate: lastDay.toISOString(),
       });
-  
-      // Process appointments
+
       let fetchedAppointments = [];
       
-      if (response && response.data && response.data.length > 0) {
+      if (response?.data?.length > 0) {
         console.log(`Received ${response.data.length} appointments from API`);
         fetchedAppointments = response.data.map(appointment => normalizeAppointment(appointment));
       }
 
-      // Cache the fetched appointments
+      // Update cache
       if (!fetchAppointments.cache) {
         fetchAppointments.cache = {};
       }
@@ -587,124 +371,124 @@ const AppointmentCalendar = ({
         timestamp: Date.now()
       };
 
-      // Clear filter cache when new data arrives
-      clearFilterCache();
-
       setAppointments(fetchedAppointments);
-      filterAppointments(fetchedAppointments, statusFilter, typeFilter, selectedDate, showAllAppointments);
-      
-      setSyncStatus((prev) => ({
-        ...prev,
-        lastSync: new Date(),
-        isSyncing: false,
-        syncError: null,
-      }));
-    } catch (error) {
-      console.error("Error in fetchAppointments:", error);
-      const errorMessage = error?.response?.data?.message || error?.message || "Failed to fetch appointments";
-      setError(errorMessage);
-      setSyncStatus((prev) => ({
-        ...prev,
-        isSyncing: false,
-        syncError: errorMessage,
-      }));
-    } finally {
-      setLoading(false);
-    }
-  }, [currentMonth, statusFilter, typeFilter, selectedDate, showAllAppointments, filterAppointments, clearFilterCache]);
-
-  // Update useEffect to remove initialLoadComplete reference
-  useEffect(() => {
-    const fetchInitialData = async () => {
-      setLoading(true);
-      console.log("Initial data loading started");
-      
-      try {
-        await fetchAppointments();
-        console.log("Initial data loading complete");
-      } catch (err) {
-        console.error("Error initializing appointment calendar:", err);
-        setError("Failed to load calendar data. Please try again.");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchInitialData();
-
-    // Set up auto-refresh interval
-    const refreshInterval = setInterval(() => {
-      if (!loading && !syncStatus.isSyncing) {
-        console.log("Auto-refreshing appointments...");
-        fetchAppointments();
-      }
-    }, 30000);
-
-    return () => {
-      clearInterval(refreshInterval);
-    };
-  }, [fetchAppointments, loading, syncStatus.isSyncing]);
-
-  useEffect(() => {
-    // Function to handle client updates
-    const handleClientUpdate = (event) => {
-      console.log('Client update detected in calendar:', event.detail);
-      
-      // Always refresh appointments when clients are updated
-      if (event.detail) {
-        console.log(`Client ${event.detail.clientId || 'unknown'} was ${event.detail.action || 'updated'}`);
-        fetchAppointments();
-      }
-    };
-  
-    // Function to handle appointment updates from other components
-    const handleAppointmentUpdate = (event) => {
-      console.log('Appointment update detected in calendar:', event.detail);
-      
-      // Refresh appointments when updates occur
-      fetchAppointments();
-    };
-  
-    // Set up event listeners
-    window.addEventListener('client-updated', handleClientUpdate);
-    window.addEventListener('appointment-updated', handleAppointmentUpdate);
-    
-    // Clean up when component unmounts
-    return () => {
-      window.removeEventListener('client-updated', handleClientUpdate);
-      window.removeEventListener('appointment-updated', handleAppointmentUpdate);
-    };
-  }, [fetchAppointments]);
-
-  // Update useEffect for month changes to remove initialLoadComplete check
-  useEffect(() => {
-    console.log("Month changed, refreshing appointments");
-    const controller = new AbortController();
-    fetchAppointments();
-    return () => controller.abort();
-  }, [currentMonth, fetchAppointments]);
-
-  // Update filtered appointments when relevant state changes
-  useEffect(() => {
-    if (appointments.length > 0) {
-      console.log("Filter parameters changed, updating filtered appointments");
       const filtered = filterAppointments(
-        appointments,
+        fetchedAppointments,
         statusFilter,
         typeFilter,
         selectedDate,
         showAllAppointments
       );
       setFilteredAppointments(filtered);
+      
+      setSyncStatus(prev => ({
+        ...prev,
+        lastSync: new Date(),
+        syncInProgress: false
+      }));
+    } catch (error) {
+      handleApiError(error, "fetching appointments");
+      setSyncStatus(prev => ({
+        ...prev,
+        syncInProgress: false,
+        syncError: error.message
+      }));
+    } finally {
+      setLoading(false);
     }
   }, [
-    appointments,
-    selectedDate,
+    currentMonth,
     statusFilter,
     typeFilter,
+    selectedDate,
     showAllAppointments,
     filterAppointments,
+    handleApiError,
+    syncStatus.syncInProgress,
+    normalizeAppointment
   ]);
+
+  // Update useEffect for month changes with better sync control
+  useEffect(() => {
+    let mounted = true;
+    let timeoutId = null;
+
+    const fetchData = async () => {
+      if (!mounted) return;
+      
+      // Clear any existing timeout
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+
+      // Add a small delay to prevent rapid refetches
+      timeoutId = setTimeout(async () => {
+        if (!mounted) return;
+        
+        if (!syncStatus.syncInProgress && !loading) {
+          console.log("Month changed, refreshing appointments");
+          await fetchAppointments();
+        }
+      }, 100);
+    };
+
+    fetchData();
+
+    return () => {
+      mounted = false;
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
+  }, [currentMonth]); // Only depend on currentMonth changes
+
+  // Update event listener effect with proper cleanup and debouncing
+  useEffect(() => {
+    let mounted = true;
+    let timeoutId = null;
+
+    const handleClientUpdate = (event) => {
+      if (!mounted) return;
+      
+      if (event.detail && !syncStatus.syncInProgress) {
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
+        timeoutId = setTimeout(() => {
+          if (!mounted) return;
+          console.log('Client update detected, refreshing appointments');
+          fetchAppointments(true);
+        }, 500);
+      }
+    };
+
+    const handleAppointmentUpdate = (event) => {
+      if (!mounted) return;
+      
+      if (event.detail && !syncStatus.syncInProgress) {
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
+        timeoutId = setTimeout(() => {
+          if (!mounted) return;
+          console.log('Appointment update detected, refreshing appointments');
+          fetchAppointments(true);
+        }, 500);
+      }
+    };
+
+    window.addEventListener('client-updated', handleClientUpdate);
+    window.addEventListener('appointment-updated', handleAppointmentUpdate);
+    
+    return () => {
+      mounted = false;
+      window.removeEventListener('client-updated', handleClientUpdate);
+      window.removeEventListener('appointment-updated', handleAppointmentUpdate);
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
+  }, [fetchAppointments, syncStatus.syncInProgress]);
 
   // Navigate to the next month
   const nextMonth = () => {
@@ -815,37 +599,6 @@ const AppointmentCalendar = ({
     [appointments, statusFilter, typeFilter, filterAppointments]
   );
 
-  const debugAppointments = useCallback(() => {
-    if (appointments.length > 0) {
-      console.log("=== APPOINTMENT DEBUGGING ===");
-      console.log(`Total appointments: ${appointments.length}`);
-      appointments.forEach((appointment, index) => {
-        console.log(`Appointment ${index + 1}:`); 
-        console.log(`- Title: ${appointment.title}`);
-        console.log(
-          `- Date: ${
-            appointment.date instanceof Date
-              ? format(appointment.date, "yyyy-MM-dd")
-              : appointment.date
-          }`
-        );
-        console.log(`- Delivery Date: ${
-          appointment.deliveryDate instanceof Date
-            ? format(appointment.deliveryDate, "yyyy-MM-dd")
-            : appointment.deliveryDate
-        }`);
-        console.log(`- Time: ${appointment.time}`);
-        console.log(`- Type: ${appointment.type}`);
-        console.log(`- Status: ${appointment.status}`);
-        console.log(`- Client: ${appointment.clientName}`);
-        console.log(`- Duration: ${appointment.duration || 'N/A'} days`);
-      });
-
-      console.log(`Selected date: ${format(selectedDate, "yyyy-MM-dd")}`);
-      console.log("=== END DEBUGGING ===");
-    }
-  }, [appointments, selectedDate]);
-
   // Render calendar header
   const renderHeader = () => {
     return (
@@ -942,30 +695,30 @@ const AppointmentCalendar = ({
           <Button
             size="small"
             onClick={prevMonth}
-            disabled={loading || syncStatus.isSyncing}
+            disabled={loading || syncStatus.syncInProgress}
           >
             <ChevronLeft size={20} />
           </Button>
           <Button
             size="small"
             onClick={nextMonth}
-            disabled={loading || syncStatus.isSyncing}
+            disabled={loading || syncStatus.syncInProgress}
           >
             <ChevronRight size={20} />
           </Button>
           <Button
             size="small"
             onClick={() => fetchAppointments()}
-            disabled={loading || syncStatus.isSyncing}
+            disabled={loading || syncStatus.syncInProgress}
             startIcon={
-              syncStatus.isSyncing ? (
+              syncStatus.syncInProgress ? (
                 <CircularProgress size={16} />
               ) : (
                 <RefreshCw size={16} />
               )
             }
           >
-            {syncStatus.isSyncing ? "Syncing..." : "Refresh"}
+            {syncStatus.syncInProgress ? "Syncing..." : "Refresh"}
           </Button>
         </Box>
         <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
@@ -1157,7 +910,7 @@ const AppointmentCalendar = ({
     );
   };
 
-  // Render days in the calendar month view
+  // Render days in the calendar
   const renderCells = () => {
     const monthStart = startOfMonth(currentMonth);
     const monthEnd = endOfMonth(monthStart);
@@ -1174,120 +927,102 @@ const AppointmentCalendar = ({
       end: endDate,
     });
 
-    // Calculate the total number of cells needed (including empty cells)
-    const totalCells = Math.ceil((daysInMonth.length + startDate.getDay()) / 7) * 7;
+    // Fill in the days of the week
+    let dayOfWeekStart = startDate.getDay();
+    for (let i = 0; i < dayOfWeekStart; i++) {
+      days.push(
+        <Grid
+          item
+          key={`empty-${i}`}
+          xs={true}
+          sx={{
+            height: 120,
+            border: "1px solid #eee",
+            p: 1,
+            bgcolor: "#f9f9f9",
+          }}
+        />
+      );
+    }
 
-    // Fill in all cells (empty + days)
-    for (let i = 0; i < totalCells; i++) {
-      const dayIndex = i - startDate.getDay();
-      const day = dayIndex >= 0 && dayIndex < daysInMonth.length ? daysInMonth[dayIndex] : null;
-      
-      if (!day) {
-        // Empty cell for days before month start or after month end
-        days.push(
-          <Grid
-            item
-            key={`empty-${i}`}
-            xs={true}
-            sx={{
-              height: { xs: 100, sm: 120 },
-              border: "1px solid #eee",
-              p: { xs: 0.5, sm: 1 },
-              bgcolor: "#f9f9f9",
-            }}
-          />
-        );
-      } else {
-        const formattedDate = format(day, dateFormat);
-        const dayAppointments = getAppointmentsForDay(day);
-        const isSelectedDate = isSameDay(day, selectedDate);
-        const isCurrentDay = isToday(day);
+    // Add the days of the month
+    for (let i = 0; i < daysInMonth.length; i++) {
+      const day = daysInMonth[i];
+      const formattedDate = format(day, dateFormat);
+      const dayAppointments = getAppointmentsForDay(day);
+      const isSelectedDate = isSameDay(day, selectedDate);
+      const isCurrentDay = isToday(day);
 
-        days.push(
-          <Grid
-            item
-            key={day.toString()}
-            xs={true}
+      days.push(
+        <Grid
+          item
+          key={day.toString()}
+          xs={true}
+          onClick={() => onDateClick(day)}
+          sx={{
+            height: 120,
+            border: "1px solid #eee",
+            p: 1,
+            position: "relative",
+            bgcolor: isSelectedDate
+              ? "primary.light"
+              : isCurrentDay
+              ? "#e6f7ff"
+              : "white",
+            "&:hover": {
+              bgcolor: isSelectedDate ? "primary.light" : "#f5f5f5",
+              cursor: "pointer",
+            },
+            color: !isSameMonth(day, monthStart)
+              ? "#ccc"
+              : isCurrentDay
+              ? "primary.main"
+              : "inherit",
+          }}
+          data-testid={`calendar-day-${format(day, "yyyy-MM-dd")}`}
+        >
+          <Typography
+            variant="body2"
             sx={{
-              height: { xs: 100, sm: 180 },
-              border: "1px solid #eee",
-              p: { xs: 0.5, sm: 1 },
-              position: "relative",
-              bgcolor: isSelectedDate
-                ? "primary.light"
-                : isCurrentDay
-                ? "#e6f7ff"
-                : "white",
-              "&:hover": {
-                bgcolor: isSelectedDate ? "primary.light" : "#f5f5f5",
-              },
-              color: !isSameMonth(day, monthStart)
-                ? "#ccc"
-                : isCurrentDay
-                ? "primary.main"
-                : "inherit",
+              position: "absolute",
+              top: 5,
+              right: 8,
+              fontWeight: isCurrentDay ? "bold" : "normal",
+              color: isCurrentDay ? "primary.main" : "inherit",
             }}
-            data-testid={`calendar-day-${format(day, "yyyy-MM-dd")}`}
           >
-            {/* Date number */}
-            <Typography
-              variant="body2"
-              sx={{
-                position: "absolute",
-                top: { xs: 2, sm: 5 },
-                right: { xs: 4, sm: 8 },
-                fontWeight: isCurrentDay ? "bold" : "normal",
-                color: isCurrentDay ? "primary.main" : "inherit",
-                zIndex: 1,
-                fontSize: { xs: '0.75rem', sm: '0.875rem' }
-              }}
-            >
-              {formattedDate}
-            </Typography>
+            {formattedDate}
+          </Typography>
 
-            {/* Appointments container */}
-            <Box sx={{ 
-              mt: { xs: 3, sm: 4 }, 
-              position: "relative", 
-              zIndex: 3, 
-              overflowY: 'auto', 
-              maxHeight: { xs: '70px', sm: '140px' },
-              '&::-webkit-scrollbar': {
-                width: '4px',
-              },
-              '&::-webkit-scrollbar-track': {
-                background: '#f1f1f1',
-              },
-              '&::-webkit-scrollbar-thumb': {
-                background: '#888',
-                borderRadius: '2px',
-              },
-            }}>
-              {dayAppointments.map((appointment) => 
-                renderAppointmentIndicator(appointment, day)
+          {dayAppointments.length > 0 && (
+            <Box sx={{ mt: 4 }}>
+              {dayAppointments.length <= 2 ? (
+                dayAppointments.map((appointment, idx) => (
+                  <Chip
+                    key={idx}
+                    size="small"
+                    label={
+                      appointment.title.substring(0, 15) +
+                      (appointment.title.length > 15 ? "..." : "")
+                    }
+                    color={getAppointmentStatusColor(appointment.status)}
+                    sx={{ mb: 0.5, maxWidth: "100%", fontSize: "0.7rem" }}
+                  />
+                ))
+              ) : (
+                <Chip
+                  size="small"
+                  label={`${dayAppointments.length} appointments`}
+                  color="primary"
+                  sx={{ mb: 0.5 }}
+                />
               )}
             </Box>
+          )}
+        </Grid>
+      );
 
-            {/* Click overlay */}
-            <Box
-              onClick={() => onDateClick(day)}
-              sx={{
-                position: "absolute",
-                top: 0,
-                left: 0,
-                width: "100%",
-                height: "100%",
-                cursor: "pointer",
-                zIndex: 2,
-              }}
-              data-testid={`calendar-day-overlay-${format(day, "yyyy-MM-dd")}`}
-            />
-          </Grid>
-        );
-      }
-
-      // Create a new row after every 7 cells
-      if ((i + 1) % 7 === 0) {
+      if ((i + dayOfWeekStart + 1) % 7 === 0 || i === daysInMonth.length - 1) {
         rows.push(
           <Grid container key={`row-${i}`}>
             {days}
@@ -1297,7 +1032,7 @@ const AppointmentCalendar = ({
       }
     }
 
-    return <Box sx={{ mt: { xs: 1, sm: 2 } }}>{rows}</Box>;
+    return <Box sx={{ mt: 2 }}>{rows}</Box>;
   };
 
   // Render the single day view
@@ -1438,7 +1173,7 @@ const AppointmentCalendar = ({
         invoiceId: appointment.invoiceId || "",
         createdBy: appointment.createdBy || "",
         estimatedDuration: appointment.estimatedDuration || 1,
-        deliveryDate: appointment.deliveryDate ? new Date(appointment.deliveryDate) : addDays(new Date(appointment.date), appointment.estimatedDuration || 1),
+        deliveryDate: appointment.deliveryDate ? new Date(appointment.deliveryDate) : null,
         allDay: appointment.allDay || false
       });
     } else {
@@ -1457,7 +1192,7 @@ const AppointmentCalendar = ({
         invoiceId: "",
         createdBy: "",
         estimatedDuration: 1,
-        deliveryDate: addDays(selectedDate, 1),
+        deliveryDate: null,
         allDay: false
       });
     }
@@ -1622,6 +1357,8 @@ const AppointmentCalendar = ({
     const isUpcoming = appointment.isUpcoming;
     const statusColor = getAppointmentStatusColor(appointment.status);
     const spanDuration = appointment.duration || 1;
+    const isRepair = appointment.type === 'repair';
+    const hasDeliveryDate = appointment.deliveryDate && isRepair;
 
     return (
       <Box
@@ -1737,7 +1474,7 @@ const AppointmentCalendar = ({
             </Typography>
           </Box>
           
-          {appointment.type === 'repair' && appointment.deliveryDate && (
+          {hasDeliveryDate && (
             <Box sx={{ display: "flex", alignItems: "center" }}>
               <ArrowRight size={14} style={{ marginRight: 4 }} />
               <Typography variant="body2" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
@@ -1823,7 +1560,7 @@ const AppointmentCalendar = ({
             <Button
               size="small"
               onClick={() => openAppointmentForm(appointment)}
-              disabled={loading || syncStatus.isSyncing}
+              disabled={loading || syncStatus.syncInProgress}
               fullWidth={window.innerWidth < 600}
               sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
             >
@@ -1833,7 +1570,7 @@ const AppointmentCalendar = ({
               size="small"
               color="error"
               onClick={() => handleDeleteAppointment(appointment.id)}
-              disabled={loading || syncStatus.isSyncing}
+              disabled={loading || syncStatus.syncInProgress}
               fullWidth={window.innerWidth < 600}
               sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
             >
@@ -1861,7 +1598,7 @@ const AppointmentCalendar = ({
                 size="small"
                 variant="contained"
                 onClick={() => openAppointmentForm()}
-                disabled={loading || syncStatus.isSyncing}
+                disabled={loading || syncStatus.syncInProgress}
                 startIcon={<Plus size={16} />}
               >
                 New
@@ -1934,10 +1671,15 @@ const AppointmentCalendar = ({
   };
 
   const handleStatusChange = useCallback(async (appointmentId, newStatus) => {
+    if (syncStatus.syncInProgress) {
+      console.log("Sync in progress, skipping status update");
+      return;
+    }
+
     try {
       setLoading(true);
-  
-      // Find the appointment in the current state
+      setSyncStatus(prev => ({ ...prev, syncInProgress: true }));
+
       const appointment = appointments.find(
         (a) => a.id === appointmentId || a._id === appointmentId
       );
@@ -1945,14 +1687,12 @@ const AppointmentCalendar = ({
       if (!appointment) {
         console.error(`Appointment ${appointmentId} not found`);
         toast.error("Appointment not found");
-        setLoading(false);
         return;
       }
-  
-      // Update appointment in backend
+
       await appointmentsAPI.updateStatus(appointmentId, newStatus);
       console.log(`Updated appointment ${appointmentId} status to ${newStatus}`);
-  
+
       // Update local state
       const updatedAppointments = appointments.map((app) => {
         if (app.id === appointmentId || app._id === appointmentId) {
@@ -1963,9 +1703,9 @@ const AppointmentCalendar = ({
         }
         return app;
       });
-  
+
       setAppointments(updatedAppointments);
-  
+
       // Update filtered appointments
       const filtered = filterAppointments(
         updatedAppointments,
@@ -1975,15 +1715,16 @@ const AppointmentCalendar = ({
         showAllAppointments
       );
       setFilteredAppointments(filtered);
-  
+
       toast.success(`Appointment status updated to ${newStatus.replace('_', ' ')}`);
-      setLoading(false);
     } catch (error) {
       console.error("Error updating appointment status:", error);
       toast.error("Failed to update appointment status");
+    } finally {
       setLoading(false);
+      setSyncStatus(prev => ({ ...prev, syncInProgress: false }));
     }
-  }, [appointments, filterAppointments, statusFilter, typeFilter, selectedDate, showAllAppointments]);
+  }, [appointments, filterAppointments, statusFilter, typeFilter, selectedDate, showAllAppointments, syncStatus.syncInProgress]);
 
   return (
     <Container 
@@ -1993,8 +1734,10 @@ const AppointmentCalendar = ({
         mb: { xs: 2, sm: 4 },
         width: isFullPage ? '100%' : 'auto',
         px: { xs: 1, sm: isFullPage ? 0 : 2 },
-        height: 'calc(100vh - 100px)',
-        overflow: 'hidden'
+        height: 'calc(100vh - 64px)', // Adjusted to account for header
+        overflow: 'hidden',
+        display: 'flex',
+        flexDirection: 'column'
       }}
     >
       {error && (
@@ -2019,35 +1762,93 @@ const AppointmentCalendar = ({
       )}
 
       {/* Main Grid Container for Calendar and Appointments List */}
-      <Grid container spacing={2} sx={{ height: '100%' }}>
+      <Grid 
+        container 
+        spacing={2} 
+        sx={{ 
+          height: '100%',
+          flex: 1,
+          minHeight: 0 // Important for proper flex behavior
+        }}
+      >
         {/* Calendar Section - Takes 2/3 of the space */}
-        <Grid item xs={12} md={8} sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-          <Card sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            <CardContent sx={{ 
-              p: { xs: 1, sm: isFullPage ? 4 : 2 },
+        <Grid 
+          item 
+          xs={12} 
+          md={8} 
+          sx={{ 
+            height: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            minHeight: 0 // Important for proper flex behavior
+          }}
+        >
+          <Card 
+            sx={{ 
               flex: 1,
               display: 'flex',
               flexDirection: 'column',
-              overflow: 'hidden'
-            }}>
+              overflow: 'hidden',
+              height: '100%'
+            }}
+          >
+            <CardContent 
+              sx={{ 
+                p: { xs: 1, sm: isFullPage ? 4 : 2 },
+                flex: 1,
+                display: 'flex',
+                flexDirection: 'column',
+                overflow: 'hidden',
+                height: '100%',
+                '& > *': { // Ensure all direct children respect the container
+                  minHeight: 0
+                }
+              }}
+            >
               {/* Calendar Header */}
               {renderHeader()}
 
               {/* Calendar View */}
-              {viewMode === "month" ? (
-                <>
-                  {renderDays()}
-                  {renderCells()}
-                </>
-              ) : (
-                renderDayView()
-              )}
+              <Box sx={{ 
+                flex: 1,
+                display: 'flex',
+                flexDirection: 'column',
+                overflow: 'hidden',
+                minHeight: 0 // Important for proper flex behavior
+              }}>
+                {viewMode === "month" ? (
+                  <>
+                    {renderDays()}
+                    <Box sx={{ 
+                      flex: 1,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      overflow: 'auto',
+                      minHeight: 0 // Important for proper flex behavior
+                    }}>
+                      {renderCells()}
+                    </Box>
+                  </>
+                ) : (
+                  renderDayView()
+                )}
+              </Box>
             </CardContent>
           </Card>
         </Grid>
 
         {/* Appointments List Section - Takes 1/3 of the space */}
-        <Grid item xs={12} md={4}>
+        <Grid 
+          item 
+          xs={12} 
+          md={4}
+          sx={{
+            height: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            minHeight: 0 // Important for proper flex behavior
+          }}
+        >
           {renderAppointmentsList()}
         </Grid>
       </Grid>
@@ -2154,6 +1955,41 @@ const AppointmentCalendar = ({
                 </Select>
               </FormControl>
             </Grid>
+
+            {formData.type === 'repair' && (
+              <>
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    label="Estimated Duration (days)"
+                    type="number"
+                    fullWidth
+                    value={formData.estimatedDuration}
+                    onChange={(e) => {
+                      const duration = parseInt(e.target.value) || 1;
+                      handleFormChange("estimatedDuration", duration);
+                      // Update delivery date based on new duration
+                      if (!formData.deliveryDate) {
+                        handleFormChange("deliveryDate", addDays(formData.date, duration));
+                      }
+                    }}
+                    InputProps={{ inputProps: { min: 1 } }}
+                    helperText="Estimated number of days for repair"
+                  />
+                </Grid>
+                
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    label="Delivery Date"
+                    type="date"
+                    fullWidth
+                    value={formData.deliveryDate ? format(formData.deliveryDate, "yyyy-MM-dd") : ""}
+                    onChange={(e) => handleFormChange("deliveryDate", e.target.value ? new Date(e.target.value) : null)}
+                    InputLabelProps={{ shrink: true }}
+                    helperText="Expected completion date"
+                  />
+                </Grid>
+              </>
+            )}
 
             <Grid item xs={12}>
               <TextField

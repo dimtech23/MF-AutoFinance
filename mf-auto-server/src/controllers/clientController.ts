@@ -84,6 +84,23 @@ export const createClient = async (req: Request, res: Response): Promise<Respons
     });
     
     const savedClient = await newClient.save();
+
+    // Create initial appointment for the new client
+    const initialAppointment = new Appointment({
+      title: `Initial Service - ${savedClient.clientName}`,
+      date: new Date(),
+      time: '10:00',
+      clientId: savedClient._id,
+      clientName: savedClient.clientName,
+      vehicleInfo: savedClient.carDetails?.make + ' ' + savedClient.carDetails?.model,
+      type: 'repair',
+      status: 'scheduled',
+      description: savedClient.issueDescription || 'Initial service appointment',
+      createdBy: (req as any).user._id
+    });
+
+    await initialAppointment.save();
+    
     return res.status(201).json(savedClient);
   } catch (error) {
     console.error('Error creating client:', error);
@@ -207,6 +224,9 @@ export const updateClientStatus = async (req: Request, res: Response): Promise<R
       },
       { new: true }
     );
+
+    // Update related appointments with the new status
+    await updateRelatedAppointments(req.params.id, { repairStatus: status });
     
     return res.status(200).json(updatedClient);
   } catch (error) {
@@ -297,9 +317,6 @@ const updateRelatedAppointments = async (clientId: string, updatedFields: any): 
     const client = await Client.findById(clientId);
     if (!client) return;
     
-    // Only proceed if client name or vehicle info changed
-    if (!updatedFields.clientName && !updatedFields.carDetails) return;
-    
     // Find all appointments for this client
     const clientAppointments = await Appointment.find({ clientId });
     
@@ -328,7 +345,7 @@ const updateRelatedAppointments = async (clientId: string, updatedFields: any): 
         }
       }
       
-      // Update appointment status based on repair status
+      // Always update appointment status based on repair status if it changed
       if (updatedFields.repairStatus && appointment.type === 'repair') {
         const statusMap: Record<string, string> = {
           'waiting': 'scheduled',
@@ -341,6 +358,11 @@ const updateRelatedAppointments = async (clientId: string, updatedFields: any): 
         const newStatus = statusMap[updatedFields.repairStatus];
         if (newStatus && appointment.status !== newStatus) {
           appointmentUpdates.status = newStatus;
+          
+          // Update delivery date for repair appointments when completed
+          if (updatedFields.repairStatus === 'completed' && !appointment.deliveryDate) {
+            appointmentUpdates.deliveryDate = new Date();
+          }
         }
       }
       
