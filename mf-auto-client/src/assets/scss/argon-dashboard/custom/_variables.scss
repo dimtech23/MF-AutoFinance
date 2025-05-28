@@ -467,14 +467,14 @@ $table-head-letter-spacing:   1px !default;
 
 $table-body-font-size:        .8125rem !default;
 
-$table-dark-bg:               theme-color("default") !default;
+$table-dark-bg:               $default !default;
 $table-dark-accent-bg:        rgba($white, .05) !default;
 $table-dark-hover-bg:         rgba($white, .075) !default;
-$table-dark-border-color:     lighten(theme-color("default"), 7%) !default;
+$table-dark-border-color:     lighten($default, 7%) !default;
 $table-dark-color:            $body-bg !default;
 
-$table-dark-head-bg:          lighten(theme-color("default"), 4%) !default;
-$table-dark-head-color:       lighten(theme-color("default"), 35%) !default;
+$table-dark-head-bg:          lighten($default, 4%) !default;
+$table-dark-head-color:       lighten($default, 35%) !default;
 
 // Buttons + Forms
 

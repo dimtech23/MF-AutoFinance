@@ -3,7 +3,7 @@ import {
   BrowserRouter as Router,
   Route,
   Switch,
-  Redirect,
+  Redirect
 } from "react-router-dom";
 import { UserProvider } from "./Context/UserContext";
 import Admin from "./layouts/Admin";
