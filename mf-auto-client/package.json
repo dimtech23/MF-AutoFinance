@@ -20,8 +20,9 @@
   "bugs": {},
   "scripts": {
     "start": "react-scripts start",
-   "build": "CI=false react-scripts build",
-    "serve": "serve -s build -l 3000 --cors --no-compression --debug --single",
+    "prebuild": "npm install ajv@8.12.0 ajv-keywords@5.1.0 --no-save",
+    "build": "CI=false react-scripts build",
+    "serve": "serve -s build -l 3000 --cors --no-compression --debug --single",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
     "install:clean": "if exist node_modules rmdir /s /q node_modules && if exist package-lock.json del package-lock.json && npm install && npm start",
@@ -73,7 +74,9 @@
     "serve": "^14.2.4",
     "sweetalert2": "^11.6.16",
     "sweetalert2-react-content": "^5.0.7",
-    "xlsx": "^0.18.5"
+    "xlsx": "^0.18.5",
+    "ajv": "^8.12.0",
+    "ajv-keywords": "^5.1.0"
   },
   "devDependencies": {
     "assert": "^2.0.0",
@@ -98,5 +101,10 @@
     "eslint-plugin-flowtype": "8.0.3",
     "jquery": "3.6.0",
     "typescript": "4.8.2"
+  },
+  "resolutions": {
+    "ajv": "^8.12.0",
+    "ajv-keywords": "^5.1.0",
+    "ajv/dist/compile/codegen": "^8.12.0"
   }
 }
