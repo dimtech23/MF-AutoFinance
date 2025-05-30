@@ -5,6 +5,8 @@ import User from '../models/User';
 import { UserRole } from '../constants/roles';
 import mongoose from 'mongoose';
 import bcrypt from 'bcrypt';
+import { BufferedPDFDocument } from 'pdf-lib';
+import { format } from 'date-fns';
 
 
 // Get all clients
@@ -567,5 +569,187 @@ export const getClientSummary = async (_req: Request, res: Response): Promise<Re
   } catch (error) {
     console.error('Error fetching client summary:', error);
     return res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Generate completion PDF for client
+export const generateCompletionPDF = async (req: Request, res: Response): Promise<Response> => {
+  let doc: BufferedPDFDocument | null = null;
+  
+  try {
+    const client = await Client.findById(req.params.id);
+    if (!client) {
+      return res.status(404).json({ message: 'Client not found' });
+    }
+
+    // Only generate PDF for completed or delivered clients
+    if (!['completed', 'delivered'].includes(client.repairStatus)) {
+      return res.status(400).json({ message: 'Can only generate completion PDF for completed or delivered clients' });
+    }
+    
+    // Create PDF document with smaller margins for more space
+    doc = createBufferedPDF({
+      size: 'A4',
+      margin: 40,
+      bufferPages: true
+    });
+    
+    if (!doc) {
+      throw new Error('Failed to create PDF document');
+    }
+
+    const pdfDoc = doc as BufferedPDFDocument;
+
+    // Set response headers
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="completion-${client.clientName}-${client._id}.pdf"`);
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+
+    pdfDoc.pipe(res);
+    
+    // Add company logo with proper spacing
+    try {
+      const logoBuffer = await getCompanyLogo();
+      if (logoBuffer) {
+        pdfDoc.image(logoBuffer, 40, 40, {
+          width: 120,
+          height: 120,
+          fit: [120, 120]
+        });
+      }
+    } catch (error) {
+      console.error('Error adding company logo:', error);
+      // Continue without the logo
+    }
+
+    // Company header - positioned to the right of the logo
+    pdfDoc.fontSize(24)
+        .text('MF Auto Finance', 180, 60)
+        .fontSize(12)
+        .text('Professional Auto Repair & Maintenance', 180, 90)
+        .fontSize(10)
+        .text('123 Main Street, City, Country', 180, 110)
+        .text('Phone: (123) 456-7890 | Email: info@mfautofinance.com', 180, 125);
+
+    // Add a horizontal line after header
+    pdfDoc.moveTo(40, 170)
+          .lineTo(pdfDoc.page.width - 40, 170)
+          .stroke();
+
+    // Completion title and details - starting at y=190
+    pdfDoc.fontSize(20)
+        .text('REPAIR COMPLETION CERTIFICATE', { align: 'center' })
+        .moveDown(0.5);
+
+    // Create two columns for client details
+    const leftColumn = 40;
+    const rightColumn = pdfDoc.page.width / 2 + 20;
+    const columnWidth = (pdfDoc.page.width - 80) / 2;
+
+    // Left column - Client details
+    pdfDoc.fontSize(12)
+        .text('Client Details:', leftColumn, 210)
+        .fontSize(10)
+        .text(`Client Name: ${client.clientName}`, leftColumn, 230)
+        .text(`Phone: ${client.phoneNumber}`, leftColumn, 245)
+        .text(`Email: ${client.email || 'N/A'}`, leftColumn, 260)
+        .text(`Status: ${client.repairStatus.toUpperCase()}`, leftColumn, 275)
+        .text(`Completion Date: ${format(new Date(client.updatedAt), 'PPP')}`, leftColumn, 290);
+
+    // Right column - Vehicle information
+    pdfDoc.fontSize(12)
+        .text('Vehicle Information:', rightColumn, 210)
+        .fontSize(10)
+        .text(`Make: ${client.carDetails?.make || 'N/A'}`, rightColumn, 230)
+        .text(`Model: ${client.carDetails?.model || 'N/A'}`, rightColumn, 245)
+        .text(`Year: ${client.carDetails?.year || 'N/A'}`, rightColumn, 260)
+        .text(`License Plate: ${client.carDetails?.licensePlate || 'N/A'}`, rightColumn, 275)
+        .text(`VIN: ${client.carDetails?.vin || 'N/A'}`, rightColumn, 290);
+
+    // Add a horizontal line before repair details
+    pdfDoc.moveTo(40, 320)
+          .lineTo(pdfDoc.page.width - 40, 320)
+          .stroke();
+
+    // Repair details - starting at y=340
+    pdfDoc.fontSize(12)
+        .text('Repair Details:', 40, 340)
+        .fontSize(10)
+        .text(`Issue Description: ${client.issueDescription || 'N/A'}`, 40, 360, {
+          width: pdfDoc.page.width - 80
+        })
+        .moveDown(0.5);
+
+    // Procedures performed
+    if (client.procedures && client.procedures.length > 0) {
+      pdfDoc.fontSize(12)
+          .text('Procedures Performed:', 40, pdfDoc.y)
+          .moveDown(0.5);
+
+      client.procedures.forEach((procedure: string, index: number) => {
+        pdfDoc.fontSize(10)
+            .text(`${index + 1}. ${procedure}`, 50, pdfDoc.y, {
+              width: pdfDoc.page.width - 100
+            })
+            .moveDown(0.3);
+      });
+    }
+
+    // Pre-existing issues
+    if (client.preExistingIssues && client.preExistingIssues.length > 0) {
+      pdfDoc.moveDown(0.5)
+          .fontSize(12)
+          .text('Pre-existing Issues:', 40, pdfDoc.y)
+          .moveDown(0.5);
+
+      client.preExistingIssues.forEach((issue: string, index: number) => {
+        pdfDoc.fontSize(10)
+            .text(`${index + 1}. ${issue}`, 50, pdfDoc.y, {
+              width: pdfDoc.page.width - 100
+            })
+            .moveDown(0.3);
+      });
+    }
+
+    // Notes
+    if (client.notes) {
+      pdfDoc.moveDown(0.5)
+          .fontSize(12)
+          .text('Additional Notes:', 40, pdfDoc.y)
+          .moveDown(0.5)
+          .fontSize(10)
+          .text(client.notes, 50, pdfDoc.y, {
+            width: pdfDoc.page.width - 100
+          });
+    }
+
+    // Add a horizontal line before signature
+    pdfDoc.moveDown(2)
+          .moveTo(40, pdfDoc.y)
+          .lineTo(pdfDoc.page.width - 40, pdfDoc.y)
+          .stroke()
+          .moveDown(1);
+
+    // Signature section
+    pdfDoc.fontSize(12)
+        .text('Authorized by:', 40, pdfDoc.y)
+        .moveDown(2)
+        .text('________________________', 40, pdfDoc.y)
+        .moveDown(0.5)
+        .fontSize(10)
+        .text('MF Auto Finance Representative', 40, pdfDoc.y);
+
+    // Finalize the PDF
+    pdfDoc.end();
+    
+    return res.status(200);
+  } catch (error) {
+    console.error('Error generating completion PDF:', error);
+    if (doc) {
+      doc.end();
+    }
+    return res.status(500).json({ message: 'Error generating PDF' });
   }
 };

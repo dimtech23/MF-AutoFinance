@@ -1,4 +1,4 @@
-import React, { memo, useMemo, useState } from "react";
+import React, { memo, useMemo, useState, useCallback } from "react";
 import {
   Table,
   TableBody,
@@ -17,6 +17,7 @@ import {
   useTheme,
   useMediaQuery,
   CircularProgress,
+  TablePagination,
 } from "@mui/material";
 import {
   Edit,
@@ -31,6 +32,8 @@ import {
   Tool,
   XCircle,
 } from "react-feather";
+import { FixedSizeList as List } from 'react-window';
+import AutoSizer from 'react-virtualized-auto-sizer';
 
 // Error Boundary Component
 class TableErrorBoundary extends React.Component {
@@ -110,14 +113,16 @@ const PAYMENT_STATUSES = {
     color: "error",
     icon: XCircle,
     nextStatus: "paid",
-    nextLabel: "Mark as Paid"
+    nextLabel: "Mark as Paid",
+    showUpdateButton: true
   },
   PAID: {
     value: "paid",
     label: "Paid",
     color: "success",
     icon: CheckCircle,
-    isFinal: true
+    isFinal: true,
+    showUpdateButton: false
   },
   PARTIAL: {
     value: "partial",
@@ -125,7 +130,8 @@ const PAYMENT_STATUSES = {
     color: "warning",
     icon: DollarSign,
     nextStatus: "paid",
-    nextLabel: "Complete Payment"
+    nextLabel: "Complete Payment",
+    showUpdateButton: true
   }
 };
 
@@ -301,6 +307,254 @@ const MobileClientCard = memo(({
   );
 });
 
+// Memoized table row component
+const TableRowComponent = memo(({ 
+  client, 
+  onView, 
+  onEdit, 
+  onDelete, 
+  onUpdateStatus, 
+  onUpdatePayment, 
+  onMarkDelivered, 
+  formatDate,
+  getStatusConfig,
+  loadingActions,
+  handleAction,
+  style 
+}) => {
+  const clientId = client.id || client._id;
+  const repairStatus = getStatusConfig(client.repairStatus, 'repair');
+  const paymentStatus = getStatusConfig(client.paymentStatus, 'payment');
+  const isLoading = loadingActions[clientId];
+
+  return (
+    <Box
+      sx={{
+        display: 'flex',
+        width: '100%',
+        borderBottom: '1px solid',
+        borderColor: 'divider',
+        '&:hover': {
+          backgroundColor: 'action.hover'
+        }
+      }}
+      role="row"
+      aria-label={`Client row for ${client.clientName}`}
+      style={style}
+    >
+      {/* Client Info Cell */}
+      <Box sx={{ 
+        width: '20%', 
+        p: '8px 16px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 1,
+        overflow: 'hidden'
+      }}>
+        <Avatar 
+          sx={{ width: 32, height: 32, flexShrink: 0 }}
+          aria-label={`Avatar for ${client.clientName}`}
+        >
+          {client.clientName?.[0] || "?"}
+        </Avatar>
+        <Box sx={{ minWidth: 0 }}>
+          <Typography variant="subtitle2" noWrap>
+            {client.clientName}
+          </Typography>
+          <Typography variant="caption" color="text.secondary" noWrap>
+            {client.phoneNumber}
+          </Typography>
+        </Box>
+      </Box>
+
+      {/* Vehicle Info Cell */}
+      <Box sx={{ 
+        width: '15%', 
+        p: '8px 16px',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        overflow: 'hidden'
+      }}>
+        <Typography variant="body2" noWrap>
+          {client.carDetails?.year} {client.carDetails?.make} {client.carDetails?.model}
+        </Typography>
+        <Typography variant="caption" color="text.secondary" noWrap>
+          {client.carDetails?.licensePlate}
+        </Typography>
+      </Box>
+
+      {/* Service Info Cell */}
+      <Box sx={{ 
+        width: '20%', 
+        p: '8px 16px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 0.5,
+        overflow: 'hidden'
+      }}>
+        {client.procedures?.map((p, i) => (
+          <Chip
+            key={i}
+            label={p.label || p}
+            size="small"
+            variant="outlined"
+            sx={{ height: 24, maxWidth: '100%' }}
+            role="listitem"
+          />
+        ))}
+      </Box>
+
+      {/* Status Cell */}
+      <Box sx={{ 
+        width: '15%', 
+        p: '8px 16px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 1,
+        overflow: 'hidden'
+      }}>
+        {repairStatus && (
+          <>
+            <Chip
+              label={repairStatus.label}
+              color={repairStatus.color}
+              icon={<repairStatus.icon size={16} />}
+              size="small"
+              onClick={() => !repairStatus.isFinal && onUpdateStatus && 
+                handleAction(onUpdateStatus, clientId, repairStatus.nextStatus)}
+              sx={{ 
+                cursor: repairStatus.isFinal ? 'default' : 'pointer',
+                '&:hover': {
+                  opacity: repairStatus.isFinal ? 1 : 0.8
+                }
+              }}
+              role="button"
+              aria-label={`Repair status: ${repairStatus.label}`}
+            />
+            {!repairStatus.isFinal && (
+              <Button
+                size="small"
+                variant="outlined"
+                color={repairStatus.color}
+                onClick={() => onUpdateStatus && 
+                  handleAction(onUpdateStatus, clientId, repairStatus.nextStatus)}
+                startIcon={isLoading ? <CircularProgress size={16} /> : <repairStatus.icon size={16} />}
+                disabled={isLoading}
+                sx={{ height: 24, fontSize: '0.75rem' }}
+                aria-label={`Update status to ${repairStatus.nextLabel}`}
+              >
+                {repairStatus.nextLabel}
+              </Button>
+            )}
+          </>
+        )}
+      </Box>
+
+      {/* Payment Cell */}
+      <Box sx={{ 
+        width: '15%', 
+        p: '8px 16px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 1,
+        overflow: 'hidden'
+      }}>
+        {paymentStatus && (
+          <>
+            <Chip
+              label={paymentStatus.label}
+              color={paymentStatus.color}
+              icon={<paymentStatus.icon size={16} />}
+              size="small"
+              onClick={() => paymentStatus.showUpdateButton && onUpdatePayment && 
+                handleAction(onUpdatePayment, clientId, paymentStatus.nextStatus)}
+              sx={{ 
+                cursor: paymentStatus.showUpdateButton ? 'pointer' : 'default',
+                '&:hover': {
+                  opacity: paymentStatus.showUpdateButton ? 0.8 : 1
+                }
+              }}
+              role="button"
+              aria-label={`Payment status: ${paymentStatus.label}`}
+            />
+            {paymentStatus.showUpdateButton && (
+              <Button
+                size="small"
+                variant="outlined"
+                color={paymentStatus.color}
+                onClick={() => onUpdatePayment && 
+                  handleAction(onUpdatePayment, clientId, paymentStatus.nextStatus)}
+                startIcon={isLoading ? <CircularProgress size={16} /> : <paymentStatus.icon size={16} />}
+                disabled={isLoading}
+                sx={{ height: 24, fontSize: '0.75rem' }}
+                aria-label={`Update payment to ${paymentStatus.nextLabel}`}
+              >
+                {paymentStatus.nextLabel}
+              </Button>
+            )}
+          </>
+        )}
+      </Box>
+
+      {/* Delivery Cell */}
+      <Box sx={{ 
+        width: '10%', 
+        p: '8px 16px',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        overflow: 'hidden'
+      }}>
+        <Typography variant="body2" noWrap>
+          {formatDate(client.deliveryDate)}
+        </Typography>
+        <Typography variant="caption" color="text.secondary" noWrap>
+          {client.deliveryDate ? `${Math.max(0, Math.ceil((new Date(client.deliveryDate) - new Date()) / (1000 * 60 * 60 * 24)))} days left` : 'No date set'}
+        </Typography>
+      </Box>
+
+      {/* Actions Cell */}
+      <Box sx={{ 
+        width: '5%', 
+        p: '8px 16px',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        gap: 1
+      }}>
+        <Tooltip title="View Details">
+          <IconButton 
+            size="small" 
+            onClick={() => onView && onView(client)}
+            aria-label="View client details"
+          >
+            <Info size={16} />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title="Edit">
+          <IconButton 
+            size="small" 
+            onClick={() => onEdit && onEdit(client)}
+            aria-label="Edit client"
+          >
+            <Edit size={16} />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title="Delete">
+          <IconButton 
+            size="small" 
+            onClick={() => onDelete && onDelete(client)}
+            aria-label="Delete client"
+          >
+            <Trash2 size={16} />
+          </IconButton>
+        </Tooltip>
+      </Box>
+    </Box>
+  );
+});
+
 // Main table component
 const ClientsTable = ({
   clients = [],
@@ -317,6 +571,8 @@ const ClientsTable = ({
   const isTablet = useMediaQuery(theme.breakpoints.down('md'));
   const getStatusConfig = useStatusConfig();
   const [loadingActions, setLoadingActions] = useState({});
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
 
   // Memoized table headers
   const tableHeaders = useMemo(() => [
@@ -330,14 +586,31 @@ const ClientsTable = ({
   ], []);
 
   // Handle action with loading state
-  const handleAction = async (action, clientId, ...args) => {
+  const handleAction = useCallback(async (action, clientId, ...args) => {
     setLoadingActions(prev => ({ ...prev, [clientId]: true }));
     try {
       await action(clientId, ...args);
     } finally {
       setLoadingActions(prev => ({ ...prev, [clientId]: false }));
     }
-  };
+  }, []);
+
+  // Handle page change
+  const handleChangePage = useCallback((event, newPage) => {
+    setPage(newPage);
+  }, []);
+
+  // Handle rows per page change
+  const handleChangeRowsPerPage = useCallback((event) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  }, []);
+
+  // Memoized paginated clients
+  const paginatedClients = useMemo(() => {
+    const start = page * rowsPerPage;
+    return clients.slice(start, start + rowsPerPage);
+  }, [clients, page, rowsPerPage]);
 
   // Memoized mobile view
   if (isMobile) {
@@ -348,7 +621,7 @@ const ClientsTable = ({
           role="list"
           aria-label="Client list"
         >
-          {clients.map(client => (
+          {paginatedClients.map(client => (
             <MobileClientCard
               key={client.id || client._id}
               client={client}
@@ -361,245 +634,122 @@ const ClientsTable = ({
             />
           ))}
         </Box>
+        <TablePagination
+          component="div"
+          count={clients.length}
+          page={page}
+          onPageChange={handleChangePage}
+          rowsPerPage={rowsPerPage}
+          onRowsPerPageChange={handleChangeRowsPerPage}
+        />
       </TableErrorBoundary>
     );
   }
 
-  // Desktop view
+  // Desktop view with virtualization
   return (
     <TableErrorBoundary>
-      <TableContainer 
-        component={Paper}
-        sx={{
-          overflowX: 'auto',
-          '& .MuiTable-root': {
-            minWidth: isTablet ? 800 : 1000
-          }
-        }}
-        role="region"
-        aria-label="Clients table"
-      >
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              {tableHeaders.map(header => (
-                <TableCell 
-                  key={header.id}
-                  align={header.align}
-                  role="columnheader"
+      <Box sx={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 200px)' }}>
+        <TableContainer 
+          component={Paper}
+          sx={{
+            flex: 1,
+            overflow: 'hidden',
+            '& .MuiTable-root': {
+              minWidth: isTablet ? 800 : 1000,
+              tableLayout: 'fixed'
+            },
+            '& .MuiTableCell-root': {
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              padding: '8px 16px'
+            },
+            '& .MuiTableCell-head': {
+              backgroundColor: theme.palette.background.paper,
+              fontWeight: 'bold',
+              borderBottom: `2px solid ${theme.palette.divider}`
+            }
+          }}
+          role="region"
+          aria-label="Clients table"
+        >
+          <Table size="small" stickyHeader>
+            <TableHead>
+              <TableRow>
+                {tableHeaders.map(header => (
+                  <TableCell 
+                    key={header.id}
+                    align={header.align}
+                    role="columnheader"
+                    sx={{
+                      width: header.id === 'client' ? '20%' :
+                             header.id === 'vehicle' ? '15%' :
+                             header.id === 'service' ? '20%' :
+                             header.id === 'status' ? '15%' :
+                             header.id === 'payment' ? '15%' :
+                             header.id === 'delivery' ? '10%' :
+                             header.id === 'actions' ? '5%' : 'auto'
+                    }}
+                  >
+                    {header.label}
+                  </TableCell>
+                ))}
+              </TableRow>
+            </TableHead>
+          </Table>
+          <Box sx={{ height: 'calc(100% - 48px)', overflow: 'hidden' }}>
+            <AutoSizer>
+              {({ height, width }) => (
+                <List
+                  height={height}
+                  width={width}
+                  itemCount={paginatedClients.length}
+                  itemSize={64} // Slightly reduced row height
+                  overscanCount={5}
                 >
-                  {header.label}
-                </TableCell>
-              ))}
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {clients.map((client) => {
-              const clientId = client.id || client._id;
-              const repairStatus = getStatusConfig(client.repairStatus, 'repair');
-              const paymentStatus = getStatusConfig(client.paymentStatus, 'payment');
-              const isLoading = loadingActions[clientId];
-              
-              return (
-                <TableRow 
-                  key={clientId} 
-                  hover
-                  role="row"
-                  aria-label={`Client row for ${client.clientName}`}
-                >
-                  {/* Client Info Cell */}
-                  <TableCell role="cell">
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                      <Avatar 
-                        sx={{ width: 32, height: 32 }}
-                        aria-label={`Avatar for ${client.clientName}`}
-                      >
-                        {client.clientName?.[0] || "?"}
-                      </Avatar>
-                      <Box>
-                        <Typography variant="subtitle2">
-                          {client.clientName}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {client.phoneNumber}
-                        </Typography>
-                      </Box>
-                    </Box>
-                  </TableCell>
-
-                  {/* Vehicle Info Cell */}
-                  <TableCell role="cell">
-                    <Typography variant="body2">
-                      {client.carDetails?.year} {client.carDetails?.make} {client.carDetails?.model}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {client.carDetails?.licensePlate}
-                    </Typography>
-                  </TableCell>
-
-                  {/* Service Info Cell */}
-                  <TableCell role="cell">
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                      {client.procedures?.map((p, i) => (
-                        <Chip
-                          key={i}
-                          label={p.label || p}
-                          size="small"
-                          variant="outlined"
-                          sx={{ height: 24 }}
-                          role="listitem"
-                        />
-                      ))}
-                    </Box>
-                  </TableCell>
-
-                  {/* Status Cell */}
-                  <TableCell role="cell">
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                      {repairStatus && (
-                        <>
-                          <Chip
-                            label={repairStatus.label}
-                            color={repairStatus.color}
-                            icon={<repairStatus.icon size={16} />}
-                            size="small"
-                            onClick={() => !repairStatus.isFinal && onUpdateStatus && 
-                              handleAction(onUpdateStatus, clientId, repairStatus.nextStatus)}
-                            sx={{ 
-                              cursor: repairStatus.isFinal ? 'default' : 'pointer',
-                              '&:hover': {
-                                opacity: repairStatus.isFinal ? 1 : 0.8
-                              }
-                            }}
-                            role="button"
-                            aria-label={`Repair status: ${repairStatus.label}`}
-                          />
-                          {!repairStatus.isFinal && (
-                            <Button
-                              size="small"
-                              variant="outlined"
-                              color={repairStatus.color}
-                              onClick={() => onUpdateStatus && 
-                                handleAction(onUpdateStatus, clientId, repairStatus.nextStatus)}
-                              startIcon={isLoading ? <CircularProgress size={16} /> : <repairStatus.icon size={16} />}
-                              disabled={isLoading}
-                              sx={{ height: 24, fontSize: '0.75rem' }}
-                              aria-label={`Update status to ${repairStatus.nextLabel}`}
-                            >
-                              {repairStatus.nextLabel}
-                            </Button>
-                          )}
-                        </>
-                      )}
-                    </Box>
-                  </TableCell>
-
-                  {/* Payment Cell */}
-                  <TableCell role="cell">
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                      {paymentStatus && (
-                        <>
-                          <Chip
-                            label={paymentStatus.label}
-                            color={paymentStatus.color}
-                            icon={<paymentStatus.icon size={16} />}
-                            size="small"
-                            onClick={() => !paymentStatus.isFinal && onUpdatePayment && 
-                              handleAction(onUpdatePayment, clientId, paymentStatus.nextStatus)}
-                            sx={{ 
-                              cursor: paymentStatus.isFinal ? 'default' : 'pointer',
-                              '&:hover': {
-                                opacity: paymentStatus.isFinal ? 1 : 0.8
-                              }
-                            }}
-                            role="button"
-                            aria-label={`Payment status: ${paymentStatus.label}`}
-                          />
-                          {!paymentStatus.isFinal && (
-                            <Button
-                              size="small"
-                              variant="outlined"
-                              color={paymentStatus.color}
-                              onClick={() => onUpdatePayment && 
-                                handleAction(onUpdatePayment, clientId, paymentStatus.nextStatus)}
-                              startIcon={isLoading ? <CircularProgress size={16} /> : <paymentStatus.icon size={16} />}
-                              disabled={isLoading}
-                              sx={{ height: 24, fontSize: '0.75rem' }}
-                              aria-label={`Update payment to ${paymentStatus.nextLabel}`}
-                            >
-                              {paymentStatus.nextLabel}
-                            </Button>
-                          )}
-                        </>
-                      )}
-                    </Box>
-                  </TableCell>
-
-                  {/* Delivery Date Cell */}
-                  <TableCell role="cell">
-                    <Typography variant="body2">
-                      {formatDate(client.deliveryDate)}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {client.deliveryDate ? 
-                        `${Math.max(0, Math.ceil((new Date(client.deliveryDate) - new Date()) / (1000 * 60 * 60 * 24)))} days left` : 
-                        'No date set'}
-                    </Typography>
-                  </TableCell>
-
-                  {/* Actions Cell */}
-                  <TableCell align="center" role="cell">
-                    <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
-                      <Tooltip title="View Details">
-                        <IconButton 
-                          size="small" 
-                          onClick={() => onView && onView(client)}
-                          aria-label="View client details"
-                        >
-                          <Info size={16} />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Edit">
-                        <IconButton 
-                          size="small" 
-                          onClick={() => onEdit && onEdit(client)}
-                          aria-label="Edit client"
-                        >
-                          <Edit size={16} />
-                        </IconButton>
-                      </Tooltip>
-                      {client.images?.length > 0 && (
-                        <Tooltip title="View Images">
-                          <IconButton 
-                            size="small" 
-                            onClick={() => window.open(client.images[0].url || client.images[0], "_blank")}
-                            aria-label="View client images"
-                          >
-                            <Camera size={16} />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                      {client.repairStatus === "completed" && client.paymentStatus === "paid" && (
-                        <Tooltip title="Mark as Delivered">
-                          <IconButton 
-                            size="small" 
-                            color="primary"
-                            onClick={() => onMarkDelivered && handleAction(onMarkDelivered, client)}
-                            disabled={isLoading}
-                            aria-label="Mark client as delivered"
-                          >
-                            {isLoading ? <CircularProgress size={16} /> : <CheckCircle size={16} />}
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                    </Box>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
-      </TableContainer>
+                  {({ index, style }) => (
+                    <TableRowComponent
+                      client={paginatedClients[index]}
+                      onView={onView}
+                      onEdit={onEdit}
+                      onDelete={onDelete}
+                      onUpdateStatus={onUpdateStatus}
+                      onUpdatePayment={onUpdatePayment}
+                      onMarkDelivered={onMarkDelivered}
+                      formatDate={formatDate}
+                      getStatusConfig={getStatusConfig}
+                      loadingActions={loadingActions}
+                      handleAction={handleAction}
+                      style={{
+                        ...style,
+                        width: '100%',
+                        display: 'flex'
+                      }}
+                    />
+                  )}
+                </List>
+              )}
+            </AutoSizer>
+          </Box>
+        </TableContainer>
+        <TablePagination
+          component="div"
+          count={clients.length}
+          page={page}
+          onPageChange={handleChangePage}
+          rowsPerPage={rowsPerPage}
+          onRowsPerPageChange={handleChangeRowsPerPage}
+          rowsPerPageOptions={[5, 10, 25, 50]}
+          sx={{
+            borderTop: `1px solid ${theme.palette.divider}`,
+            backgroundColor: theme.palette.background.paper,
+            '.MuiTablePagination-selectLabel, .MuiTablePagination-displayedRows': {
+              margin: 0
+            }
+          }}
+        />
+      </Box>
     </TableErrorBoundary>
   );
 };

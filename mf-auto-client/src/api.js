@@ -263,38 +263,21 @@ export const clientsAPI = {
   updateStatus: (clientId, status) => api.patch(`/api/clients/${clientId}/status`, { status }),
   updatePayment: (clientId, paymentData) => api.patch(`/api/clients/${clientId}/payment`, paymentData),
   markAsDelivered: (clientId, deliveryData) => api.patch(`/api/clients/${clientId}/delivery`, deliveryData),
-  generateCompletionPDF: (clientId) => api.get(`/api/clients/${clientId}/completion-pdf`),
-  generateDeliveryPDF: (clientId) => api.get(`/api/clients/${clientId}/delivery-pdf`),
-  getHistory: (params = {}) => {
-    // If params is a string, treat it as a clientId
-    if (typeof params === 'string') {
-      return api.get(`/api/clients/${params}/history`);
-    }
-    
-    // Otherwise, treat it as query parameters for all client history
-    const queryParams = new URLSearchParams();
-    if (params.startDate) queryParams.append('startDate', params.startDate);
-    if (params.endDate) queryParams.append('endDate', params.endDate);
-    if (params.type) queryParams.append('type', params.type);
-    if (params.status) queryParams.append('status', params.status);
-    if (params.category) queryParams.append('category', params.category);
-    
-    const queryString = queryParams.toString();
-    const url = queryString ? `/api/clients/history?${queryString}` : '/api/clients/history';
-    
-    return api.get(url);
-  },
+  getHistory: (params = {}) => api.get('/api/clients/history', { params }),
   getSummary: () => api.get('/api/clients/summary'),
-  getClientDocuments: async (clientId) => {
-    const response = await api.get(`/api/clients/${clientId}/documents`);
-    return response.data;
-  },
-  // You can add this method if needed
-  sendDocuments: async (clientId, documentUrls) => {
-    return api.post(`/api/clients/${clientId}/send-documents`, { documentUrls });
-  },
-  // Add getRepairHistory for fetching repair history
-  getRepairHistory: (clientId) => api.get(`/api/clients/${clientId}/history`)
+  getClientDocuments: (clientId) => api.get(`/api/clients/${clientId}/documents`),
+  sendDocuments: (clientId, documentUrls) => api.post(`/api/clients/${clientId}/send-documents`, { documentUrls }),
+  getRepairHistory: (clientId) => api.get(`/api/clients/${clientId}/repair-history`),
+  getCompletionPDF: (clientId) => api.get(`/api/clients/${clientId}/completion-pdf`, {
+    responseType: 'blob',
+    timeout: 30000, // 30 second timeout
+    headers: {
+      'Accept': 'application/pdf'
+    },
+    validateStatus: function (status) {
+      return status >= 200 && status < 300; // Only accept 2xx status codes
+    }
+  }),
 };
 
 // Add error handler function

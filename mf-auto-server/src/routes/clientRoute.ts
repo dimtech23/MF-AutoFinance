@@ -11,7 +11,8 @@ import {
   updatePaymentStatus,
   markAsDelivered,
   registerAdmin,
-  getClientSummary
+  getClientSummary,
+  generateCompletionPDF
 } from "../controllers/clientController";
 import { authenticateToken, authorize } from "../middlewares/authMiddleware";
 import { UserRole } from "../constants/roles";
@@ -56,5 +57,8 @@ router.patch('/:id/delivery', authorize([UserRole.ADMIN, UserRole.ACCOUNTANT]), 
 
 // Admin registration route
 router.post('/register-admin', registerAdmin);
+
+// Add the PDF generation route
+router.get('/:id/completion-pdf', generateCompletionPDF);
 
 export { router as clientRouter };

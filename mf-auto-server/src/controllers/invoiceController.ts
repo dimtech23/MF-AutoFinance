@@ -7,8 +7,6 @@ import PDFDocument from 'pdfkit';
 import { format } from 'date-fns';
 import ExcelJS from 'exceljs';
 import axios from 'axios';
-import * as fs from 'fs';
-import * as path from 'path';
 
 // Define a type for the PDF document with buffered pages
 type BufferedPDFDocument = typeof PDFDocument & {
@@ -33,33 +31,18 @@ const createBufferedPDF = (options: PDFDocumentOptions): BufferedPDFDocument => 
   return doc as unknown as BufferedPDFDocument;
 };
 
-// Helper function to download and save image
-const downloadAndSaveImage = async (url: string, filename: string): Promise<string> => {
-  const uploadsDir = path.join(__dirname, '../../uploads');
-  const imagePath = path.join(uploadsDir, filename);
-
-  // Create uploads directory if it doesn't exist
-  if (!fs.existsSync(uploadsDir)) {
-    fs.mkdirSync(uploadsDir, { recursive: true });
-  }
-
-  // Check if image already exists
-  if (fs.existsSync(imagePath)) {
-    return imagePath;
-  }
-
+// Helper function to get company logo
+const getCompanyLogo = async (): Promise<Buffer | null> => {
   try {
     const response = await axios({
       method: 'GET',
-      url: url,
+      url: 'https://i.ibb.co/PGLYCzRD/MF-Autos-Social-Media.jpg',
       responseType: 'arraybuffer'
     });
-
-    fs.writeFileSync(imagePath, response.data);
-    return imagePath;
+    return Buffer.from(response.data);
   } catch (error) {
-    console.error('Error downloading image:', error);
-    throw new Error('Failed to download company logo');
+    console.error('Error downloading company logo:', error);
+    return null;
   }
 };
 
@@ -400,7 +383,6 @@ export const processPayment = async (req: Request, res: Response): Promise<Respo
 // Generate PDF for an invoice
 export const generatePDF = async (req: Request, res: Response): Promise<Response> => {
   let doc: BufferedPDFDocument | null = null;
-  let imagePath: string | null = null;
   
   try {
     const invoice = await Invoice.findById(req.params.id);
@@ -432,18 +414,17 @@ export const generatePDF = async (req: Request, res: Response): Promise<Response
     
     // Add company logo with proper spacing
     try {
-      imagePath = await downloadAndSaveImage(
-        'https://i.ibb.co/PGLYCzRD/MF-Autos-Social-Media.jpg',
-        'company-logo.jpg'
-      );
-      
-      pdfDoc.image(imagePath, 40, 40, {
-        width: 120,
-        height: 120,
-        fit: [120, 120]
-      });
+      const logoBuffer = await getCompanyLogo();
+      if (logoBuffer) {
+        pdfDoc.image(logoBuffer, 40, 40, {
+          width: 120,
+          height: 120,
+          fit: [120, 120]
+        });
+      }
     } catch (error) {
       console.error('Error adding company logo:', error);
+      // Continue without the logo
     }
 
     // Company header - positioned to the right of the logo
@@ -673,15 +654,6 @@ export const generatePDF = async (req: Request, res: Response): Promise<Response
       }
     }
     return res.status(500).json({ message: 'Server error generating PDF' });
-  } finally {
-    // Clean up downloaded image if it exists
-    if (imagePath && fs.existsSync(imagePath)) {
-      try {
-        fs.unlinkSync(imagePath);
-      } catch (error) {
-        console.error('Error cleaning up image file:', error);
-      }
-    }
   }
 };
 
