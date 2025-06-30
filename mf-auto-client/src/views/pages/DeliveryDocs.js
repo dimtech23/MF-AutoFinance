@@ -37,6 +37,27 @@ const DeliveryDocs = () => {
     fetchClients();
   }, []);
 
+  // Add event listeners for real-time updates
+  useEffect(() => {
+    const handleClientUpdate = (event) => {
+      console.log('Client update detected in DeliveryDocs, refreshing data');
+      fetchClients();
+    };
+
+    const handlePaymentUpdate = (event) => {
+      console.log('Payment update detected in DeliveryDocs, refreshing data');
+      fetchClients();
+    };
+
+    window.addEventListener('client-updated', handleClientUpdate);
+    window.addEventListener('payment-updated', handlePaymentUpdate);
+    
+    return () => {
+      window.removeEventListener('client-updated', handleClientUpdate);
+      window.removeEventListener('payment-updated', handlePaymentUpdate);
+    };
+  }, []);
+
   const fetchClients = async () => {
     try {
       setLoading(true);

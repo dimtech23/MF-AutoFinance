@@ -5,6 +5,7 @@ import {
   createClient,
   updateClient,
   deleteClient,
+  restoreClient,
   getClientHistory,
   getAllClientHistory,
   updateClientStatus,
@@ -12,7 +13,8 @@ import {
   markAsDelivered,
   registerAdmin,
   getClientSummary,
-  generateCompletionPDF
+  generateCompletionPDF,
+  getClientAuditLogs
 } from "../controllers/clientController";
 import { authenticateToken, authorize } from "../middlewares/authMiddleware";
 import { UserRole } from "../constants/roles";
@@ -34,6 +36,9 @@ router.get('/history', getAllClientHistory);
 // Get a specific client by ID - all users can view client details
 router.get('/:id', getClientById);
 
+// Get client audit logs - Admin only
+router.get('/:id/audit-logs', authorize([UserRole.ADMIN]), getClientAuditLogs);
+
 // Create a new client - Admin and Accountant only
 router.post('/', authorize([UserRole.ADMIN, UserRole.ACCOUNTANT]), createClient);
 
@@ -42,6 +47,9 @@ router.put('/:id', authorize([UserRole.ADMIN, UserRole.ACCOUNTANT]), updateClien
 
 // Delete a client - Admin only
 router.delete('/:id', authorize([UserRole.ADMIN]), deleteClient);
+
+// Restore a deleted client - Admin only
+router.patch('/:id/restore', authorize([UserRole.ADMIN]), restoreClient);
 
 // Get client repair history - all users can view history
 router.get('/:id/history', getClientHistory);

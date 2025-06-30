@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useContext } from "react";
-import { UserContext } from "../../Context/UserContext";
-import { budgetAPI } from "../../api";
-import Header from "components/Headers/Header.js";
+import { useHistory } from "react-router-dom";
+import { UserContext } from "../../Context/UserContext.js";
+import { budgetAPI } from "../../api.js";
 import { toast } from "react-toastify";
 import { format } from "date-fns";
 import DatePicker from "react-datepicker";
@@ -1011,7 +1011,6 @@ const Budget = () => {
   if (loading) {
     return (
       <>
-        <Header />
         <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
           <Box
             display="flex"
@@ -1028,7 +1027,6 @@ const Budget = () => {
 
   return (
     <>
-      <Header />
       <Container
         maxWidth={false}
         sx={{ mt: 4, mb: 4, px: { xs: 2, sm: 3, md: 4 } }}

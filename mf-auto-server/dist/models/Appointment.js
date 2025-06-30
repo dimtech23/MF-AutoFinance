@@ -54,6 +54,8 @@ const AppointmentSchema = new mongoose_1.default.Schema({
     description: { type: String },
     invoiceId: { type: mongoose_1.Schema.Types.ObjectId, ref: 'Invoice' },
     createdBy: { type: mongoose_1.Schema.Types.ObjectId, ref: 'User', required: true },
+    deliveryDate: { type: Date },
+    estimatedDuration: { type: Number, default: 1 }
 }, {
     timestamps: true
 });

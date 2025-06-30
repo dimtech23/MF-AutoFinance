@@ -22,7 +22,10 @@ import {
   DialogContent
 } from "@mui/material";
 import { Box, Typography } from "@mui/material";
-import { User, Wrench, DollarSign, Truck } from "lucide-react";
+import { User, Wrench, DollarSign, Truck, Menu, X } from "lucide-react";
+
+// Import CSS for navbar styling
+import "./AdminNavbar.css";
 
 const WorkflowDiagram = () => (
   <Box sx={{ p: 3, maxWidth: 800, mx: 'auto' }}>
@@ -143,103 +146,122 @@ const AdminNavbar = (props) => {
     setIsWorkflowOpen(!isWorkflowOpen);
   };
 
+  // Use the toggleSidebar function passed from Admin layout
   const toggleSidebar = () => {
-    const sidebar = document.getElementById('sidenav-main');
-    if (sidebar) {
-      sidebar.classList.toggle('show');
+    console.log('Navbar toggleSidebar called');
+    if (props.toggleSidebar) {
+      props.toggleSidebar();
+    } else {
+      console.warn('toggleSidebar prop not passed to AdminNavbar');
     }
   };
 
   return (
     <>
       <Navbar className="navbar-top navbar-white" expand="md" id="navbar-main">
-        <Container fluid className="px-3 py-2">
-          {/* Mobile Menu Button with Tailwind classes */}
-          <button 
-            className="navbar-toggler block md:hidden border-0 p-2 focus:outline-none"
-            type="button" 
-            onClick={toggleSidebar}
-          >
-            <span className="navbar-toggler-icon text-xl"></span>
-          </button>
-
-          <span className="h4 mb-0 text-white text-uppercase hidden lg:inline-block">
-            {props.brandText}
-          </span>
-
-          {/* Desktop Navigation */}
-          <Nav className="items-center hidden md:flex" navbar>
-            <Button
-              className="mr-3 shadow-sm hover:shadow-md transition-all duration-200 text-base"
-              color="info"
-              size="sm"
-              onClick={toggleWorkflow}
+        <Container fluid className="px-3 py-1">
+          {/* Left side - Brand and Sidebar Toggle */}
+          <div className="d-flex align-items-center">
+            {/* Single Responsive Sidebar Toggle Button */}
+            <button 
+              className="navbar-toggler border-0 me-3"
+              type="button" 
+              onClick={toggleSidebar}
+              title="Toggle Sidebar"
             >
-              <i className="ni ni-chart-bar-32 mr-1 text-lg"></i> System Workflow
-            </Button>
+              <Menu size={16} />
+            </button>
 
-            <Button 
-              className="shadow-sm hover:shadow-md transition-all duration-200 text-base"
-              color="info" 
-              size="sm" 
-              onClick={() => setShowGuide(true)}
-            >
-              <i className="ni ni-bullet-list-67 mr-1 text-lg"></i> Guide
-            </Button>
+            {/* Brand Text */}
+            <span className="h6 mb-0 text-white text-uppercase d-none d-lg-inline-block">
+              {props.brandText}
+            </span>
+          </div>
 
-            <div className="ml-3">
-              <Notification setOpenedCollapse={props.setOpenedCollapse} />
+          {/* Right side - Navigation Items */}
+          <div className="d-flex align-items-center">
+            {/* Desktop Navigation */}
+            <div className="d-none d-md-flex align-items-center">
+              <Button
+                className="navbar-btn me-2"
+                color="info"
+                size="sm"
+                onClick={toggleWorkflow}
+              >
+                <i className="ni ni-chart-bar-32 me-1"></i> 
+                <span className="d-none d-lg-inline">System Workflow</span>
+                <span className="d-lg-none">Workflow</span>
+              </Button>
+
+              <Button 
+                className="navbar-btn me-2"
+                color="info" 
+                size="sm" 
+                onClick={() => setShowGuide(true)}
+              >
+                <i className="ni ni-bullet-list-67 me-1"></i> 
+                <span className="d-none d-lg-inline">Guide</span>
+              </Button>
+
+              <div className="me-2">
+                <Notification setOpenedCollapse={props.setOpenedCollapse} />
+              </div>
+
+              {userName && (
+                <UncontrolledDropdown nav>
+                  <DropdownToggle className="navbar-dropdown pr-0 d-flex align-items-center" nav>
+                    <span className="mb-0 text-white font-bold">
+                      <i className="ni ni-circle-08 me-1"></i> 
+                      <span className="d-none d-lg-inline">{userName}</span>
+                      <span className="d-lg-none">User</span>
+                    </span>
+                  </DropdownToggle>
+                  <DropdownMenu className="dropdown-menu-arrow" right>
+                    <DropdownItem href="#pablo" onClick={handleLogout}>
+                      <i className="ni ni-user-run me-2"></i>
+                      <span>Logout</span>
+                    </DropdownItem>
+                  </DropdownMenu>
+                </UncontrolledDropdown>
+              )}
             </div>
 
-            {userName && (
-              <UncontrolledDropdown nav className="ml-3">
-                <DropdownToggle className="pr-0 flex items-center" nav>
-                  <span className="mb-0 text-white font-bold text-base">
-                    <i className="ni ni-circle-08 mr-1 text-lg"></i> {userName}
-                  </span>
-                </DropdownToggle>
-                <DropdownMenu className="dropdown-menu-arrow" right>
-                  <DropdownItem href="#pablo" onClick={handleLogout}>
-                    <i className="ni ni-user-run mr-2 text-lg"></i>
-                    <span className="text-base">Logout</span>
-                  </DropdownItem>
-                </DropdownMenu>
-              </UncontrolledDropdown>
-            )}
-          </Nav>
+            {/* Mobile Navigation */}
+            <div className="d-flex d-md-none align-items-center">
+              <Button
+                className="navbar-btn-mobile me-1"
+                color="info"
+                size="sm"
+                onClick={toggleWorkflow}
+                title="System Workflow"
+              >
+                <i className="ni ni-chart-bar-32"></i>
+              </Button>
 
-          {/* Mobile Navigation with Tailwind - Larger icons */}
-          <div className="flex items-center ml-auto md:hidden">
-            <Button
-              className="p-0 w-10 h-10 flex items-center justify-center mx-1 shadow-sm"
-              color="info"
-              size="sm"
-              onClick={toggleWorkflow}
-            >
-              <i className="ni ni-chart-bar-32 text-lg"></i>
-            </Button>
+              <Button
+                className="navbar-btn-mobile me-1"
+                color="info"
+                size="sm"
+                onClick={() => setShowGuide(true)}
+                title="Guide"
+              >
+                <i className="ni ni-bullet-list-67"></i>
+              </Button>
 
-            <Button
-              className="p-0 w-10 h-10 flex items-center justify-center mx-1 shadow-sm"
-              color="info"
-              size="sm"
-              onClick={() => setShowGuide(true)}
-            >
-              <i className="ni ni-bullet-list-67 text-lg"></i>
-            </Button>
+              <div className="me-1">
+                <Notification setOpenedCollapse={props.setOpenedCollapse} />
+              </div>
 
-            <div className="mx-1">
-              <Notification setOpenedCollapse={props.setOpenedCollapse} />
+              <Button
+                className="navbar-btn-mobile"
+                color="danger"
+                size="sm"
+                onClick={handleLogout}
+                title="Logout"
+              >
+                <i className="ni ni-user-run"></i>
+              </Button>
             </div>
-
-            <Button
-              className="p-0 w-10 h-10 flex items-center justify-center mx-1 shadow-sm"
-              color="danger"
-              size="sm"
-              onClick={handleLogout}
-            >
-              <i className="ni ni-user-run text-lg"></i>
-            </Button>
           </div>
         </Container>
       </Navbar>

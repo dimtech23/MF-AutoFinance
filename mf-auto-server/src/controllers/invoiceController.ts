@@ -342,20 +342,16 @@ export const markAsPaid = async (req: Request, res: Response): Promise<Response>
 // Process payment for an invoice
 export const processPayment = async (req: Request, res: Response): Promise<Response> => {
   try {
-    // Only Admin and Accountant can process payments
-    if (![(req as any).user.role === UserRole.ADMIN, (req as any).user.role === UserRole.ACCOUNTANT].includes(true)) {
-      return res.status(403).json({ message: 'Not authorized to process payments' });
-    }
-    
-    const { amount, paymentMethod, paymentDate } = req.body;
+    const { amount, paymentMethod, paymentDate, paymentReference } = req.body;
     
     const invoice = await Invoice.findById(req.params.id);
     if (!invoice) {
       return res.status(404).json({ message: 'Invoice not found' });
     }
     
-    if (invoice.status === 'paid') {
-      return res.status(400).json({ message: 'Invoice is already paid' });
+    // Validate payment amount
+    if (!amount || amount <= 0) {
+      return res.status(400).json({ message: 'Invalid payment amount' });
     }
     
     // Update invoice with payment information
@@ -372,6 +368,26 @@ export const processPayment = async (req: Request, res: Response): Promise<Respo
       },
       { new: true }
     );
+    
+    // Create payment history record
+    try {
+      const PaymentHistory = mongoose.model('PaymentHistory');
+      const paymentRecord = new PaymentHistory({
+        clientId: invoice.relatedClientId || invoice.customerInfo?.id,
+        invoiceId: invoice._id,
+        amount: amount,
+        paymentMethod: paymentMethod || 'cash',
+        paymentDate: paymentDate || new Date(),
+        paymentReference: paymentReference || `Payment for Invoice #${invoice.invoiceNumber}`,
+        status: 'completed',
+        recordedBy: (req as any).user._id,
+        description: `Payment for Invoice #${invoice.invoiceNumber} - ${invoice.customerInfo?.name || 'Unknown Customer'}`
+      });
+      await paymentRecord.save();
+    } catch (error) {
+      console.error('Error creating payment history:', error);
+      // Don't fail the main operation if payment history fails
+    }
     
     return res.status(200).json(updatedInvoice);
   } catch (error) {

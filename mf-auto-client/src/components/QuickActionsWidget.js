@@ -20,7 +20,7 @@ import { useHistory } from 'react-router-dom';
 const QuickActionsWidget = () => {
   const history = useHistory();
   
-  const handleNavigation = (path) => {
+  const handleActionClick = (path) => {
     history.push(path);
   };
   
@@ -38,7 +38,7 @@ const QuickActionsWidget = () => {
           <Button 
             variant="outlined" 
             startIcon={<UserPlus size={20} />} 
-            onClick={() => handleNavigation('/admin/clients')}
+            onClick={() => handleActionClick('/admin/clients')}
             fullWidth
             sx={{ 
               fontSize: { xs: '0.875rem', sm: '1rem' },
@@ -51,7 +51,7 @@ const QuickActionsWidget = () => {
           <Button 
             variant="outlined" 
             startIcon={<Calendar size={20} />} 
-            onClick={() => handleNavigation('/admin/dashboard')}
+            onClick={() => handleActionClick('/admin/dashboard')}
             fullWidth
             sx={{ 
               fontSize: { xs: '0.875rem', sm: '1rem' },
@@ -64,7 +64,7 @@ const QuickActionsWidget = () => {
           <Button 
             variant="outlined" 
             startIcon={<FileText size={20} />} 
-            onClick={() => handleNavigation('/admin/invoices')}
+            onClick={() => handleActionClick('/admin/invoices')}
             fullWidth
             sx={{ 
               fontSize: { xs: '0.875rem', sm: '1rem' },

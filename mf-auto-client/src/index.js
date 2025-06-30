@@ -6,6 +6,7 @@ import "assets/plugins/nucleo/css/nucleo.css";
 import "@fortawesome/fontawesome-free/css/all.min.css";
 import "assets/scss/argon-dashboard-react.scss";
 import './styles/tailwind.css';
+import './styles/layout.css';
 import './typography.css';
 
 const container = document.getElementById('root');

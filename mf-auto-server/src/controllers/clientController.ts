@@ -5,14 +5,15 @@ import User from '../models/User';
 import { UserRole } from '../constants/roles';
 import mongoose from 'mongoose';
 import bcrypt from 'bcrypt';
-import { BufferedPDFDocument } from 'pdf-lib';
+import { PDFDocument } from 'pdf-lib';
 import { format } from 'date-fns';
+import { AuditService } from '../services/auditService';
 
 
 // Get all clients
 export const getAllClients = async (req: Request, res: Response): Promise<Response> => {
   try {
-    const clients = await Client.find().sort({ createdAt: -1 });
+    const clients = await Client.find({ deleted: { $ne: true } }).sort({ createdAt: -1 });
     
     // If user is a mechanic, only return limited info
     if ((req as any).user.role === UserRole.MECHANIC) {
@@ -41,7 +42,7 @@ export const getAllClients = async (req: Request, res: Response): Promise<Respon
 // Get a specific client by ID
 export const getClientById = async (req: Request, res: Response): Promise<Response> => {
   try {
-    const client = await Client.findById(req.params.id);
+    const client = await Client.findOne({ _id: req.params.id, deleted: { $ne: true } });
     if (!client) {
       return res.status(404).json({ message: 'Client not found' });
     }
@@ -103,6 +104,13 @@ export const createClient = async (req: Request, res: Response): Promise<Respons
 
     await initialAppointment.save();
     
+    // Log the creation for audit purposes
+    await AuditService.logClientCreation(req, (savedClient._id as any).toString(), {
+      clientName: savedClient.clientName,
+      phoneNumber: savedClient.phoneNumber,
+      carDetails: savedClient.carDetails
+    });
+    
     return res.status(201).json(savedClient);
   } catch (error) {
     console.error('Error creating client:', error);
@@ -121,13 +129,23 @@ export const updateClient = async (req: Request, res: Response): Promise<Respons
       return res.status(403).json({ message: 'Not authorized to update clients' });
     }
     
-    const client = await Client.findById(req.params.id);
+    const { id } = req.params;
+    
+    // Validate ID format
+    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: 'Invalid client ID format' });
+    }
+    
+    const client = await Client.findById(id);
     if (!client) {
       return res.status(404).json({ message: 'Client not found' });
     }
     
+    // Store old data for audit logging
+    const oldData = client.toObject();
+    
     const updatedClient = await Client.findByIdAndUpdate(
-      req.params.id,
+      id,
       { 
         $set: {
           ...req.body,
@@ -138,7 +156,12 @@ export const updateClient = async (req: Request, res: Response): Promise<Respons
     );
     
     // Update related appointments after client update
-    await updateRelatedAppointments(req.params.id, req.body);
+    await updateRelatedAppointments(id, req.body);
+    
+    // Log the update for audit purposes
+    if (updatedClient) {
+      await AuditService.logClientUpdate(req, id, oldData, updatedClient.toObject());
+    }
     
     return res.status(200).json(updatedClient);
   } catch (error) {
@@ -150,7 +173,7 @@ export const updateClient = async (req: Request, res: Response): Promise<Respons
   }
 };
 
-// Delete a client
+// Delete a client (soft delete)
 export const deleteClient = async (req: Request, res: Response): Promise<Response> => {
   try {
     // Only Admin can delete clients
@@ -158,15 +181,94 @@ export const deleteClient = async (req: Request, res: Response): Promise<Respons
       return res.status(403).json({ message: 'Not authorized to delete clients' });
     }
     
-    const client = await Client.findById(req.params.id);
-    if (!client) {
-      return res.status(404).json({ message: 'Client not found' });
+    const { id } = req.params;
+    
+    // Validate ID format
+    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: 'Invalid client ID format' });
     }
     
-    await Client.findByIdAndDelete(req.params.id);
-    return res.status(200).json({ message: 'Client deleted successfully' });
+    const client = await Client.findOne({ _id: id, deleted: { $ne: true } });
+    if (!client) {
+      return res.status(404).json({ message: 'Client not found or already deleted' });
+    }
+    
+    // Soft delete - mark as deleted instead of removing
+    const updatedClient = await Client.findByIdAndUpdate(
+      id,
+      { 
+        $set: { 
+          deleted: true,
+          deletedAt: new Date(),
+          deletedBy: (req as any).user._id
+        }
+      },
+      { new: true }
+    );
+    
+    // Log the deletion for audit purposes
+    await AuditService.logClientDeletion(req, id, {
+      clientName: client.clientName,
+      phoneNumber: client.phoneNumber,
+      carDetails: client.carDetails
+    });
+    
+    return res.status(200).json({ 
+      message: 'Client deleted successfully',
+      client: updatedClient
+    });
   } catch (error) {
     console.error('Error deleting client:', error);
+    return res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Restore a deleted client
+export const restoreClient = async (req: Request, res: Response): Promise<Response> => {
+  try {
+    // Only Admin can restore clients
+    if ((req as any).user.role !== UserRole.ADMIN) {
+      return res.status(403).json({ message: 'Not authorized to restore clients' });
+    }
+    
+    const { id } = req.params;
+    
+    // Validate ID format
+    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: 'Invalid client ID format' });
+    }
+    
+    const client = await Client.findOne({ _id: id, deleted: true });
+    if (!client) {
+      return res.status(404).json({ message: 'Deleted client not found' });
+    }
+    
+    // Restore the client
+    const restoredClient = await Client.findByIdAndUpdate(
+      id,
+      { 
+        $unset: { 
+          deleted: 1,
+          deletedAt: 1,
+          deletedBy: 1
+        }
+      },
+      { new: true }
+    );
+    
+    // Log the restoration for audit purposes
+    await AuditService.logClientRestoration(req, id, {
+      clientName: client.clientName,
+      phoneNumber: client.phoneNumber,
+      carDetails: client.carDetails
+    });
+    
+    return res.status(200).json({ 
+      message: 'Client restored successfully',
+      client: restoredClient
+    });
+  } catch (error) {
+    console.error('Error restoring client:', error);
     return res.status(500).json({ message: 'Server error' });
   }
 };
@@ -196,6 +298,12 @@ export const getClientHistory = async (req: Request, res: Response): Promise<Res
 export const updateClientStatus = async (req: Request, res: Response): Promise<Response> => {
   try {
     const { status } = req.body;
+    const { id } = req.params;
+    
+    // Validate ID format
+    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: 'Invalid client ID format' });
+    }
     
     // Validate the status
     const validStatuses = ['waiting', 'in_progress', 'completed', 'delivered', 'cancelled'];
@@ -203,7 +311,7 @@ export const updateClientStatus = async (req: Request, res: Response): Promise<R
       return res.status(400).json({ message: 'Invalid status' });
     }
     
-    const client = await Client.findById(req.params.id);
+    const client = await Client.findById(id);
     if (!client) {
       return res.status(404).json({ message: 'Client not found' });
     }
@@ -216,8 +324,11 @@ export const updateClientStatus = async (req: Request, res: Response): Promise<R
       }
     }
     
+    // Store old status for audit logging
+    const oldStatus = client.repairStatus;
+    
     const updatedClient = await Client.findByIdAndUpdate(
-      req.params.id,
+      id,
       { 
         $set: { 
           repairStatus: status,
@@ -228,7 +339,10 @@ export const updateClientStatus = async (req: Request, res: Response): Promise<R
     );
 
     // Update related appointments with the new status
-    await updateRelatedAppointments(req.params.id, { repairStatus: status });
+    await updateRelatedAppointments(id, { repairStatus: status });
+    
+    // Log the status change for audit purposes
+    await AuditService.logStatusChange(req, id, oldStatus, status, 'repair');
     
     return res.status(200).json(updatedClient);
   } catch (error) {
@@ -237,18 +351,24 @@ export const updateClientStatus = async (req: Request, res: Response): Promise<R
   }
 };
 
-// Update client payment status
+// Update payment status and amount
 export const updatePaymentStatus = async (req: Request, res: Response): Promise<Response> => {
   try {
-    const { paymentStatus } = req.body;
+    const { paymentStatus, partialPaymentAmount, paymentMethod, paymentDate, paymentReference } = req.body;
+    const { id } = req.params;
+    
+    // Validate ID format
+    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: 'Invalid client ID format' });
+    }
     
     // Validate the payment status
-    const validStatuses = ['pending', 'partial', 'paid'];
+    const validStatuses = ['pending', 'partial', 'paid', 'not_paid'];
     if (!validStatuses.includes(paymentStatus)) {
       return res.status(400).json({ message: 'Invalid payment status' });
     }
     
-    const client = await Client.findById(req.params.id);
+    const client = await Client.findById(id);
     if (!client) {
       return res.status(404).json({ message: 'Client not found' });
     }
@@ -258,16 +378,77 @@ export const updatePaymentStatus = async (req: Request, res: Response): Promise<
       return res.status(403).json({ message: 'Not authorized to update payment status' });
     }
     
+    // Store old payment data for audit logging
+    const oldPaymentData = {
+      paymentStatus: client.paymentStatus,
+      partialPaymentAmount: client.partialPaymentAmount,
+      paymentMethod: client.paymentMethod,
+      paymentDate: client.paymentDate,
+      paymentReference: client.paymentReference
+    };
+    
+    // Prepare update data
+    const updateData: any = {
+      paymentStatus,
+      updatedBy: (req as any).user._id
+    };
+    
+    // Handle payment amount
+    if (partialPaymentAmount !== undefined) {
+      updateData.partialPaymentAmount = partialPaymentAmount;
+    }
+    
+    // Handle payment method and date
+    if (paymentMethod) {
+      updateData.paymentMethod = paymentMethod;
+    }
+    if (paymentDate) {
+      updateData.paymentDate = paymentDate;
+    }
+    if (paymentReference) {
+      updateData.paymentReference = paymentReference;
+    }
+    
+    // Auto-adjust payment status based on amount if not explicitly set
+    if (partialPaymentAmount !== undefined && !req.body.paymentStatus) {
+      if (partialPaymentAmount === 0) {
+        updateData.paymentStatus = 'not_paid';
+      } else if (partialPaymentAmount > 0) {
+        // Use estimatedCost if available, otherwise use a default threshold
+        const costThreshold = client.estimatedCost || 1000; // Default threshold if no estimated cost
+        updateData.paymentStatus = partialPaymentAmount >= costThreshold ? 'paid' : 'partial';
+      }
+    }
+    
     const updatedClient = await Client.findByIdAndUpdate(
-      req.params.id,
-      { 
-        $set: { 
-          paymentStatus,
-          updatedBy: (req as any).user._id
-        }
-      },
+      id,
+      { $set: updateData },
       { new: true }
     );
+    
+    // Create payment history record
+    if (partialPaymentAmount && partialPaymentAmount > 0) {
+      try {
+        const PaymentHistory = mongoose.model('PaymentHistory');
+        const paymentRecord = new PaymentHistory({
+          clientId: client._id,
+          amount: partialPaymentAmount,
+          paymentMethod: paymentMethod || 'cash',
+          paymentDate: paymentDate || new Date(),
+          paymentReference: paymentReference || `Payment for ${client.clientName}`,
+          status: updateData.paymentStatus,
+          recordedBy: (req as any).user._id,
+          description: `Payment for ${client.clientName} - ${client.carDetails?.make} ${client.carDetails?.model}`
+        });
+        await paymentRecord.save();
+      } catch (error) {
+        console.error('Error creating payment history:', error);
+        // Don't fail the main operation if payment history fails
+      }
+    }
+    
+    // Log the payment update for audit purposes
+    await AuditService.logPaymentUpdate(req, id, oldPaymentData, updateData);
     
     return res.status(200).json(updatedClient);
   } catch (error) {
@@ -279,7 +460,14 @@ export const updatePaymentStatus = async (req: Request, res: Response): Promise<
 // Mark client vehicle as delivered
 export const markAsDelivered = async (req: Request, res: Response): Promise<Response> => {
   try {
-    const client = await Client.findById(req.params.id);
+    const { id } = req.params;
+    
+    // Validate ID format
+    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: 'Invalid client ID format' });
+    }
+    
+    const client = await Client.findById(id);
     if (!client) {
       return res.status(404).json({ message: 'Client not found' });
     }
@@ -294,17 +482,26 @@ export const markAsDelivered = async (req: Request, res: Response): Promise<Resp
       return res.status(400).json({ message: 'Cannot mark as delivered until payment is complete' });
     }
     
+    const deliveryData = {
+      deliveryDate: new Date(),
+      deliveryNotes: req.body.deliveryNotes,
+      deliveryImages: req.body.deliveryImages
+    };
+    
     const updatedClient = await Client.findByIdAndUpdate(
-      req.params.id,
+      id,
       { 
         $set: { 
           repairStatus: 'delivered',
-          deliveryDate: new Date(),
+          ...deliveryData,
           updatedBy: (req as any).user._id
         }
       },
       { new: true }
     );
+    
+    // Log the delivery for audit purposes
+    await AuditService.logDelivery(req, id, deliveryData);
     
     return res.status(200).json(updatedClient);
   } catch (error) {
@@ -574,8 +771,6 @@ export const getClientSummary = async (_req: Request, res: Response): Promise<Re
 
 // Generate completion PDF for client
 export const generateCompletionPDF = async (req: Request, res: Response): Promise<Response> => {
-  let doc: BufferedPDFDocument | null = null;
-  
   try {
     const client = await Client.findById(req.params.id);
     if (!client) {
@@ -587,19 +782,10 @@ export const generateCompletionPDF = async (req: Request, res: Response): Promis
       return res.status(400).json({ message: 'Can only generate completion PDF for completed or delivered clients' });
     }
     
-    // Create PDF document with smaller margins for more space
-    doc = createBufferedPDF({
-      size: 'A4',
-      margin: 40,
-      bufferPages: true
-    });
+    // Create PDF document
+    const pdfDoc = await PDFDocument.create();
+    const page = pdfDoc.addPage([595.28, 841.89]); // A4 size in points
     
-    if (!doc) {
-      throw new Error('Failed to create PDF document');
-    }
-
-    const pdfDoc = doc as BufferedPDFDocument;
-
     // Set response headers
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="completion-${client.clientName}-${client._id}.pdf"`);
@@ -607,149 +793,310 @@ export const generateCompletionPDF = async (req: Request, res: Response): Promis
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
 
-    pdfDoc.pipe(res);
-    
-    // Add company logo with proper spacing
-    try {
-      const logoBuffer = await getCompanyLogo();
-      if (logoBuffer) {
-        pdfDoc.image(logoBuffer, 40, 40, {
-          width: 120,
-          height: 120,
-          fit: [120, 120]
-        });
-      }
-    } catch (error) {
-      console.error('Error adding company logo:', error);
-      // Continue without the logo
-    }
+    // Embed default font
+    const helveticaFont = await pdfDoc.embedFont('Helvetica');
+    const helveticaBold = await pdfDoc.embedFont('Helvetica-Bold');
 
-    // Company header - positioned to the right of the logo
-    pdfDoc.fontSize(24)
-        .text('MF Auto Finance', 180, 60)
-        .fontSize(12)
-        .text('Professional Auto Repair & Maintenance', 180, 90)
-        .fontSize(10)
-        .text('123 Main Street, City, Country', 180, 110)
-        .text('Phone: (123) 456-7890 | Email: info@mfautofinance.com', 180, 125);
+    // Company header
+    page.drawText('MF Auto Finance', {
+      x: 180,
+      y: 750,
+      size: 24,
+      font: helveticaBold,
+    });
+
+    page.drawText('Professional Auto Repair & Maintenance', {
+      x: 180,
+      y: 720,
+      size: 12,
+      font: helveticaFont,
+    });
+
+    page.drawText('123 Main Street, City, Country', {
+      x: 180,
+      y: 700,
+      size: 10,
+      font: helveticaFont,
+    });
+
+    page.drawText('Phone: (123) 456-7890 | Email: info@mfautofinance.com', {
+      x: 180,
+      y: 685,
+      size: 10,
+      font: helveticaFont,
+    });
 
     // Add a horizontal line after header
-    pdfDoc.moveTo(40, 170)
-          .lineTo(pdfDoc.page.width - 40, 170)
-          .stroke();
+    page.drawLine({
+      start: { x: 40, y: 650 },
+      end: { x: 555, y: 650 },
+      thickness: 1,
+    });
 
-    // Completion title and details - starting at y=190
-    pdfDoc.fontSize(20)
-        .text('REPAIR COMPLETION CERTIFICATE', { align: 'center' })
-        .moveDown(0.5);
+    // Completion title
+    const titleText = 'REPAIR COMPLETION CERTIFICATE';
+    const titleWidth = helveticaBold.widthOfTextAtSize(titleText, 20);
+    page.drawText(titleText, {
+      x: (595.28 - titleWidth) / 2,
+      y: 620,
+      size: 20,
+      font: helveticaBold,
+    });
 
     // Create two columns for client details
     const leftColumn = 40;
-    const rightColumn = pdfDoc.page.width / 2 + 20;
-    const columnWidth = (pdfDoc.page.width - 80) / 2;
+    const rightColumn = 320;
 
     // Left column - Client details
-    pdfDoc.fontSize(12)
-        .text('Client Details:', leftColumn, 210)
-        .fontSize(10)
-        .text(`Client Name: ${client.clientName}`, leftColumn, 230)
-        .text(`Phone: ${client.phoneNumber}`, leftColumn, 245)
-        .text(`Email: ${client.email || 'N/A'}`, leftColumn, 260)
-        .text(`Status: ${client.repairStatus.toUpperCase()}`, leftColumn, 275)
-        .text(`Completion Date: ${format(new Date(client.updatedAt), 'PPP')}`, leftColumn, 290);
+    page.drawText('Client Details:', {
+      x: leftColumn,
+      y: 580,
+      size: 12,
+      font: helveticaBold,
+    });
+
+    page.drawText(`Client Name: ${client.clientName}`, {
+      x: leftColumn,
+      y: 560,
+      size: 10,
+      font: helveticaFont,
+    });
+
+    page.drawText(`Phone: ${client.phoneNumber}`, {
+      x: leftColumn,
+      y: 545,
+      size: 10,
+      font: helveticaFont,
+    });
+
+    page.drawText(`Email: ${client.email || 'N/A'}`, {
+      x: leftColumn,
+      y: 530,
+      size: 10,
+      font: helveticaFont,
+    });
+
+    page.drawText(`Status: ${client.repairStatus.toUpperCase()}`, {
+      x: leftColumn,
+      y: 515,
+      size: 10,
+      font: helveticaFont,
+    });
+
+    page.drawText(`Completion Date: ${format(new Date(client.updatedAt), 'PPP')}`, {
+      x: leftColumn,
+      y: 500,
+      size: 10,
+      font: helveticaFont,
+    });
 
     // Right column - Vehicle information
-    pdfDoc.fontSize(12)
-        .text('Vehicle Information:', rightColumn, 210)
-        .fontSize(10)
-        .text(`Make: ${client.carDetails?.make || 'N/A'}`, rightColumn, 230)
-        .text(`Model: ${client.carDetails?.model || 'N/A'}`, rightColumn, 245)
-        .text(`Year: ${client.carDetails?.year || 'N/A'}`, rightColumn, 260)
-        .text(`License Plate: ${client.carDetails?.licensePlate || 'N/A'}`, rightColumn, 275)
-        .text(`VIN: ${client.carDetails?.vin || 'N/A'}`, rightColumn, 290);
+    page.drawText('Vehicle Information:', {
+      x: rightColumn,
+      y: 580,
+      size: 12,
+      font: helveticaBold,
+    });
+
+    page.drawText(`Make: ${client.carDetails?.make || 'N/A'}`, {
+      x: rightColumn,
+      y: 560,
+      size: 10,
+      font: helveticaFont,
+    });
+
+    page.drawText(`Model: ${client.carDetails?.model || 'N/A'}`, {
+      x: rightColumn,
+      y: 545,
+      size: 10,
+      font: helveticaFont,
+    });
+
+    page.drawText(`Year: ${client.carDetails?.year || 'N/A'}`, {
+      x: rightColumn,
+      y: 530,
+      size: 10,
+      font: helveticaFont,
+    });
+
+    page.drawText(`License Plate: ${client.carDetails?.licensePlate || 'N/A'}`, {
+      x: rightColumn,
+      y: 515,
+      size: 10,
+      font: helveticaFont,
+    });
+
+    page.drawText(`VIN: ${client.carDetails?.vin || 'N/A'}`, {
+      x: rightColumn,
+      y: 500,
+      size: 10,
+      font: helveticaFont,
+    });
 
     // Add a horizontal line before repair details
-    pdfDoc.moveTo(40, 320)
-          .lineTo(pdfDoc.page.width - 40, 320)
-          .stroke();
+    page.drawLine({
+      start: { x: 40, y: 470 },
+      end: { x: 555, y: 470 },
+      thickness: 1,
+    });
 
-    // Repair details - starting at y=340
-    pdfDoc.fontSize(12)
-        .text('Repair Details:', 40, 340)
-        .fontSize(10)
-        .text(`Issue Description: ${client.issueDescription || 'N/A'}`, 40, 360, {
-          width: pdfDoc.page.width - 80
-        })
-        .moveDown(0.5);
+    // Repair details
+    page.drawText('Repair Details:', {
+      x: 40,
+      y: 450,
+      size: 12,
+      font: helveticaBold,
+    });
+
+    page.drawText(`Issue Description: ${client.issueDescription || 'N/A'}`, {
+      x: 40,
+      y: 430,
+      size: 10,
+      font: helveticaFont,
+      maxWidth: 515,
+    });
+
+    let currentY = 410;
 
     // Procedures performed
     if (client.procedures && client.procedures.length > 0) {
-      pdfDoc.fontSize(12)
-          .text('Procedures Performed:', 40, pdfDoc.y)
-          .moveDown(0.5);
+      page.drawText('Procedures Performed:', {
+        x: 40,
+        y: currentY,
+        size: 12,
+        font: helveticaBold,
+      });
+      currentY -= 20;
 
       client.procedures.forEach((procedure: string, index: number) => {
-        pdfDoc.fontSize(10)
-            .text(`${index + 1}. ${procedure}`, 50, pdfDoc.y, {
-              width: pdfDoc.page.width - 100
-            })
-            .moveDown(0.3);
+        page.drawText(`${index + 1}. ${procedure}`, {
+          x: 50,
+          y: currentY,
+          size: 10,
+          font: helveticaFont,
+          maxWidth: 505,
+        });
+        currentY -= 15;
       });
     }
 
     // Pre-existing issues
-    if (client.preExistingIssues && client.preExistingIssues.length > 0) {
-      pdfDoc.moveDown(0.5)
-          .fontSize(12)
-          .text('Pre-existing Issues:', 40, pdfDoc.y)
-          .moveDown(0.5);
+    if (client.preExistingIssues && Array.isArray(client.preExistingIssues)) {
+      currentY -= 10;
+      page.drawText('Pre-existing Issues:', {
+        x: 40,
+        y: currentY,
+        size: 12,
+        font: helveticaBold,
+      });
+      currentY -= 20;
 
       client.preExistingIssues.forEach((issue: string, index: number) => {
-        pdfDoc.fontSize(10)
-            .text(`${index + 1}. ${issue}`, 50, pdfDoc.y, {
-              width: pdfDoc.page.width - 100
-            })
-            .moveDown(0.3);
+        page.drawText(`${index + 1}. ${issue}`, {
+          x: 50,
+          y: currentY,
+          size: 10,
+          font: helveticaFont,
+          maxWidth: 505,
+        });
+        currentY -= 15;
       });
     }
 
     // Notes
     if (client.notes) {
-      pdfDoc.moveDown(0.5)
-          .fontSize(12)
-          .text('Additional Notes:', 40, pdfDoc.y)
-          .moveDown(0.5)
-          .fontSize(10)
-          .text(client.notes, 50, pdfDoc.y, {
-            width: pdfDoc.page.width - 100
-          });
+      currentY -= 10;
+      page.drawText('Additional Notes:', {
+        x: 40,
+        y: currentY,
+        size: 12,
+        font: helveticaBold,
+      });
+      currentY -= 20;
+
+      page.drawText(client.notes, {
+        x: 50,
+        y: currentY,
+        size: 10,
+        font: helveticaFont,
+        maxWidth: 505,
+      });
+      currentY -= 30;
     }
 
     // Add a horizontal line before signature
-    pdfDoc.moveDown(2)
-          .moveTo(40, pdfDoc.y)
-          .lineTo(pdfDoc.page.width - 40, pdfDoc.y)
-          .stroke()
-          .moveDown(1);
+    page.drawLine({
+      start: { x: 40, y: currentY },
+      end: { x: 555, y: currentY },
+      thickness: 1,
+    });
+
+    currentY -= 30;
 
     // Signature section
-    pdfDoc.fontSize(12)
-        .text('Authorized by:', 40, pdfDoc.y)
-        .moveDown(2)
-        .text('________________________', 40, pdfDoc.y)
-        .moveDown(0.5)
-        .fontSize(10)
-        .text('MF Auto Finance Representative', 40, pdfDoc.y);
+    page.drawText('Authorized by:', {
+      x: 40,
+      y: currentY,
+      size: 12,
+      font: helveticaBold,
+    });
+
+    currentY -= 40;
+
+    page.drawText('________________________', {
+      x: 40,
+      y: currentY,
+      size: 12,
+      font: helveticaFont,
+    });
+
+    currentY -= 20;
+
+    page.drawText('MF Auto Finance Representative', {
+      x: 40,
+      y: currentY,
+      size: 10,
+      font: helveticaFont,
+    });
 
     // Finalize the PDF
-    pdfDoc.end();
+    const pdfBytes = await pdfDoc.save();
+    res.send(Buffer.from(pdfBytes));
     
     return res.status(200);
   } catch (error) {
     console.error('Error generating completion PDF:', error);
-    if (doc) {
-      doc.end();
-    }
     return res.status(500).json({ message: 'Error generating PDF' });
+  }
+};
+
+// Get client audit logs
+export const getClientAuditLogs = async (req: Request, res: Response): Promise<Response> => {
+  try {
+    const { id } = req.params;
+    const { limit = 50 } = req.query;
+    
+    // Validate ID format
+    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: 'Invalid client ID format' });
+    }
+    
+    // Check if client exists
+    const client = await Client.findById(id);
+    if (!client) {
+      return res.status(404).json({ message: 'Client not found' });
+    }
+    
+    // Get audit logs for this client
+    const auditLogs = await AuditService.getEntityAuditLogs('client', id, Number(limit));
+    
+    return res.status(200).json({
+      clientId: id,
+      clientName: client.clientName,
+      auditLogs
+    });
+  } catch (error) {
+    console.error('Error fetching client audit logs:', error);
+    return res.status(500).json({ message: 'Server error' });
   }
 };

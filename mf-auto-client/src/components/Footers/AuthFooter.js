@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Container, Row, Col, Nav, NavItem } from 'reactstrap';
+import { Container, Grid, Link, Box, Typography } from '@mui/material';
 import { useMediaQuery, useTheme } from "@mui/material";
 
 const AuthFooter = () => {
@@ -30,47 +30,50 @@ const AuthFooter = () => {
 
   return (
     <footer className="auth-footer" style={{ backgroundColor: '#003366', padding: '20px 0' }}>
-      <Container fluid={isMobile}>
+      <Container maxWidth={isMobile ? false : 'lg'}>
         {isMobile ? (
-          <Row className="text-center">
-            <Col>
-              <div className="auth-copyright text-white">
-                © {new Date().getFullYear()} MF Auto Garage
-              </div>
-              <div style={{ marginTop: 10 }}>
-                <span onClick={handleSupportClick} style={linkStyle}>
-                  Support
-                </span>
-                <span style={numberStyle}>3263368</span>
-              </div>
-            </Col>
-          </Row>
-        ) : (
-          <Row className="align-items-center">
-            <Col xl="6" lg="6" md="6">
-              <div className="auth-copyright text-white">
-                © {new Date().getFullYear()}{" "}
-                <a
-                  href="https://mfautosfinance.com/"
-                  style={{ color: '#ffffff', fontWeight: 'bold' }}
-                  target=""
-                  rel="noopener noreferrer"
-                >
-                  MF AutoFinance
-                </a>
-              </div>
-            </Col>
-            <Col xl="6" lg="6" md="6" className="text-right">
-              <Nav className="nav-footer justify-content-center justify-content-md-end">
-                <NavItem>
+          <Grid container justifyContent="center">
+            <Grid item>
+              <Box sx={{ textAlign: 'center' }}>
+                <Typography variant="body2" sx={{ color: 'white' }}>
+                  © {new Date().getFullYear()} MF Auto Garage
+                </Typography>
+                <Box sx={{ mt: 1 }}>
                   <span onClick={handleSupportClick} style={linkStyle}>
                     Support
                   </span>
                   <span style={numberStyle}>3263368</span>
-                </NavItem>
-              </Nav>
-            </Col>
-          </Row>
+                </Box>
+              </Box>
+            </Grid>
+          </Grid>
+        ) : (
+          <Grid container alignItems="center">
+            <Grid item xs={12} md={6}>
+              <Typography variant="body2" sx={{ color: 'white' }}>
+                © {new Date().getFullYear()}{" "}
+                <Link
+                  href="https://mfautosfinance.com/"
+                  sx={{ color: '#ffffff', fontWeight: 'bold' }}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  MF AutoFinance
+                </Link>
+              </Typography>
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <Box sx={{ 
+                display: 'flex', 
+                justifyContent: { xs: 'center', md: 'flex-end' }
+              }}>
+                <span onClick={handleSupportClick} style={linkStyle}>
+                  Support
+                </span>
+                <span style={numberStyle}>3263368</span>
+              </Box>
+            </Grid>
+          </Grid>
         )}
       </Container>
     </footer>

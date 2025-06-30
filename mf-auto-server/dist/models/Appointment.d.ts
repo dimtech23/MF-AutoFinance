@@ -13,6 +13,8 @@ export interface AppointmentDocument extends Document {
     createdBy: mongoose.Schema.Types.ObjectId;
     createdAt: Date;
     updatedAt: Date;
+    deliveryDate?: Date;
+    estimatedDuration?: number;
 }
 declare const Appointment: mongoose.Model<AppointmentDocument, {}, {}, {}, mongoose.Document<unknown, {}, AppointmentDocument, {}> & AppointmentDocument & Required<{
     _id: unknown;

@@ -1,0 +1,473 @@
+/* AdminNavbar CSS - Modern fix with reduced height and proper centering */
+
+/* Main navbar container */
+.navbar-top {
+  position: relative !important;
+  z-index: 1030 !important;
+  background: #444574 !important;
+  min-height: 45px !important;
+  max-height: 45px !important;
+  height: 45px !important;
+  box-shadow: 0 0 2rem 0 rgba(136, 152, 170, 0.15) !important;
+  overflow: hidden !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+/* Force background color on all navbar variations */
+.navbar-top.navbar-white,
+.navbar-top.navbar-dark,
+.navbar-top.navbar-light {
+  background: #444574 !important;
+  min-height: 45px !important;
+  max-height: 45px !important;
+  height: 45px !important;
+  overflow: hidden !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+/* Container fluid - main layout */
+.navbar-top .container-fluid {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding: 0.4rem 1rem !important;
+  min-height: 45px !important;
+  max-height: 45px !important;
+  height: 45px !important;
+  overflow: hidden !important;
+  width: 100% !important;
+}
+
+/* Sidebar toggle buttons */
+.navbar-top .navbar-toggler {
+  border: none !important;
+  color: white !important;
+  padding: 0.4rem !important;
+  font-size: 1rem !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  height: 30px !important;
+  width: 30px !important;
+  background: transparent !important;
+  transition: all 0.2s ease !important;
+  border-radius: 4px !important;
+  margin: 0 !important;
+  line-height: 1 !important;
+}
+
+.navbar-top .navbar-toggler:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+}
+
+.navbar-top .navbar-toggler:focus {
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+/* Desktop navigation buttons */
+.navbar-top .navbar-btn {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  height: 30px !important;
+  padding: 0.4rem 0.75rem !important;
+  font-size: 0.75rem !important;
+  border-radius: 4px !important;
+  transition: all 0.2s ease !important;
+  margin: 0 0.25rem !important;
+  line-height: 1 !important;
+}
+
+.navbar-top .navbar-btn:hover {
+  transform: translateY(-1px) !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2) !important;
+}
+
+/* Mobile navigation buttons */
+.navbar-top .navbar-btn-mobile {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  height: 30px !important;
+  width: 30px !important;
+  padding: 0.4rem !important;
+  font-size: 0.75rem !important;
+  border-radius: 4px !important;
+  transition: all 0.2s ease !important;
+  line-height: 1 !important;
+}
+
+.navbar-top .navbar-btn-mobile:hover {
+  transform: translateY(-1px) !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2) !important;
+}
+
+/* Dropdown styling */
+.navbar-top .navbar-dropdown {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  height: 30px !important;
+  padding: 0.4rem 0.75rem !important;
+  font-size: 0.75rem !important;
+  border-radius: 4px !important;
+  transition: all 0.2s ease !important;
+  background: transparent !important;
+  border: none !important;
+  line-height: 1 !important;
+}
+
+.navbar-top .navbar-dropdown:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Notification component wrapper */
+.navbar-top .notification-wrapper {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  height: 30px !important;
+  margin: 0 0.25rem !important;
+}
+
+/* Brand text */
+.navbar-top .h6 {
+  font-size: 0.875rem !important;
+  margin: 0 !important;
+  line-height: 1 !important;
+  display: flex !important;
+  align-items: center !important;
+  height: 45px !important;
+}
+
+/* Ensure all flex containers align properly */
+.navbar-top .d-flex {
+  align-items: center !important;
+  height: 45px !important;
+  display: flex !important;
+}
+
+/* Fix icon alignment in buttons */
+.navbar-top .btn i,
+.navbar-top .navbar-btn i,
+.navbar-top .navbar-btn-mobile i {
+  line-height: 1 !important;
+  vertical-align: middle !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+/* Override any conflicting main-content styles */
+.main-content .navbar-top {
+  position: relative !important;
+  left: auto !important;
+  top: auto !important;
+  width: 100% !important;
+  z-index: 1030 !important;
+  background-color: #444574 !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+  min-height: 45px !important;
+  max-height: 45px !important;
+  height: 45px !important;
+  overflow: hidden !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+/* Ensure the navbar is properly contained */
+#navbar-main {
+  position: relative !important;
+  width: 100% !important;
+  z-index: 1030 !important;
+  background-color: #444574 !important;
+  min-height: 45px !important;
+  max-height: 45px !important;
+  height: 45px !important;
+  overflow: hidden !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+/* Additional specificity to override any remaining conflicts */
+.admin-layout .main-content .navbar-top,
+.admin-layout #navbar-main,
+.admin-layout .navbar-top {
+  background-color: #444574 !important;
+  background: #444574 !important;
+  min-height: 45px !important;
+  max-height: 45px !important;
+  height: 45px !important;
+  overflow: hidden !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+/* Sidebar hidden state for full-screen view */
+.main-content.sidebar-hidden {
+  margin-left: 0 !important;
+  width: 100% !important;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .navbar-top .container-fluid {
+    padding: 0.4rem 0.75rem !important;
+  }
+  
+  .navbar-top .navbar-btn-mobile {
+    height: 28px !important;
+    width: 28px !important;
+    font-size: 0.7rem !important;
+  }
+  
+  .navbar-top .navbar-toggler {
+    height: 28px !important;
+    width: 28px !important;
+  }
+}
+
+/* Ensure proper spacing between navbar elements */
+.navbar-top .d-flex > * {
+  margin-right: 0.25rem !important;
+}
+
+.navbar-top .d-flex > *:last-child {
+  margin-right: 0 !important;
+}
+
+/* Override the main CSS file navbar rules */
+.navbar {
+  min-height: 45px !important;
+  max-height: 45px !important;
+  height: 45px !important;
+  overflow: hidden !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+/* FIXED RESPONSIVE DISPLAY RULES - PREVENT DUPLICATES */
+/* Desktop navigation - hide on mobile */
+.navbar-top .d-none.d-md-flex {
+  display: none !important;
+}
+
+/* Mobile navigation - hide on desktop */
+.navbar-top .d-flex.d-md-none {
+  display: none !important;
+}
+
+/* Show desktop navigation on medium screens and up */
+@media (min-width: 768px) {
+  .navbar-top .d-none.d-md-flex {
+    display: flex !important;
+  }
+  
+  .navbar-top .d-flex.d-md-none {
+    display: none !important;
+  }
+}
+
+/* Show mobile navigation on small screens */
+@media (max-width: 767px) {
+  .navbar-top .d-none.d-md-flex {
+    display: none !important;
+  }
+  
+  .navbar-top .d-flex.d-md-none {
+    display: flex !important;
+  }
+}
+
+/* AGGRESSIVE OVERRIDES FOR ARGON CSS FRAMEWORK */
+/* Override Argon's navbar styles that are causing alignment issues */
+.navbar-top,
+.navbar-top *,
+.navbar-top .container-fluid,
+.navbar-top .container-fluid *,
+.navbar-top .d-flex,
+.navbar-top .d-flex *,
+.navbar-top .navbar-toggler,
+.navbar-top .navbar-btn,
+.navbar-top .navbar-btn-mobile,
+.navbar-top .navbar-dropdown,
+.navbar-top .notification-wrapper,
+.navbar-top .h6,
+.navbar-top .btn,
+.navbar-top .btn *,
+.navbar-top i,
+.navbar-top .ni {
+  vertical-align: middle !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  line-height: 1 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* Force all navbar elements to be centered */
+.navbar-top .container-fluid {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  height: 45px !important;
+  min-height: 45px !important;
+  max-height: 45px !important;
+  padding: 0.4rem 1rem !important;
+}
+
+/* Override any Argon button styles */
+.navbar-top .btn,
+.navbar-top .navbar-btn,
+.navbar-top .navbar-btn-mobile {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  height: 30px !important;
+  line-height: 1 !important;
+  vertical-align: middle !important;
+  margin: 0 0.25rem !important;
+  padding: 0.4rem !important;
+}
+
+/* Override Argon's icon styles */
+.navbar-top .ni,
+.navbar-top i {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  line-height: 1 !important;
+  vertical-align: middle !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* Force all flex containers to center their content */
+.navbar-top .d-flex {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  height: 45px !important;
+  min-height: 45px !important;
+  max-height: 45px !important;
+}
+
+/* Override any Bootstrap navbar styles */
+.navbar-top.navbar {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  height: 45px !important;
+  min-height: 45px !important;
+  max-height: 45px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+/* Ensure proper text alignment */
+.navbar-top .h6,
+.navbar-top span,
+.navbar-top .text-white {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  line-height: 1 !important;
+  vertical-align: middle !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* FIX FOR SIDEBAR OPEN/CLOSED STATE CENTERING */
+/* Ensure navbar maintains centering regardless of sidebar state */
+.main-content .navbar-top,
+.main-content.sidebar-hidden .navbar-top {
+  position: relative !important;
+  left: auto !important;
+  top: auto !important;
+  width: 100% !important;
+  z-index: 1030 !important;
+  background-color: #444574 !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+  min-height: 45px !important;
+  max-height: 45px !important;
+  height: 45px !important;
+  overflow: hidden !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+/* Force container to maintain proper layout */
+.main-content .navbar-top .container-fluid,
+.main-content.sidebar-hidden .navbar-top .container-fluid {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  height: 45px !important;
+  min-height: 45px !important;
+  max-height: 45px !important;
+  padding: 0.4rem 1rem !important;
+  width: 100% !important;
+  position: relative !important;
+  left: auto !important;
+  top: auto !important;
+}
+
+/* Ensure all navbar content stays centered */
+.main-content .navbar-top .d-flex,
+.main-content.sidebar-hidden .navbar-top .d-flex {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  height: 45px !important;
+  min-height: 45px !important;
+  max-height: 45px !important;
+  position: relative !important;
+  left: auto !important;
+  top: auto !important;
+}
+
+/* CRITICAL: ENFORCE RESPONSIVE RULES IN ALL SIDEBAR STATES */
+/* Desktop navigation - ALWAYS hide on mobile regardless of sidebar state */
+.main-content .navbar-top .d-none.d-md-flex,
+.main-content.sidebar-hidden .navbar-top .d-none.d-md-flex {
+  display: none !important;
+}
+
+/* Mobile navigation - ALWAYS hide on desktop regardless of sidebar state */
+.main-content .navbar-top .d-flex.d-md-none,
+.main-content.sidebar-hidden .navbar-top .d-flex.d-md-none {
+  display: none !important;
+}
+
+/* Show desktop navigation on medium screens and up - regardless of sidebar state */
+@media (min-width: 768px) {
+  .main-content .navbar-top .d-none.d-md-flex,
+  .main-content.sidebar-hidden .navbar-top .d-none.d-md-flex {
+    display: flex !important;
+  }
+  
+  .main-content .navbar-top .d-flex.d-md-none,
+  .main-content.sidebar-hidden .navbar-top .d-flex.d-md-none {
+    display: none !important;
+  }
+}
+
+/* Show mobile navigation on small screens - regardless of sidebar state */
+@media (max-width: 767px) {
+  .main-content .navbar-top .d-none.d-md-flex,
+  .main-content.sidebar-hidden .navbar-top .d-none.d-md-flex {
+    display: none !important;
+  }
+  
+  .main-content .navbar-top .d-flex.d-md-none,
+  .main-content.sidebar-hidden .navbar-top .d-flex.d-md-none {
+    display: flex !important;
+  }
+} 

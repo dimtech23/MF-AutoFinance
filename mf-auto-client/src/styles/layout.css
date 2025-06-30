@@ -1,0 +1,481 @@
+/* Layout-specific styles to override Argon dashboard conflicts */
+
+/* Ensure proper body and html setup */
+html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+    box-sizing: border-box;
+}
+
+#root {
+    height: 100%;
+    min-height: 100vh;
+    overflow-x: hidden;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+/* Admin layout structure */
+.admin-layout {
+    display: flex;
+    min-height: 100vh;
+    position: relative;
+}
+
+/* Main content area */
+.main-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    margin-left: 280px; /* Desktop sidebar width */
+    min-height: 100vh;
+    transition: margin-left 0.3s ease;
+    position: relative;
+    z-index: 1;
+}
+
+/* Content wrapper */
+.admin-content-wrapper {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: calc(100vh - 40px); /* Updated for smaller navbar height */
+    padding-top: 0;
+    position: relative;
+    z-index: 1;
+}
+
+/* Footer container */
+.admin-footer-container {
+    margin-top: auto;
+    padding: 1rem 0;
+}
+
+/* Clean Admin Navbar Styles */
+.admin-navbar {
+    background-color: #444574 !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+    min-height: 40px !important;
+    max-height: 40px !important;
+    height: 40px !important;
+    padding: 0.25rem 0 !important;
+    position: relative !important;
+    z-index: 1030 !important;
+    overflow: hidden !important;
+}
+
+/* Brand text */
+.navbar-brand-text {
+    color: white !important;
+    font-size: 0.9rem !important;
+    font-weight: 600 !important;
+    text-transform: uppercase !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+/* Desktop navigation */
+.navbar-nav-desktop {
+    display: flex !important;
+    align-items: center !important;
+    gap: 1rem !important;
+    margin-left: auto !important;
+}
+
+/* Notification wrapper */
+.notification-wrapper {
+    margin-left: 0.5rem !important;
+}
+
+/* User dropdown */
+.user-dropdown {
+    margin-left: 0.5rem !important;
+}
+
+.user-dropdown-toggle {
+    color: white !important;
+    background: none !important;
+    border: none !important;
+    padding: 0.25rem 0.5rem !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.5rem !important;
+    font-size: 0.8rem !important;
+    font-weight: 500 !important;
+}
+
+.user-dropdown-toggle:hover,
+.user-dropdown-toggle:focus {
+    color: white !important;
+    background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.user-name {
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.5rem !important;
+}
+
+.user-name i {
+    font-size: 0.9rem !important;
+}
+
+/* Mobile navigation */
+.navbar-nav-mobile {
+    display: none !important;
+    align-items: center !important;
+    gap: 0.5rem !important;
+    margin-left: auto !important;
+}
+
+/* Mobile buttons */
+.navbar-btn-mobile {
+    background-color: rgba(255, 255, 255, 0.15) !important;
+    border-color: rgba(255, 255, 255, 0.2) !important;
+    color: white !important;
+    padding: 0.25rem !important;
+    font-size: 0.8rem !important;
+    border-radius: 4px !important;
+    transition: all 0.2s ease !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 32px !important;
+    height: 32px !important;
+}
+
+.navbar-btn-mobile:hover {
+    background-color: rgba(255, 255, 255, 0.25) !important;
+    border-color: rgba(255, 255, 255, 0.3) !important;
+    color: white !important;
+}
+
+.navbar-btn-mobile i {
+    font-size: 0.9rem !important;
+}
+
+.notification-wrapper-mobile {
+    margin: 0 0.25rem !important;
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+    .navbar-nav-desktop {
+        display: none !important;
+    }
+    
+    .navbar-nav-mobile {
+        display: flex !important;
+    }
+    
+    .navbar-brand-text {
+        font-size: 0.8rem !important;
+    }
+    
+    .admin-navbar {
+        min-height: 40px !important;
+        max-height: 40px !important;
+        height: 40px !important;
+        padding: 0.25rem 0 !important;
+        overflow: hidden !important;
+    }
+    
+    /* Hide desktop elements on mobile */
+    .hidden-mobile {
+        display: none !important;
+    }
+    
+    /* Ensure proper mobile layout */
+    .mobile-layout {
+        width: 100% !important;
+        margin-left: 0 !important;
+        padding: 0 !important;
+    }
+    
+    /* Prevent horizontal scroll on mobile */
+    body {
+        overflow-x: hidden !important;
+    }
+    
+    /* Ensure content fits properly on mobile */
+    .container-fluid {
+        padding-left: 10px !important;
+        padding-right: 10px !important;
+        max-width: 100% !important;
+    }
+}
+
+/* Content wrapper adjustments */
+.admin-content-wrapper {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: calc(100vh - 40px); /* Updated for new navbar height */
+    padding-top: 0;
+    position: relative;
+    z-index: 1;
+}
+
+/* Main content area adjustments */
+.main-content-area {
+    flex: 1 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    min-height: calc(100vh - 40px) !important; /* Updated for new navbar height */
+    overflow-x: hidden !important;
+    width: 100% !important;
+}
+
+/* Mobile content adjustments */
+@media (max-width: 768px) {
+    .admin-content-wrapper {
+        min-height: calc(100vh - 40px) !important; /* Updated for mobile navbar height */
+    }
+    
+    .main-content-area {
+        min-height: calc(100vh - 40px) !important; /* Updated for mobile navbar height */
+    }
+    
+    .admin-navbar {
+        min-height: 40px !important;
+        max-height: 40px !important;
+        height: 40px !important;
+        padding: 0.25rem 0 !important;
+        overflow: hidden !important;
+    }
+}
+
+/* Toast styling fixes */
+.Toastify__toast {
+    background-color: #fff !important;
+    color: #333 !important;
+    border-radius: 8px !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+    opacity: 1 !important;
+    backdrop-filter: none !important;
+}
+
+.Toastify__toast--success {
+    background-color: #d4edda !important;
+    color: #155724 !important;
+    border-left: 4px solid #28a745 !important;
+}
+
+.Toastify__toast--error {
+    background-color: #f8d7da !important;
+    color: #721c24 !important;
+    border-left: 4px solid #dc3545 !important;
+}
+
+.Toastify__toast--warning {
+    background-color: #fff3cd !important;
+    color: #856404 !important;
+    border-left: 4px solid #ffc107 !important;
+}
+
+.Toastify__toast--info {
+    background-color: #d1ecf1 !important;
+    color: #0c5460 !important;
+    border-left: 4px solid #17a2b8 !important;
+}
+
+.Toastify__toast-body {
+    font-family: inherit !important;
+    font-size: 14px !important;
+    line-height: 1.4 !important;
+    padding: 12px 16px !important;
+}
+
+.Toastify__progress-bar {
+    background-color: rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Desktop responsive adjustments */
+@media (min-width: 769px) {
+    /* Hide mobile elements on desktop */
+    .hidden-desktop {
+        display: none !important;
+    }
+    
+    /* Ensure proper desktop layout */
+    .desktop-layout {
+        margin-left: 280px !important;
+    }
+    
+    /* Ensure content fits properly on desktop */
+    .container-fluid {
+        padding-left: 15px !important;
+        padding-right: 15px !important;
+        max-width: 100% !important;
+    }
+}
+
+/* Zoom and responsive behavior */
+@media (max-width: 1200px) {
+    .container-fluid {
+        padding-left: 10px !important;
+        padding-right: 10px !important;
+    }
+}
+
+@media (max-width: 992px) {
+    .container-fluid {
+        padding-left: 8px !important;
+        padding-right: 8px !important;
+    }
+}
+
+/* Smooth transitions for all layout changes */
+.layout-transition {
+    transition: all 0.3s ease !important;
+}
+
+/* Ensure proper z-index layering */
+.layout-z-index {
+    z-index: 1200 !important;
+}
+
+/* Override any conflicting Material-UI styles */
+.MuiBox-root {
+    box-sizing: border-box !important;
+}
+
+/* Ensure proper flexbox behavior */
+.flex-layout {
+    display: flex !important;
+    flex-direction: column !important;
+    min-height: 100vh !important;
+}
+
+/* Fix for any conflicting Bootstrap styles */
+.container-fluid {
+    padding-left: 15px !important;
+    padding-right: 15px !important;
+    max-width: 100% !important;
+    overflow-x: hidden !important;
+}
+
+/* Mobile backdrop styles */
+.mobile-backdrop {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    background-color: rgba(0, 0, 0, 0.5) !important;
+    z-index: 1199 !important;
+}
+
+/* Ensure proper sidebar width on all screen sizes */
+.sidebar-fixed {
+    width: 280px !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    height: 100vh !important;
+}
+
+/* Footer positioning */
+.footer-container {
+    margin-top: auto !important;
+}
+
+/* Ensure all content fits properly */
+.content-wrapper {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: hidden !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+/* Fix for table responsiveness */
+.table-responsive {
+    overflow-x: auto !important;
+    max-width: 100% !important;
+}
+
+/* Ensure cards and other components fit properly */
+.card {
+    max-width: 100% !important;
+    overflow-x: hidden !important;
+}
+
+/* Fix for any grid issues */
+.row {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+}
+
+.col, .col-1, .col-2, .col-3, .col-4, .col-5, .col-6, 
+.col-7, .col-8, .col-9, .col-10, .col-11, .col-12 {
+    padding-left: 8px !important;
+    padding-right: 8px !important;
+}
+
+/* Ensure proper text wrapping */
+.text-wrap {
+    word-wrap: break-word !important;
+    overflow-wrap: break-word !important;
+}
+
+/* Fix for any modal issues */
+.modal {
+    overflow-x: hidden !important;
+}
+
+.modal-body {
+    max-width: 100% !important;
+    overflow-x: hidden !important;
+}
+
+/* Additional navbar overrides */
+.navbar-top .navbar-brand,
+.navbar-top .navbar-nav,
+.navbar-top .nav-link,
+.navbar-top .nav-item {
+    color: white !important;
+}
+
+.navbar-top .navbar-nav .nav-link:hover,
+.navbar-top .navbar-nav .nav-link:focus {
+    color: white !important;
+    background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Ensure proper Material-UI container behavior */
+.MuiContainer-root {
+    max-width: 100% !important;
+    padding-left: 15px !important;
+    padding-right: 15px !important;
+}
+
+@media (max-width: 600px) {
+    .MuiContainer-root {
+        padding-left: 10px !important;
+        padding-right: 10px !important;
+    }
+}
+
+/* Fix for page content positioning */
+.admin-content-wrapper > * {
+    position: relative;
+    z-index: 1;
+}
+
+/* Ensure proper page header positioning */
+.admin-content-wrapper .header {
+    position: relative;
+    z-index: 1;
+}
+
+/* Fix for any overlapping content */
+.admin-content-wrapper .container,
+.admin-content-wrapper .container-fluid {
+    position: relative;
+    z-index: 1;
+} 

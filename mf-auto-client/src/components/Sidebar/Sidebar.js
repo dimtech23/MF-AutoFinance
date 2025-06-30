@@ -10,23 +10,28 @@ import { UserContext } from "../../Context/UserContext";
 import {
   Button,
   Collapse,
-  NavbarBrand,
-  Navbar,
-  NavItem,
-  NavLink,
-  Nav,
+  Box,
   Container,
-} from "reactstrap";
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
+  Divider,
+  useTheme,
+} from "@mui/material";
 
-const Sidebar = ({ routes = [], logo, closeCollapse }) => {
+const Sidebar = ({ routes = [], logo, closeCollapse, isOpen, toggleSidebar }) => {
   const { userRole, logout } = useContext(UserContext);
   const [collapseOpen, setCollapseOpen] = useState(false);
   const history = useHistory();
   const location = useLocation();
+  const theme = useTheme();
 
   // Close sidebar when route changes on mobile
   useEffect(() => {
-    if (window.innerWidth < 768) {
+    const isMobile = window.innerWidth < 768;
+    if (isMobile) {
       setCollapseOpen(false);
     }
   }, [location.pathname]);
@@ -51,73 +56,81 @@ const Sidebar = ({ routes = [], logo, closeCollapse }) => {
         (route) => Array.isArray(route.roles) && route.roles.includes(userRole)
       )
       .map((prop, key) => (
-        <NavItem key={key} className="px-3">
-          <NavLink
+        <ListItem key={key} disablePadding sx={{ px: 1 }}>
+          <ListItemButton
+            component={NavLinkRRD}
             to={prop.layout + prop.path}
-            tag={NavLinkRRD}
             onClick={closeCollapse || closeSidebarCollapse}
-            activeClassName="bg-gray-200 text-primary font-semibold"
-            className="flex items-center py-2 px-4 text-gray-700 hover:bg-gray-100 rounded transition-colors duration-200"
+            sx={{
+              borderRadius: 1,
+              mb: 0.5,
+              '&.active': {
+                backgroundColor: 'grey.200',
+                color: 'primary.main',
+                fontWeight: 'bold',
+              },
+              '&:hover': {
+                backgroundColor: 'grey.100',
+              },
+            }}
           >
-            <i
-              className={`${prop.icon} mr-3 text-xl min-w-[24px] text-center`}
-            />
-            {prop.name}
-          </NavLink>
-        </NavItem>
+            <ListItemIcon sx={{ minWidth: 40 }}>
+              <i className={`${prop.icon} text-xl`} />
+            </ListItemIcon>
+            <ListItemText primary={prop.name} />
+          </ListItemButton>
+        </ListItem>
       ));
   };
 
-  let navbarBrandProps;
+  let logoLinkProps;
   if (logo && logo.innerLink) {
-    navbarBrandProps = {
+    logoLinkProps = {
+      component: Link,
       to: logo.innerLink,
-      tag: Link,
     };
   } else if (logo && logo.outterLink) {
-    navbarBrandProps = {
+    logoLinkProps = {
       href: logo.outterLink,
       target: "_blank",
     };
   }
 
   return (
-    <Navbar
-      className="navbar-vertical fixed-left navbar-light bg-white shadow-md md:min-h-screen"
-      style={{
-        '@media (max-width: 768px)': {
-          height: '40px' // smaller than admin navbar
-        }
+    <Box
+      sx={{
+        position: 'fixed',
+        left: 0,
+        top: 0,
+        height: '100vh',
+        width: { xs: isOpen ? '280px' : '0px', md: isOpen ? '280px' : '0px' },
+        backgroundColor: 'white',
+        boxShadow: 3,
+        zIndex: 1200,
+        transition: 'width 0.3s ease',
+        overflow: 'hidden',
+        display: { xs: isOpen ? 'block' : 'none', md: 'block' },
       }}
-      expand="md"
-      id="sidenav-main"
     >
-      <Container fluid className="px-0">
-        <div className="flex justify-between items-center w-full px-2">
-          {/* Toggler with Tailwind */}
-          <button
-            className="navbar-toggler border-0 p-1 focus:outline-none"
-            type="button"
-            onClick={toggleCollapse}
+      <Container maxWidth={false} sx={{ px: 0, height: '100%' }}>
+        <Box sx={{ 
+          display: 'flex', 
+          justifyContent: 'center', 
+          alignItems: 'center', 
+          width: '100%', 
+          px: 1,
+          py: 1
+        }}>
+          {/* Desktop Logo - Always show on desktop, show on mobile when open */}
+          <Box 
+            sx={{ 
+              display: { xs: isOpen ? 'flex' : 'none', md: isOpen ? 'flex' : 'none' }, 
+              justifyContent: 'center', 
+              width: '100%',
+              pt: 0
+            }}
+            {...logoLinkProps}
           >
-            <span className="navbar-toggler-icon text-sm"></span>
-          </button>
-
-          {/* Small mobile logo */}
-          <div className="md:hidden">
-            <img
-              alt="Logo"
-              style={{ 
-                width: '35px',
-                height: '35px',
-                objectFit: 'contain'
-              }}
-              src="https://i.ibb.co/PGLYCzRD/MF-Autos-Social-Media.jpg"
-            />
-          </div>
-
-          {/* Desktop Logo - Hidden on mobile */}
-          <NavbarBrand className="pt-0 hidden md:flex justify-center w-full" {...navbarBrandProps}>
             <img
               alt="Logo"
               style={{ 
@@ -127,50 +140,47 @@ const Sidebar = ({ routes = [], logo, closeCollapse }) => {
                 minHeight: '300px',
                 objectFit: 'contain'
               }}
-              className="navbar-brand-img"
               src="https://i.ibb.co/PGLYCzRD/MF-Autos-Social-Media.jpg"
             />
-          </NavbarBrand>
-        </div>
+          </Box>
+        </Box>
 
-        <Collapse navbar isOpen={collapseOpen}>
-          {/* Mobile view with simplified header */}
-          <div className="navbar-collapse-header p-2 md:hidden border-b border-gray-200">
-            <div className="flex justify-end">
-              <button
-                className="navbar-toggler focus:outline-none"
-                type="button"
-                onClick={toggleCollapse}
-              >
-                <span></span>
-                <span></span>
-              </button>
-            </div>
-          </div>
-
-          {/* Navigation Links with Tailwind - Larger icons */}
-          <Nav navbar className="mb-md-3 py-2">
+        {/* Navigation Links - Always visible on desktop, collapsible on mobile */}
+        <Box sx={{ 
+          display: { xs: isOpen ? 'block' : 'none', md: isOpen ? 'block' : 'none' },
+          height: 'calc(100vh - 320px)',
+          overflowY: 'auto'
+        }}>
+          <List sx={{ mb: 2, py: 1 }}>
             {createLinks(routes)}
-          </Nav>
+          </List>
 
-          <hr className="my-3 mx-3 border-gray-200" />
+          <Divider sx={{ mx: 1, my: 1 }} />
 
-          {/* Logout Link with Tailwind - Larger icon */}
-          <Nav className="px-3 mb-4">
-            <NavItem>
-              <NavLink
-                href="#"
+          {/* Logout Link */}
+          <List sx={{ px: 1, mb: 2 }}>
+            <ListItem disablePadding>
+              <ListItemButton
                 onClick={handleLogout}
-                className="flex items-center text-red-500 hover:bg-red-50 hover:text-red-600 py-2 px-4 rounded transition-colors duration-200"
+                sx={{
+                  borderRadius: 1,
+                  color: 'error.main',
+                  '&:hover': {
+                    backgroundColor: 'error.50',
+                    color: 'error.dark',
+                  },
+                }}
               >
-                <i className="ni ni-user-run mr-3 text-xl" />
-                <span className="text-base">Logout</span>
-              </NavLink>
-            </NavItem>
-          </Nav>
-        </Collapse>
+                <ListItemIcon sx={{ minWidth: 40 }}>
+                  <i className="ni ni-user-run text-xl" />
+                </ListItemIcon>
+                <ListItemText primary="Logout" />
+              </ListItemButton>
+            </ListItem>
+          </List>
+        </Box>
       </Container>
-    </Navbar>
+    </Box>
   );
 };
 
@@ -183,6 +193,8 @@ Sidebar.propTypes = {
     imgAlt: PropTypes.string,
   }),
   closeCollapse: PropTypes.func,
+  isOpen: PropTypes.bool,
+  toggleSidebar: PropTypes.func,
 };
 
 export default Sidebar;

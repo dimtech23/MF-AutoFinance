@@ -9,4 +9,4 @@ export declare const processPayment: (req: Request, res: Response) => Promise<Re
 export declare const generatePDF: (req: Request, res: Response) => Promise<Response>;
 export declare const exportToExcel: (req: Request, res: Response) => Promise<void>;
 export declare const exportFinancialReportPDF: (req: Request, res: Response) => Promise<Response>;
-export declare const exportFinancialReportExcel: (req: Request, res: Response) => Promise<void>;
+export declare const exportFinancialReportExcel: (req: Request, res: Response) => Promise<Response>;

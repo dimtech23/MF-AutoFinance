@@ -260,6 +260,7 @@ export const clientsAPI = {
   create: (data) => api.post('/api/clients', data),
   update: (id, data) => api.put(`/api/clients/${id}`, data),
   delete: (id) => api.delete(`/api/clients/${id}`),
+  restore: (id) => api.patch(`/api/clients/${id}/restore`),
   updateStatus: (clientId, status) => api.patch(`/api/clients/${clientId}/status`, { status }),
   updatePayment: (clientId, paymentData) => api.patch(`/api/clients/${clientId}/payment`, paymentData),
   markAsDelivered: (clientId, deliveryData) => api.patch(`/api/clients/${clientId}/delivery`, deliveryData),
@@ -267,7 +268,8 @@ export const clientsAPI = {
   getSummary: () => api.get('/api/clients/summary'),
   getClientDocuments: (clientId) => api.get(`/api/clients/${clientId}/documents`),
   sendDocuments: (clientId, documentUrls) => api.post(`/api/clients/${clientId}/send-documents`, { documentUrls }),
-  getRepairHistory: (clientId) => api.get(`/api/clients/${clientId}/repair-history`),
+  getRepairHistory: (clientId) => api.get(`/api/clients/${clientId}/history`),
+  getAuditLogs: (clientId, limit = 50) => api.get(`/api/clients/${clientId}/audit-logs`, { params: { limit } }),
   getCompletionPDF: (clientId) => api.get(`/api/clients/${clientId}/completion-pdf`, {
     responseType: 'blob',
     timeout: 30000, // 30 second timeout

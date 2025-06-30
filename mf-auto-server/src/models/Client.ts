@@ -17,9 +17,13 @@ export interface ClientDocument extends Document {
   issueDescription?: string;
   preExistingIssues?: string;
   estimatedDuration?: number;
+  estimatedCost?: number;
   deliveryDate?: Date;
   paymentStatus: 'paid' | 'not_paid' | 'partial';
   partialPaymentAmount?: number;
+  paymentMethod?: string;
+  paymentDate?: Date;
+  paymentReference?: string;
   repairStatus: 'waiting' | 'in_progress' | 'completed' | 'delivered' | 'cancelled';
   notes?: string;
   images?: {
@@ -41,6 +45,9 @@ export interface ClientDocument extends Document {
     type: string;
     uploadDate: Date;
   }[];
+  deleted?: boolean;
+  deletedAt?: Date;
+  deletedBy?: mongoose.Schema.Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -61,6 +68,7 @@ const ClientSchema = new mongoose.Schema({
   issueDescription: { type: String },
   preExistingIssues: { type: String },
   estimatedDuration: { type: Number, default: 1 },
+  estimatedCost: { type: Number },
   deliveryDate: { type: Date },
   paymentStatus: { 
     type: String, 
@@ -68,6 +76,9 @@ const ClientSchema = new mongoose.Schema({
     default: 'not_paid' 
   },
   partialPaymentAmount: { type: Number, default: 0 },
+  paymentMethod: { type: String },
+  paymentDate: { type: Date },
+  paymentReference: { type: String },
   repairStatus: { 
     type: String, 
     enum: ['waiting', 'in_progress', 'completed', 'delivered', 'cancelled'], 
@@ -92,7 +103,10 @@ const ClientSchema = new mongoose.Schema({
     url: String,
     type: String,
     uploadDate: Date
-  }]
+  }],
+  deleted: { type: Boolean, default: false },
+  deletedAt: { type: Date },
+  deletedBy: { type: Schema.Types.ObjectId, ref: 'User' }
 }, {
   timestamps: true
 });

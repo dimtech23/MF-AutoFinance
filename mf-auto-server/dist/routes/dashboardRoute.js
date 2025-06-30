@@ -12,4 +12,5 @@ exports.dashboardRouter = router;
 router.get('/stats', authMiddleware_1.authenticateToken, dashboardController_1.getDashboardStats);
 router.get('/transactions', authMiddleware_1.authenticateToken, dashboardController_1.getTransactions);
 router.get('/appointments', authMiddleware_1.authenticateToken, dashboardController_1.getAppointments);
+router.get('/payment-history', authMiddleware_1.authenticateToken, dashboardController_1.getPaymentHistory);
 //# sourceMappingURL=dashboardRoute.js.map

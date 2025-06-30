@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useContext, useCallback, useMemo } from "react";
-import { useLocation, useHistory } from "react-router-dom";
-import { invoicesAPI, clientsAPI, budgetAPI } from "../../api";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { useHistory, useLocation } from "react-router-dom";
+import { useContext } from "react";
 import { UserContext } from "../../Context/UserContext.js";
-import Header from "components/Headers/Header.js";
+import { invoicesAPI, clientsAPI, budgetAPI } from "../../api";
 import { toast } from "react-toastify";
 import { format } from "date-fns";
 import DatePicker from "react-datepicker";
@@ -318,10 +318,7 @@ const Invoices = () => {
       createInvoiceFromClient(clientId);
 
       // Clear the location state so it doesn't trigger again on refresh
-      history.replace({
-        pathname: location.pathname,
-        state: {},
-      });
+      history.replace(location.pathname, { replace: true, state: {} });
     }
   }, [location, history]);
 
@@ -392,7 +389,8 @@ const Invoices = () => {
           await fetchClientRepairHistory(client._id || client.id);
         } catch (error) {
           console.error("Error fetching repair history:", error);
-          // Don't show error to user as it's not critical
+          // Don't show error to user as it's not critical for invoice creation
+          setClientRepairHistory([]);
         }
       }
 
@@ -572,7 +570,7 @@ const Invoices = () => {
       setClientRepairHistory(history);
     } catch (error) {
       console.error('Error fetching repair history:', error);
-      toast.error('Failed to fetch repair history');
+      // Don't show error to user as it's not critical for invoice creation
       setClientRepairHistory([]);
     }
   };
@@ -638,6 +636,16 @@ const Invoices = () => {
       const invoicesResponse = await invoicesAPI.getAll();
       setInvoices(invoicesResponse.data);
       setFilteredInvoices(invoicesResponse.data);
+      
+      // Notify other components
+      const updateEvent = new CustomEvent('invoice-updated', {
+        detail: {
+          invoiceId: response.data._id,
+          action: editMode ? 'invoice-updated' : 'invoice-created',
+          timestamp: new Date().getTime()
+        }
+      });
+      window.dispatchEvent(updateEvent);
       
       // Close form and reset state
       setFormOpen(false);
@@ -727,6 +735,16 @@ const Invoices = () => {
       const response = await invoicesAPI.getAll();
       setInvoices(response.data);
       setFilteredInvoices(response.data);
+
+      // Notify other components
+      const updateEvent = new CustomEvent('invoice-updated', {
+        detail: {
+          invoiceId: invoiceToDelete._id,
+          action: 'invoice-deleted',
+          timestamp: new Date().getTime()
+        }
+      });
+      window.dispatchEvent(updateEvent);
 
       // Close dialog and reset state
       setDeleteDialogOpen(false);
@@ -834,6 +852,18 @@ const Invoices = () => {
       setFilteredInvoices(filteredInvoices.map(inv => 
         inv._id === updatedInvoice._id ? updatedInvoice : inv
       ));
+
+      // Notify other components
+      const updateEvent = new CustomEvent('invoice-updated', {
+        detail: {
+          invoiceId: updatedInvoice._id,
+          action: 'payment-processed',
+          amount: selectedInvoice.total,
+          method: paymentDetails.method,
+          timestamp: new Date().getTime()
+        }
+      });
+      window.dispatchEvent(updateEvent);
 
       // Close dialog and reset state
       setPaymentDialogOpen(false);
@@ -982,7 +1012,6 @@ const Invoices = () => {
 
     return (
       <>
-        <Header />
         <Box 
           sx={{ 
             p: 3,

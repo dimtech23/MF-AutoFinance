@@ -15,9 +15,13 @@ export interface ClientDocument extends Document {
     issueDescription?: string;
     preExistingIssues?: string;
     estimatedDuration?: number;
+    estimatedCost?: number;
     deliveryDate?: Date;
     paymentStatus: 'paid' | 'not_paid' | 'partial';
     partialPaymentAmount?: number;
+    paymentMethod?: string;
+    paymentDate?: Date;
+    paymentReference?: string;
     repairStatus: 'waiting' | 'in_progress' | 'completed' | 'delivered' | 'cancelled';
     notes?: string;
     images?: {
@@ -39,6 +43,9 @@ export interface ClientDocument extends Document {
         type: string;
         uploadDate: Date;
     }[];
+    deleted?: boolean;
+    deletedAt?: Date;
+    deletedBy?: mongoose.Schema.Types.ObjectId;
     createdAt: Date;
     updatedAt: Date;
 }

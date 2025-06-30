@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useContext } from "react";
-import { usersAPI } from "../../api";
+import { usersAPI } from "../../api.js";
 import { UserContext } from "../../Context/UserContext.js";
-import Header from "components/Headers/Header.js";
 import { toast } from "react-toastify";
 import { 
   Edit, 
@@ -537,7 +536,6 @@ const UserManagement = () => {
   if (isLoading) {
     return (
       <>
-        <Header />
         <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
           <Box display="flex" justifyContent="center" alignItems="center" height="50vh">
             <CircularProgress />
@@ -549,7 +547,6 @@ const UserManagement = () => {
 
   return (
     <>
-      <Header />
       <Container maxWidth={false} sx={{ mt: 4, mb: 4, px: { xs: 2, sm: 3, md: 4 } }}>
         <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Box sx={{ display: 'flex', alignItems: 'center' }}>

@@ -1,6 +1,6 @@
 .main-content {
     position: relative;
-    min-height: calc(100vh - 60px);
+    min-height: calc(100vh - 40px); // Updated for reduced navbar height
     margin-left: 250px; // Match sidebar width
     transition: margin-left 0.3s ease;
 
@@ -11,9 +11,13 @@
         top: 0;
         width: 100%;
         z-index: 1;
-        background-color: transparent;
+        background-color: #444574 !important;
         padding-left: 0 !important;
         padding-right: 0 !important;
+        min-height: 40px !important;
+        max-height: 40px !important;
+        height: 40px !important;
+        overflow: hidden !important;
     }
 
     // Container
@@ -39,6 +43,18 @@
 
         @include media-breakpoint-up(lg) {
             padding: 2rem;
+        }
+    }
+
+    // Sidebar hidden state for full-screen view
+    &.sidebar-hidden {
+        margin-left: 0 !important;
+        width: 100% !important;
+        
+        @include media-breakpoint-up(md) {
+            .container-fluid {
+                padding: 1rem !important;
+            }
         }
     }
 }

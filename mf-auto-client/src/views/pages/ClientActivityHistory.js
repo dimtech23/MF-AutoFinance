@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useContext } from "react";
+import { useHistory, useParams } from "react-router-dom";
 import { UserContext } from "../../Context/UserContext.js";
-import { clientAPI } from "../../api";
-import Header from "components/Headers/Header.js";
+import { clientsAPI } from "../../api.js";
 import { toast } from "react-toastify";
 import { format } from "date-fns";
 import DatePicker from "react-datepicker";
@@ -131,7 +131,7 @@ const ClientActivityHistory = () => {
         if (selectedCategory) params.category = selectedCategory.value;
         
         // Get client history using the API
-        const response = await clientAPI.getHistory(params);
+        const response = await clientsAPI.getHistory(params);
         if (response && response.data) {
           // Process the activities data
           const processedActivities = response.data.map(activity => ({
@@ -153,7 +153,7 @@ const ClientActivityHistory = () => {
           setFilteredActivities(processedActivities);
           
           // Update summary stats
-          const summaryResponse = await clientAPI.getSummary();
+          const summaryResponse = await clientsAPI.getSummary();
           if (summaryResponse && summaryResponse.data) {
             setSummaryStats(summaryResponse.data);
           }
@@ -182,6 +182,76 @@ const ClientActivityHistory = () => {
       fetchClientHistory();
     }
   }, [token, reportPeriod, startDate, endDate, activityType, statusFilter, selectedCategory]);
+
+  // Add event listeners for real-time updates
+  useEffect(() => {
+    const handleClientUpdate = (event) => {
+      console.log('Client update detected in ClientActivityHistory, refreshing data');
+      // Trigger a refresh of the data
+      const fetchClientHistory = async () => {
+        try {
+          const params = {};
+          if (startDate) params.startDate = format(startDate, 'yyyy-MM-dd');
+          if (endDate) params.endDate = format(endDate, 'yyyy-MM-dd');
+          if (activityType !== 'all') params.type = activityType;
+          if (statusFilter) params.status = statusFilter.value;
+          if (selectedCategory) params.category = selectedCategory.value;
+          
+          const response = await clientsAPI.getHistory(params);
+          if (response && response.data) {
+            const processedActivities = response.data.map(activity => ({
+              ...activity,
+              date: activity.date || activity.createdAt,
+              type: activity.type || 'other',
+              status: activity.status || 'pending',
+              category: activity.category || 'other',
+              description: activity.description || '',
+              clientName: activity.clientName || '',
+              vehicleInfo: activity.vehicleInfo || null,
+              createdBy: activity.createdBy || 'System',
+              amount: activity.amount || 0,
+              documents: activity.documents || [],
+              notes: activity.notes || ''
+            }));
+
+            setActivities(processedActivities);
+            setFilteredActivities(processedActivities);
+            
+            const summaryResponse = await clientsAPI.getSummary();
+            if (summaryResponse && summaryResponse.data) {
+              setSummaryStats(summaryResponse.data);
+            }
+          }
+        } catch (error) {
+          console.error('Error refreshing client history:', error);
+        }
+      };
+      
+      fetchClientHistory();
+    };
+
+    const handlePaymentUpdate = (event) => {
+      console.log('Payment update detected in ClientActivityHistory, refreshing data');
+      // Same refresh logic as above
+      handleClientUpdate(event);
+    };
+
+    const handleInvoiceUpdate = (event) => {
+      console.log('Invoice update detected in ClientActivityHistory, refreshing data');
+      // Same refresh logic as above
+      handleClientUpdate(event);
+    };
+
+    window.addEventListener('client-updated', handleClientUpdate);
+    window.addEventListener('payment-updated', handlePaymentUpdate);
+    window.addEventListener('invoice-updated', handleInvoiceUpdate);
+    
+    return () => {
+      window.removeEventListener('client-updated', handleClientUpdate);
+      window.removeEventListener('payment-updated', handlePaymentUpdate);
+      window.removeEventListener('invoice-updated', handleInvoiceUpdate);
+    };
+  }, [startDate, endDate, activityType, statusFilter, selectedCategory]);
 
   // Apply search filter when search term changes
   useEffect(() => {
@@ -258,7 +328,7 @@ const ClientActivityHistory = () => {
         category: selectedCategory ? selectedCategory.value : null
       };
 
-      const response = await clientAPI.exportHistory(params);
+      const response = await clientsAPI.exportHistory(params);
       
       // Create download link
       const url = URL.createObjectURL(response.data);
@@ -319,7 +389,6 @@ const ClientActivityHistory = () => {
   if (isLoading) {
     return (
       <>
-        <Header />
         <Box 
           sx={{ 
             p: 3,
@@ -340,7 +409,6 @@ const ClientActivityHistory = () => {
   if (error) {
     return (
       <>
-        <Header />
         <Box 
           sx={{ 
             p: 3,
@@ -380,7 +448,6 @@ const ClientActivityHistory = () => {
 
   return (
     <>
-      <Header />
       <Box 
         sx={{ 
           p: 3,
@@ -398,8 +465,6 @@ const ClientActivityHistory = () => {
             justifyContent: 'space-between', 
             alignItems: { xs: 'flex-start', sm: 'center' },
             gap: 2,
-            flexShrink: 0,
-            mb: { xs: 2, md: 3 }
           }}
         >
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -413,15 +478,18 @@ const ClientActivityHistory = () => {
             >
               <User size={24} />
             </Avatar>
-            <Typography 
-              variant="h4" 
-              component="h1"
-              sx={{ 
-                fontSize: { xs: '1.5rem', sm: '2rem', md: '2.5rem' }
-              }}
-            >
-              Client Activity History
-            </Typography>
+            <Box>
+              <Typography 
+                variant="h4" 
+                component="h1"
+                sx={{ fontSize: { xs: '1.5rem', sm: '2rem', md: '2.5rem' } }}
+              >
+                Client Activity History
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                View and filter all client-related activities, payments, deliveries, and more. Use the filters below to find specific events.
+              </Typography>
+            </Box>
           </Box>
           
           <Box 
@@ -660,7 +728,8 @@ const ClientActivityHistory = () => {
               borderRadius: 2,
               boxShadow: 2,
               borderLeft: '4px solid',
-              borderColor: 'info.main'
+              borderColor: 'info.main',
+              bgcolor: 'rgba(0, 123, 255, 0.04)' // subtle blue background
             }}
           >
             <Grid 
@@ -744,7 +813,7 @@ const ClientActivityHistory = () => {
                     }}
                     fullWidth
                   >
-                    Reset
+                    Clear All Filters
                   </Button>
                   <Button 
                     variant="outlined" 
@@ -824,20 +893,21 @@ const ClientActivityHistory = () => {
                 >
                   <TableHead>
                     <TableRow>
-                      <TableCell sx={{ fontWeight: 'bold' }}>Date</TableCell>
-                      <TableCell sx={{ fontWeight: 'bold' }}>Type</TableCell>
-                      <TableCell sx={{ fontWeight: 'bold' }}>Client</TableCell>
-                      <TableCell sx={{ display: { xs: 'none', md: 'table-cell' }, fontWeight: 'bold' }}>Vehicle</TableCell>
-                      <TableCell sx={{ fontWeight: 'bold' }}>Description</TableCell>
-                      <TableCell sx={{ fontWeight: 'bold' }}>Status</TableCell>
-                      <TableCell sx={{ fontWeight: 'bold' }} align="center">Actions</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold' }} title="Date of the activity">Date</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold' }} title="Type of activity (payment, delivery, etc)">Type</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold' }} title="Client involved">Client</TableCell>
+                      <TableCell sx={{ display: { xs: 'none', md: 'table-cell' }, fontWeight: 'bold' }} title="Vehicle details">Vehicle</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold' }} title="Short description of the activity">Description</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold' }} title="Current status">Status</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold' }} align="center" title="Actions you can take">Actions</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {filteredActivities.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={7} align="center">
-                          <Box sx={{ py: 3 }}>
+                          <Box sx={{ py: 3, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                            <AlertCircle size={48} color="#bbb" style={{ marginBottom: 8 }} />
                             <Typography variant="body1" sx={{ mb: 1 }}>
                               No activities found
                             </Typography>
@@ -860,23 +930,24 @@ const ClientActivityHistory = () => {
                               }
                             }}
                           >
-                            <TableCell>
+                            <TableCell sx={{ fontWeight: 600, color: 'primary.main' }}>
                               {format(new Date(activity.date), "MMM d, yyyy")}
                             </TableCell>
-                            <TableCell>
+                            <TableCell sx={{ fontWeight: 600 }}>
                               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                 {getActivityIcon(activity.type)}
                                 <Typography 
                                   variant="body2"
                                   sx={{ 
-                                    display: { xs: 'none', sm: 'block' }
+                                    display: { xs: 'none', sm: 'block' },
+                                    fontWeight: 600
                                   }}
                                 >
                                   {getActivityTypeLabel(activity.type)}
                                 </Typography>
                               </Box>
                             </TableCell>
-                            <TableCell>
+                            <TableCell sx={{ fontWeight: 600 }}>
                               <Typography variant="body2">
                                 {activity.clientName}
                               </Typography>
@@ -897,7 +968,8 @@ const ClientActivityHistory = () => {
                                 maxWidth: { xs: 120, sm: 200 },
                                 whiteSpace: 'nowrap',
                                 overflow: 'hidden',
-                                textOverflow: 'ellipsis'
+                                textOverflow: 'ellipsis',
+                                fontWeight: 600
                               }}
                             >
                               <Tooltip title={activity.description}>

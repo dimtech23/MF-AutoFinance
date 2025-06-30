@@ -50,6 +50,7 @@ const ClientSchema = new mongoose_1.default.Schema({
     issueDescription: { type: String },
     preExistingIssues: { type: String },
     estimatedDuration: { type: Number, default: 1 },
+    estimatedCost: { type: Number },
     deliveryDate: { type: Date },
     paymentStatus: {
         type: String,
@@ -57,6 +58,9 @@ const ClientSchema = new mongoose_1.default.Schema({
         default: 'not_paid'
     },
     partialPaymentAmount: { type: Number, default: 0 },
+    paymentMethod: { type: String },
+    paymentDate: { type: Date },
+    paymentReference: { type: String },
     repairStatus: {
         type: String,
         enum: ['waiting', 'in_progress', 'completed', 'delivered', 'cancelled'],
@@ -81,7 +85,10 @@ const ClientSchema = new mongoose_1.default.Schema({
             url: String,
             type: String,
             uploadDate: Date
-        }]
+        }],
+    deleted: { type: Boolean, default: false },
+    deletedAt: { type: Date },
+    deletedBy: { type: mongoose_1.Schema.Types.ObjectId, ref: 'User' }
 }, {
     timestamps: true
 });

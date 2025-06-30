@@ -1,12 +1,13 @@
 import Dashboard from "views/pages/Dashboard.js";
 import Clients from "views/pages/Clients.js";
-import Budget from "views/pages/Budget.js";
+// import Budget from "views/pages/Budget.js";
 import Reports from "views/pages/Reports.js";
 import Invoices from "views/pages/Invoices.js";
 import UserManagement from "views/pages/UserManagement.js";
 import Login from "views/pages/Login.js";
 import ClientActivityHistory from "views/pages/ClientActivityHistory";
 import DeliveryDocs from "views/pages/DeliveryDocs";
+import StaffSalary from "views/pages/StaffSalary";
 import { Truck } from "lucide-react";
 
 const routes = [
@@ -50,14 +51,14 @@ const routes = [
     layout: "/admin",
     roles: ["Admin", "Manager", "Accountant"]
   },
-  {
-    path: "/budget",
-    name: "Budget",
-    icon: "ni ni-chart-pie-35 text-orange",
-    component: Budget,
-    layout: "/admin",
-    roles: ["Admin", "Accountant", "Manager"]
-  },
+  // {
+  //   path: "/budget",
+  //   name: "Budget",
+  //   icon: "ni ni-chart-pie-35 text-orange",
+  //   component: Budget,
+  //   layout: "/admin",
+  //   roles: ["Admin", "Accountant", "Manager"]
+  // },
   {
     path: "/user-management",
     name: "User Management",
@@ -82,6 +83,14 @@ const routes = [
       value: "New",
       color: "error"
     }
+  },
+  {
+    path: "/staff-salary",
+    name: "Staff Salary & Overtime",
+    icon: "ni ni-money-coins text-purple",
+    component: StaffSalary,
+    layout: "/admin",
+    roles: ["Accountant", "Admin"]
   }
 ];
 

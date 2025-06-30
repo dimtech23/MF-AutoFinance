@@ -1,3 +1,32 @@
+import { PDFDocument } from 'pdf-lib';
+import fs from 'fs';
+import path from 'path';
+
+// Create a buffered PDF document
+export const createBufferedPDF = async (_options: {
+  title: string;
+  content: string;
+  filename?: string;
+}) => {
+  const pdfDoc = await PDFDocument.create();
+  // PDF creation logic here
+  return pdfDoc;
+};
+
+// Get company logo buffer
+export const getCompanyLogo = async (): Promise<Buffer | null> => {
+  try {
+    const logoPath = path.join(__dirname, '../../public/images/logo.png');
+    if (fs.existsSync(logoPath)) {
+      return fs.readFileSync(logoPath);
+    }
+    return null;
+  } catch (error) {
+    console.error('Error reading company logo:', error);
+    return null;
+  }
+};
+
 // import {PDFDocument, PDFFont, PDFPage, RGB, rgb, StandardFonts} from "pdf-lib";
 // import fs from 'fs';
 // import path from 'path';

@@ -7,6 +7,7 @@ import Sidebar from "../components/Sidebar/Sidebar";
 import routes from "../routes";
 import ProtectedRoute from "../components/ProtectedRoute";
 import { UserContext } from "../Context/UserContext";
+import { Alert } from "@mui/material";
 
 const Admin = (props) => {
     const mainContent = useRef(null);
@@ -15,8 +16,7 @@ const Admin = (props) => {
     
     const [sidebarOpen, setSidebarOpen] = useState(true);
     const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-
-    
+    const [isOffline, setIsOffline] = useState(!navigator.onLine);
 
     // Effect to handle screen resize
     useEffect(() => {
@@ -24,12 +24,11 @@ const Admin = (props) => {
             const isMobileView = window.innerWidth < 768;
             setIsMobile(isMobileView);
             
-            // Auto close sidebar on mobile
+            // Only auto close sidebar on mobile, don't auto open on desktop
             if (isMobileView && sidebarOpen) {
                 setSidebarOpen(false);
-            } else if (!isMobileView && !sidebarOpen) {
-                setSidebarOpen(true);
             }
+            // Remove the auto-open logic to allow manual toggle
         };
 
         window.addEventListener("resize", handleResize);
@@ -49,8 +48,20 @@ const Admin = (props) => {
         }
     }, [location]);
 
-    // Toggle sidebar function for mobile
+    useEffect(() => {
+        const handleOnline = () => setIsOffline(false);
+        const handleOffline = () => setIsOffline(true);
+        window.addEventListener("online", handleOnline);
+        window.addEventListener("offline", handleOffline);
+        return () => {
+            window.removeEventListener("online", handleOnline);
+            window.removeEventListener("offline", handleOffline);
+        };
+    }, []);
+
+    // Toggle sidebar function for both mobile and desktop
     const toggleSidebar = () => {
+        console.log('Toggle sidebar called. Current state:', sidebarOpen, 'isMobile:', isMobile);
         setSidebarOpen(!sidebarOpen);
     };
 
@@ -75,7 +86,12 @@ const Admin = (props) => {
     
 
     return (
-        <div className={`admin-layout ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
+        <div className="admin-layout">
+            {isOffline && (
+                <Alert severity="warning" style={{ zIndex: 2000, position: 'fixed', top: 0, left: 0, right: 0, textAlign: 'center' }}>
+                    You are offline. Some features may not be available.
+                </Alert>
+            )}
             <Sidebar 
                 {...props} 
                 routes={filteredRoutes} 
@@ -87,7 +103,7 @@ const Admin = (props) => {
                     imgAlt: "MF Autos Logo",
                 }}
             />
-            <div className="main-content" ref={mainContent}>
+            <div className={`main-content ${!sidebarOpen ? 'sidebar-hidden' : ''}`} ref={mainContent}>
                 <AdminNavbar 
                     {...props} 
                     toggleSidebar={toggleSidebar} 

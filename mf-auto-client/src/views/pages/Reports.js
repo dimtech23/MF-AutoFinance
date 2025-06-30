@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from "react";
+import { UserContext } from "../../Context/UserContext.js";
+import { invoicesAPI, clientsAPI, appointmentAPI } from "../../api.js";
 import {
   Box,
   Card,
@@ -19,85 +21,45 @@ import {
   InputLabel,
   CircularProgress,
   Alert,
-  Tabs,
-  Tab,
-  Divider,
   Chip,
-  IconButton,
-  Tooltip,
   TextField,
   InputAdornment,
   List,
   ListItem,
   ListItemText,
   LinearProgress,
+  ToggleButton,
+  ToggleButtonGroup,
 } from '@mui/material';
 import {
-  Download as DownloadIcon,
   FileText as PdfIcon,
   Table as ExcelIcon,
   Search as SearchIcon,
-  Filter as FilterIcon,
   TrendingUp as TrendingUpIcon,
-  Wallet as AccountBalanceIcon,
-  Receipt as ReceiptIcon,
   DollarSign as MoneyIcon,
-  AlertTriangle as WarningIcon,
   CheckCircle as CheckCircleIcon,
   Clock as ScheduleIcon,
+  Car as CarIcon,
+  BarChart3 as BarChartIcon,
 } from 'lucide-react';
 import DatePicker from 'react-datepicker';
 import "react-datepicker/dist/react-datepicker.css";
-import { invoicesAPI, clientsAPI } from '../../api';
-import { formatCurrency, formatPercentage, formatDate } from '../../utility/formatters';
-import Header from "components/Headers/Header.js";
-import { format, startOfDay, endOfDay, subDays, subMonths, subYears } from "date-fns";
-import { toast } from 'react-hot-toast';
-
-const validateExportData = (data) => {
-  const { dateRange, customDateRange, reportType, filters } = data;
-  
-  // Validate required fields
-  if (!dateRange || !reportType) {
-    throw new Error('Missing required export parameters');
-  }
-
-  // Validate date range
-  if (dateRange === 'custom') {
-    if (!customDateRange?.[0] || !customDateRange?.[1]) {
-      throw new Error('Custom date range requires both start and end dates');
-    }
-    if (new Date(customDateRange[0]) > new Date(customDateRange[1])) {
-      throw new Error('Start date must be before end date');
-    }
-  }
-
-  // Validate filters
-  if (filters?.status && !['all', 'paid', 'pending', 'overdue'].includes(filters.status)) {
-    throw new Error('Invalid status filter');
-  }
-
-  return {
-    dateRange,
-    customDateRange: customDateRange?.map(date => date ? format(date, 'yyyy-MM-dd') : null),
-    reportType,
-    filters: {
-      status: filters?.status || 'all',
-      search: filters?.search || ''
-    }
-  };
-};
+import { formatCurrency, formatPercentage } from '../../utility/formatters';
+import { toast } from "react-toastify";
+import { format, startOfDay, endOfDay, subDays, subMonths, subYears, startOfWeek } from "date-fns";
 
 const Reports = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [invoices, setInvoices] = useState([]);
-  const [clients, setClients] = useState([]);
+  const [appointments, setAppointments] = useState([]);
   const [dateRange, setDateRange] = useState('month');
   const [customDateRange, setCustomDateRange] = useState([null, null]);
-  const [activeTab, setActiveTab] = useState('overview');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [carFilter, setCarFilter] = useState('all');
+  const [serviceFilter, setServiceFilter] = useState('all');
+  const [viewMode, setViewMode] = useState('overview');
   const [summary, setSummary] = useState({
     totalRevenue: 0,
     totalPaid: 0,
@@ -107,59 +69,33 @@ const Reports = () => {
     overdueInvoices: 0,
     averageInvoiceAmount: 0,
     collectionRate: 0,
+    totalCarsFixed: 0,
+    totalAppointments: 0,
+    completedAppointments: 0,
+    pendingAppointments: 0,
+    averageRepairTime: 0,
     monthlyTrend: [],
     topClients: [],
+    topServices: [],
     paymentMethods: {},
     serviceCategories: {},
+    carMakes: {},
+    dailyStats: [],
+    weeklyStats: [],
+    monthlyStats: [],
   });
   const [isExporting, setIsExporting] = useState(false);
   const [exportError, setExportError] = useState(null);
   const [exportProgress, setExportProgress] = useState(0);
   const [exportStatus, setExportStatus] = useState(null);
 
-  useEffect(() => {
-    fetchData();
-  }, [dateRange, customDateRange]);
+  // Extract unique car makes/models from invoices
+  const carOptions = Array.from(new Set(invoices.map(inv => (inv.carMake && inv.carModel) ? `${inv.carMake} ${inv.carModel}` : null).filter(Boolean)));
+  
+  // Extract unique service categories
+  const serviceOptions = Array.from(new Set(invoices.map(inv => inv.serviceCategory).filter(Boolean)));
 
-  const fetchData = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      // Fetch data in parallel with proper error handling
-      const [invoicesResponse, clientsResponse] = await Promise.all([
-        invoicesAPI.getAll().catch(err => {
-          console.error('Error fetching invoices:', err);
-          throw new Error('Failed to fetch invoices. Please try again.');
-        }),
-        clientsAPI.getAll().catch(err => {
-          console.error('Error fetching clients:', err);
-          throw new Error('Failed to fetch clients. Please try again.');
-        })
-      ]);
-
-      if (!invoicesResponse?.data || !clientsResponse?.data) {
-        throw new Error('Invalid response from server');
-      }
-
-      const filteredInvoices = filterInvoicesByDateRange(invoicesResponse.data, dateRange);
-      
-      if (filteredInvoices.length === 0) {
-        setError('No data available for the selected date range');
-      } else {
-        setInvoices(filteredInvoices);
-        setClients(clientsResponse.data);
-        calculateSummary(filteredInvoices, clientsResponse.data);
-      }
-    } catch (err) {
-      setError(err.message || 'Failed to fetch data. Please try again.');
-      console.error('Error in fetchData:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const filterInvoicesByDateRange = (invoices, range) => {
+  const filterDataByDateRange = useCallback((data, range, dateField) => {
     const now = new Date();
     let startDate, endDate;
 
@@ -177,13 +113,13 @@ const Reports = () => {
       );
     }
 
-    return invoices.filter(invoice => {
-      const invoiceDate = new Date(invoice.createdAt);
-      return invoiceDate >= startDate && invoiceDate <= endDate;
+    return data.filter(item => {
+      const itemDate = new Date(item[dateField] || item.createdAt);
+      return itemDate >= startDate && itemDate <= endDate;
     });
-  };
+  }, [customDateRange]);
 
-  const calculateSummary = (filteredInvoices, allClients) => {
+  const calculateSummary = useCallback((filteredInvoices, filteredAppointments, allClients) => {
     const summary = {
       totalRevenue: 0,
       totalPaid: 0,
@@ -193,13 +129,23 @@ const Reports = () => {
       overdueInvoices: 0,
       averageInvoiceAmount: 0,
       collectionRate: 0,
+      totalCarsFixed: 0,
+      totalAppointments: filteredAppointments.length,
+      completedAppointments: 0,
+      pendingAppointments: 0,
+      averageRepairTime: 0,
       monthlyTrend: [],
       topClients: [],
+      topServices: [],
       paymentMethods: {},
       serviceCategories: {},
+      carMakes: {},
+      dailyStats: [],
+      weeklyStats: [],
+      monthlyStats: [],
     };
 
-    // Calculate basic metrics
+    // Calculate invoice metrics
     filteredInvoices.forEach(invoice => {
       summary.totalRevenue += invoice.amount;
       if (invoice.status === 'paid') {
@@ -223,27 +169,33 @@ const Reports = () => {
         summary.serviceCategories[invoice.serviceCategory] = 
           (summary.serviceCategories[invoice.serviceCategory] || 0) + invoice.amount;
       }
+
+      // Track car makes
+      if (invoice.carMake) {
+        summary.carMakes[invoice.carMake] = 
+          (summary.carMakes[invoice.carMake] || 0) + 1;
+      }
+    });
+
+    // Calculate appointment metrics
+    filteredAppointments.forEach(appointment => {
+      if (appointment.status === 'completed') {
+        summary.completedAppointments++;
+        summary.totalCarsFixed++;
+      } else if (appointment.status === 'pending' || appointment.status === 'scheduled') {
+        summary.pendingAppointments++;
+      }
     });
 
     // Calculate derived metrics
     summary.averageInvoiceAmount = summary.totalRevenue / (summary.totalInvoices || 1);
     summary.collectionRate = (summary.totalPaid / summary.totalRevenue) * 100;
 
-    // Calculate monthly trend
-    const monthlyData = {};
-    filteredInvoices.forEach(invoice => {
-      const month = format(new Date(invoice.createdAt), 'MMM yyyy');
-      if (!monthlyData[month]) {
-        monthlyData[month] = { revenue: 0, count: 0 };
-      }
-      monthlyData[month].revenue += invoice.amount;
-      monthlyData[month].count++;
-    });
-    summary.monthlyTrend = Object.entries(monthlyData).map(([month, data]) => ({
-      month,
-      revenue: data.revenue,
-      count: data.count
-    }));
+    // Calculate top services by revenue
+    summary.topServices = Object.entries(summary.serviceCategories)
+      .map(([service, revenue]) => ({ service, revenue }))
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, 5);
 
     // Calculate top clients
     const clientRevenue = {};
@@ -264,7 +216,103 @@ const Reports = () => {
       .sort((a, b) => b.revenue - a.revenue)
       .slice(0, 5);
 
+    // Calculate daily, weekly, monthly stats
+    summary.dailyStats = calculateDailyStats(filteredInvoices, filteredAppointments);
+    summary.weeklyStats = calculateWeeklyStats(filteredInvoices, filteredAppointments);
+    summary.monthlyStats = calculateMonthlyStats(filteredInvoices, filteredAppointments);
+
     setSummary(summary);
+  }, []);
+
+  const calculateDailyStats = (invoices, appointments) => {
+    const dailyData = {};
+    
+    // Group by day
+    [...invoices, ...appointments].forEach(item => {
+      const date = format(new Date(item.createdAt || item.date), 'yyyy-MM-dd');
+      if (!dailyData[date]) {
+        dailyData[date] = { revenue: 0, invoices: 0, appointments: 0, carsFixed: 0 };
+      }
+      
+      if (item.amount) {
+        dailyData[date].revenue += item.amount;
+        dailyData[date].invoices++;
+      } else {
+        dailyData[date].appointments++;
+        if (item.status === 'completed') {
+          dailyData[date].carsFixed++;
+        }
+      }
+    });
+
+    return Object.entries(dailyData)
+      .map(([date, data]) => ({
+        date,
+        ...data
+      }))
+      .sort((a, b) => new Date(a.date) - new Date(b.date))
+      .slice(-7); // Last 7 days
+  };
+
+  const calculateWeeklyStats = (invoices, appointments) => {
+    const weeklyData = {};
+    
+    [...invoices, ...appointments].forEach(item => {
+      const date = new Date(item.createdAt || item.date);
+      const weekStart = format(startOfWeek(date), 'yyyy-MM-dd');
+      
+      if (!weeklyData[weekStart]) {
+        weeklyData[weekStart] = { revenue: 0, invoices: 0, appointments: 0, carsFixed: 0 };
+      }
+      
+      if (item.amount) {
+        weeklyData[weekStart].revenue += item.amount;
+        weeklyData[weekStart].invoices++;
+      } else {
+        weeklyData[weekStart].appointments++;
+        if (item.status === 'completed') {
+          weeklyData[weekStart].carsFixed++;
+        }
+      }
+    });
+
+    return Object.entries(weeklyData)
+      .map(([weekStart, data]) => ({
+        weekStart,
+        ...data
+      }))
+      .sort((a, b) => new Date(a.weekStart) - new Date(b.weekStart))
+      .slice(-4); // Last 4 weeks
+  };
+
+  const calculateMonthlyStats = (invoices, appointments) => {
+    const monthlyData = {};
+    
+    [...invoices, ...appointments].forEach(item => {
+      const month = format(new Date(item.createdAt || item.date), 'MMM yyyy');
+      
+      if (!monthlyData[month]) {
+        monthlyData[month] = { revenue: 0, invoices: 0, appointments: 0, carsFixed: 0 };
+      }
+      
+      if (item.amount) {
+        monthlyData[month].revenue += item.amount;
+        monthlyData[month].invoices++;
+      } else {
+        monthlyData[month].appointments++;
+        if (item.status === 'completed') {
+          monthlyData[month].carsFixed++;
+        }
+      }
+    });
+
+    return Object.entries(monthlyData)
+      .map(([month, data]) => ({
+        month,
+        ...data
+      }))
+      .sort((a, b) => new Date(a.month) - new Date(b.month))
+      .slice(-6); // Last 6 months
   };
 
   const handleExport = async (type, reportType) => {
@@ -280,7 +328,9 @@ const Reports = () => {
         reportType: reportType,
         filters: {
           status: filterStatus,
-          search: searchTerm
+          search: searchTerm,
+          car: carFilter,
+          service: serviceFilter
         }
       };
 
@@ -339,6 +389,7 @@ const Reports = () => {
 
   const renderOverview = () => (
     <Grid container spacing={3}>
+      {/* Key Metrics */}
       <Grid item xs={12} sm={6} md={3}>
         <SummaryCard
           title="Total Revenue"
@@ -350,80 +401,50 @@ const Reports = () => {
       </Grid>
       <Grid item xs={12} sm={6} md={3}>
         <SummaryCard
-          title="Collection Rate"
-          value={formatPercentage(summary.collectionRate)}
-          subtitle={`${summary.paidInvoices} paid invoices`}
-          icon={CheckCircleIcon}
+          title="Cars Fixed"
+          value={summary.totalCarsFixed}
+          subtitle={`${summary.completedAppointments} completed`}
+          icon={CarIcon}
           color="info"
         />
       </Grid>
       <Grid item xs={12} sm={6} md={3}>
         <SummaryCard
-          title="Outstanding"
-          value={formatCurrency(summary.totalOutstanding)}
-          subtitle={`${summary.totalInvoices - summary.paidInvoices} unpaid invoices`}
-          icon={WarningIcon}
-          color="warning"
+          title="Collection Rate"
+          value={formatPercentage(summary.collectionRate)}
+          subtitle={`${summary.paidInvoices} paid invoices`}
+          icon={CheckCircleIcon}
+          color="primary"
         />
       </Grid>
       <Grid item xs={12} sm={6} md={3}>
         <SummaryCard
-          title="Average Invoice"
-          value={formatCurrency(summary.averageInvoiceAmount)}
-          subtitle={`${summary.overdueInvoices} overdue invoices`}
-          icon={AccountBalanceIcon}
-          color="error"
+          title="Pending Work"
+          value={summary.pendingAppointments}
+          subtitle={`${summary.totalAppointments} total appointments`}
+          icon={ScheduleIcon}
+          color="warning"
         />
       </Grid>
 
-      {/* Monthly Trend */}
-      <Grid item xs={12} md={8}>
+      {/* Top Services */}
+      <Grid item xs={12} md={6}>
         <Card>
           <CardContent>
             <Typography variant="h6" gutterBottom>
-              Monthly Revenue Trend
-            </Typography>
-            <TableContainer>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Month</TableCell>
-                    <TableCell align="right">Revenue</TableCell>
-                    <TableCell align="right">Invoices</TableCell>
-                    <TableCell align="right">Average</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {summary.monthlyTrend.map((month) => (
-                    <TableRow key={month.month}>
-                      <TableCell>{month.month}</TableCell>
-                      <TableCell align="right">{formatCurrency(month.revenue)}</TableCell>
-                      <TableCell align="right">{month.count}</TableCell>
-                      <TableCell align="right">
-                        {formatCurrency(month.revenue / month.count)}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </CardContent>
-        </Card>
-      </Grid>
-
-      {/* Top Clients */}
-      <Grid item xs={12} md={4}>
-        <Card>
-          <CardContent>
-            <Typography variant="h6" gutterBottom>
-              Top Clients
+              Top Services by Revenue
             </Typography>
             <List>
-              {summary.topClients.map((client) => (
-                <ListItem key={client.id}>
+              {summary.topServices.map((service, index) => (
+                <ListItem key={index} divider>
                   <ListItemText
-                    primary={client.name}
-                    secondary={formatCurrency(client.revenue)}
+                    primary={service.service}
+                    secondary={formatCurrency(service.revenue)}
+                  />
+                  <Chip 
+                    label={`${((service.revenue / summary.totalRevenue) * 100).toFixed(1)}%`}
+                    color="primary"
+                    size="small"
                   />
                 </ListItem>
               ))}
@@ -432,63 +453,58 @@ const Reports = () => {
         </Card>
       </Grid>
 
-      {/* Payment Methods Distribution */}
+      {/* Top Clients */}
       <Grid item xs={12} md={6}>
         <Card>
           <CardContent>
             <Typography variant="h6" gutterBottom>
-              Payment Methods
+              Top Clients by Revenue
             </Typography>
-            <TableContainer>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Method</TableCell>
-                    <TableCell align="right">Amount</TableCell>
-                    <TableCell align="right">Percentage</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {Object.entries(summary.paymentMethods).map(([method, amount]) => (
-                    <TableRow key={method}>
-                      <TableCell>{method}</TableCell>
-                      <TableCell align="right">{formatCurrency(amount)}</TableCell>
-                      <TableCell align="right">
-                        {formatPercentage((amount / summary.totalRevenue) * 100)}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
+            <List>
+              {summary.topClients.map((client, index) => (
+                <ListItem key={index} divider>
+                  <ListItemText
+                    primary={client.name}
+                    secondary={formatCurrency(client.revenue)}
+                  />
+                  <Chip 
+                    label={`${((client.revenue / summary.totalRevenue) * 100).toFixed(1)}%`}
+                    color="secondary"
+                    size="small"
+                  />
+                </ListItem>
+              ))}
+            </List>
           </CardContent>
         </Card>
       </Grid>
 
-      {/* Service Categories */}
-      <Grid item xs={12} md={6}>
+      {/* Daily Stats */}
+      <Grid item xs={12}>
         <Card>
           <CardContent>
             <Typography variant="h6" gutterBottom>
-              Service Categories
+              Daily Performance (Last 7 Days)
             </Typography>
-            <TableContainer>
+            <TableContainer component={Paper}>
               <Table size="small">
                 <TableHead>
                   <TableRow>
-                    <TableCell>Category</TableCell>
+                    <TableCell>Date</TableCell>
                     <TableCell align="right">Revenue</TableCell>
-                    <TableCell align="right">Percentage</TableCell>
+                    <TableCell align="right">Invoices</TableCell>
+                    <TableCell align="right">Appointments</TableCell>
+                    <TableCell align="right">Cars Fixed</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {Object.entries(summary.serviceCategories).map(([category, revenue]) => (
-                    <TableRow key={category}>
-                      <TableCell>{category}</TableCell>
-                      <TableCell align="right">{formatCurrency(revenue)}</TableCell>
-                      <TableCell align="right">
-                        {formatPercentage((revenue / summary.totalRevenue) * 100)}
-                      </TableCell>
+                  {summary.dailyStats.map((day) => (
+                    <TableRow key={day.date}>
+                      <TableCell>{format(new Date(day.date), 'MMM dd')}</TableCell>
+                      <TableCell align="right">{formatCurrency(day.revenue)}</TableCell>
+                      <TableCell align="right">{day.invoices}</TableCell>
+                      <TableCell align="right">{day.appointments}</TableCell>
+                      <TableCell align="right">{day.carsFixed}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -500,99 +516,205 @@ const Reports = () => {
     </Grid>
   );
 
-  const renderInvoices = () => (
-    <Card>
-      <CardContent>
-        <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-          <Typography variant="h6">
-            Invoice Details
-          </Typography>
-          <Box display="flex" gap={1}>
-            <TextField
-              size="small"
-              placeholder="Search invoices..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon />
-                  </InputAdornment>
-                ),
-              }}
-            />
-            <FormControl size="small" sx={{ minWidth: 120 }}>
-              <InputLabel>Status</InputLabel>
-              <Select
-                value={filterStatus}
-                label="Status"
-                onChange={(e) => setFilterStatus(e.target.value)}
-              >
-                <MenuItem value="all">All Status</MenuItem>
-                <MenuItem value="paid">Paid</MenuItem>
-                <MenuItem value="pending">Pending</MenuItem>
-                <MenuItem value="overdue">Overdue</MenuItem>
-              </Select>
-            </FormControl>
-          </Box>
-        </Box>
-
-        <TableContainer component={Paper}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>Invoice #</TableCell>
-                <TableCell>Date</TableCell>
-                <TableCell>Client</TableCell>
-                <TableCell>Service</TableCell>
-                <TableCell>Amount</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell>Due Date</TableCell>
-                <TableCell>Payment Method</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {invoices
-                .filter(invoice => {
-                  const matchesSearch = 
-                    invoice.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    invoice.clientName.toLowerCase().includes(searchTerm.toLowerCase());
-                  const matchesStatus = filterStatus === 'all' || invoice.status === filterStatus;
-                  return matchesSearch && matchesStatus;
-                })
-                .map((invoice) => (
-                  <TableRow key={invoice.id}>
-                    <TableCell>{invoice.invoiceNumber}</TableCell>
-                    <TableCell>{formatDate(invoice.createdAt)}</TableCell>
-                    <TableCell>{invoice.clientName}</TableCell>
-                    <TableCell>{invoice.serviceCategory}</TableCell>
-                    <TableCell>{formatCurrency(invoice.amount)}</TableCell>
-                    <TableCell>
-                      <Chip
-                        label={invoice.status}
-                        color={
-                          invoice.status === 'paid' ? 'success' :
-                          invoice.status === 'overdue' ? 'error' :
-                          'warning'
-                        }
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell>{formatDate(invoice.dueDate)}</TableCell>
-                    <TableCell>{invoice.paymentMethod || 'N/A'}</TableCell>
+  const renderDetailedStats = () => (
+    <Grid container spacing={3}>
+      {/* Weekly Stats */}
+      <Grid item xs={12} md={6}>
+        <Card>
+          <CardContent>
+            <Typography variant="h6" gutterBottom>
+              Weekly Performance (Last 4 Weeks)
+            </Typography>
+            <TableContainer component={Paper}>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Week</TableCell>
+                    <TableCell align="right">Revenue</TableCell>
+                    <TableCell align="right">Cars Fixed</TableCell>
                   </TableRow>
+                </TableHead>
+                <TableBody>
+                  {summary.weeklyStats.map((week) => (
+                    <TableRow key={week.weekStart}>
+                      <TableCell>{format(new Date(week.weekStart), 'MMM dd')}</TableCell>
+                      <TableCell align="right">{formatCurrency(week.revenue)}</TableCell>
+                      <TableCell align="right">{week.carsFixed}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </CardContent>
+        </Card>
+      </Grid>
+
+      {/* Monthly Stats */}
+      <Grid item xs={12} md={6}>
+        <Card>
+          <CardContent>
+            <Typography variant="h6" gutterBottom>
+              Monthly Performance (Last 6 Months)
+            </Typography>
+            <TableContainer component={Paper}>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Month</TableCell>
+                    <TableCell align="right">Revenue</TableCell>
+                    <TableCell align="right">Cars Fixed</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {summary.monthlyStats.map((month) => (
+                    <TableRow key={month.month}>
+                      <TableCell>{month.month}</TableCell>
+                      <TableCell align="right">{formatCurrency(month.revenue)}</TableCell>
+                      <TableCell align="right">{month.carsFixed}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </CardContent>
+        </Card>
+      </Grid>
+
+      {/* Payment Methods */}
+      <Grid item xs={12} md={6}>
+        <Card>
+          <CardContent>
+            <Typography variant="h6" gutterBottom>
+              Payment Methods
+            </Typography>
+            <List>
+              {Object.entries(summary.paymentMethods).map(([method, amount]) => (
+                <ListItem key={method} divider>
+                  <ListItemText
+                    primary={method}
+                    secondary={formatCurrency(amount)}
+                  />
+                  <Chip 
+                    label={`${((amount / summary.totalRevenue) * 100).toFixed(1)}%`}
+                    color="info"
+                    size="small"
+                  />
+                </ListItem>
+              ))}
+            </List>
+          </CardContent>
+        </Card>
+      </Grid>
+
+      {/* Car Makes */}
+      <Grid item xs={12} md={6}>
+        <Card>
+          <CardContent>
+            <Typography variant="h6" gutterBottom>
+              Most Common Car Makes
+            </Typography>
+            <List>
+              {Object.entries(summary.carMakes)
+                .sort(([,a], [,b]) => b - a)
+                .slice(0, 5)
+                .map(([make, count]) => (
+                  <ListItem key={make} divider>
+                    <ListItemText
+                      primary={make}
+                      secondary={`${count} vehicles`}
+                    />
+                    <Chip 
+                      label={`${((count / summary.totalInvoices) * 100).toFixed(1)}%`}
+                      color="secondary"
+                      size="small"
+                    />
+                  </ListItem>
                 ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </CardContent>
-    </Card>
+            </List>
+          </CardContent>
+        </Card>
+      </Grid>
+    </Grid>
   );
+
+  const fetchData = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Fetch data in parallel with proper error handling
+      const [invoicesResponse, clientsResponse, appointmentsResponse] = await Promise.all([
+        invoicesAPI.getAll().catch(err => {
+          console.error('Error fetching invoices:', err);
+          throw new Error('Failed to fetch invoices. Please try again.');
+        }),
+        clientsAPI.getAll().catch(err => {
+          console.error('Error fetching clients:', err);
+          throw new Error('Failed to fetch clients. Please try again.');
+        }),
+        appointmentAPI.getAll().catch(err => {
+          console.error('Error fetching appointments:', err);
+          throw new Error('Failed to fetch appointments. Please try again.');
+        })
+      ]);
+
+      if (!invoicesResponse?.data || !clientsResponse?.data || !appointmentsResponse?.data) {
+        throw new Error('Invalid response from server');
+      }
+
+      const filteredInvoices = filterDataByDateRange(invoicesResponse.data, dateRange, 'createdAt');
+      const filteredAppointments = filterDataByDateRange(appointmentsResponse.data, dateRange, 'date');
+      
+      if (filteredInvoices.length === 0 && filteredAppointments.length === 0) {
+        setError('No data available for the selected date range');
+      } else {
+        setInvoices(filteredInvoices);
+        setAppointments(filteredAppointments);
+        calculateSummary(filteredInvoices, filteredAppointments, clientsResponse.data);
+      }
+    } catch (err) {
+      setError(err.message || 'Failed to fetch data. Please try again.');
+      console.error('Error in fetchData:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [dateRange, customDateRange, filterDataByDateRange, calculateSummary]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  // Add event listeners for real-time updates
+  useEffect(() => {
+    const handleClientUpdate = (event) => {
+      console.log('Client update detected in Reports, refreshing data');
+      fetchData();
+    };
+
+    const handlePaymentUpdate = (event) => {
+      console.log('Payment update detected in Reports, refreshing data');
+      fetchData();
+    };
+
+    const handleInvoiceUpdate = (event) => {
+      console.log('Invoice update detected in Reports, refreshing data');
+      fetchData();
+    };
+
+    window.addEventListener('client-updated', handleClientUpdate);
+    window.addEventListener('payment-updated', handlePaymentUpdate);
+    window.addEventListener('invoice-updated', handleInvoiceUpdate);
+    
+    return () => {
+      window.removeEventListener('client-updated', handleClientUpdate);
+      window.removeEventListener('payment-updated', handlePaymentUpdate);
+      window.removeEventListener('invoice-updated', handleInvoiceUpdate);
+    };
+  }, []);
 
   if (loading) {
     return (
       <>
-        <Header />
         <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
           <CircularProgress />
         </Box>
@@ -602,11 +724,10 @@ const Reports = () => {
 
   return (
     <>
-      <Header />
       <Box p={3}>
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
           <Typography variant="h4" component="h1">
-            Financial Reports
+            Garage Analytics & Reports
           </Typography>
           <Box display="flex" gap={2}>
             <FormControl sx={{ minWidth: 120 }}>
@@ -650,7 +771,7 @@ const Reports = () => {
               <Button
                 variant="contained"
                 startIcon={isExporting ? <CircularProgress size={20} /> : <PdfIcon />}
-                onClick={() => handleExport('pdf', activeTab)}
+                onClick={() => handleExport('pdf', viewMode)}
                 disabled={loading || isExporting || invoices.length === 0}
                 sx={{ mr: 1 }}
               >
@@ -659,7 +780,7 @@ const Reports = () => {
               <Button
                 variant="contained"
                 startIcon={isExporting ? <CircularProgress size={20} /> : <ExcelIcon />}
-                onClick={() => handleExport('excel', activeTab)}
+                onClick={() => handleExport('excel', viewMode)}
                 disabled={loading || isExporting || invoices.length === 0}
               >
                 {isExporting ? 'Exporting...' : 'Export Excel'}
@@ -698,32 +819,93 @@ const Reports = () => {
           <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
             <CircularProgress />
           </Box>
-        ) : invoices.length === 0 ? (
+        ) : invoices.length === 0 && appointments.length === 0 ? (
           <Alert severity="info" sx={{ mb: 3 }}>
             No data available for the selected date range. Please try a different date range.
           </Alert>
         ) : (
           <>
-            <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-              <Tabs
-                value={activeTab}
-                onChange={(e, newValue) => setActiveTab(newValue)}
-                aria-label="report tabs"
+            {/* Filters */}
+            <Card sx={{ mb: 3 }}>
+              <CardContent>
+                <Box display="flex" gap={2} alignItems="center" flexWrap="wrap">
+                  <TextField
+                    size="small"
+                    placeholder="Search..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <SearchIcon />
+                        </InputAdornment>
+                      ),
+                    }}
+                  />
+                  <FormControl size="small" sx={{ minWidth: 120 }}>
+                    <InputLabel>Status</InputLabel>
+                    <Select
+                      value={filterStatus}
+                      label="Status"
+                      onChange={(e) => setFilterStatus(e.target.value)}
+                    >
+                      <MenuItem value="all">All Status</MenuItem>
+                      <MenuItem value="paid">Paid</MenuItem>
+                      <MenuItem value="pending">Pending</MenuItem>
+                      <MenuItem value="overdue">Overdue</MenuItem>
+                      <MenuItem value="completed">Completed</MenuItem>
+                    </Select>
+                  </FormControl>
+                  <FormControl size="small" sx={{ minWidth: 160 }}>
+                    <InputLabel>Car</InputLabel>
+                    <Select
+                      value={carFilter}
+                      label="Car"
+                      onChange={e => setCarFilter(e.target.value)}
+                    >
+                      <MenuItem value="all">All Cars</MenuItem>
+                      {carOptions.map(car => (
+                        <MenuItem key={car} value={car}>{car}</MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                  <FormControl size="small" sx={{ minWidth: 160 }}>
+                    <InputLabel>Service</InputLabel>
+                    <Select
+                      value={serviceFilter}
+                      label="Service"
+                      onChange={e => setServiceFilter(e.target.value)}
+                    >
+                      <MenuItem value="all">All Services</MenuItem>
+                      {serviceOptions.map(service => (
+                        <MenuItem key={service} value={service}>{service}</MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Box>
+              </CardContent>
+            </Card>
+
+            {/* View Mode Toggle */}
+            <Box sx={{ mb: 3 }}>
+              <ToggleButtonGroup
+                value={viewMode}
+                exclusive
+                onChange={(e, newValue) => newValue && setViewMode(newValue)}
+                aria-label="view mode"
               >
-                <Tab
-                  icon={<TrendingUpIcon />}
-                  label="Overview"
-                  value="overview"
-                />
-                <Tab
-                  icon={<ReceiptIcon />}
-                  label="Invoices"
-                  value="invoices"
-                />
-              </Tabs>
+                <ToggleButton value="overview" aria-label="overview">
+                  <TrendingUpIcon sx={{ mr: 1 }} />
+                  Overview
+                </ToggleButton>
+                <ToggleButton value="detailed" aria-label="detailed">
+                  <BarChartIcon sx={{ mr: 1 }} />
+                  Detailed Stats
+                </ToggleButton>
+              </ToggleButtonGroup>
             </Box>
 
-            {activeTab === 'overview' ? renderOverview() : renderInvoices()}
+            {viewMode === 'overview' ? renderOverview() : renderDetailedStats()}
           </>
         )}
       </Box>
