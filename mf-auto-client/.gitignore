@@ -1,6 +1,8 @@
 /node_modules
 package-lock.json
 .eslintcache
+.npm-cache
+npm-cache
 
 
 module.exports = {
