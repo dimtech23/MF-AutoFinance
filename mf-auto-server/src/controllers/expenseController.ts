@@ -88,8 +88,9 @@ export const getExpenseById = async (req: Request, res: Response): Promise<Respo
 };
 
 // Create new expense
-export const createExpense = async (req: AuthenticatedRequest, res: Response): Promise<Response> => {
+export const createExpense = async (req: Request, res: Response): Promise<Response> => {
   try {
+    const authReq = req as AuthenticatedRequest;
     const {
       title,
       description,
@@ -129,7 +130,7 @@ export const createExpense = async (req: AuthenticatedRequest, res: Response): P
       paymentMethod: paymentMethod || 'cash',
       notes,
       tags: tags || [],
-      createdBy: req.user._id
+      createdBy: authReq.user._id
     });
 
     await expense.save();
@@ -145,7 +146,7 @@ export const createExpense = async (req: AuthenticatedRequest, res: Response): P
 };
 
 // Update expense
-export const updateExpense = async (req: AuthenticatedRequest, res: Response): Promise<Response> => {
+export const updateExpense = async (req: Request, res: Response): Promise<Response> => {
   try {
     const { id } = req.params;
     const updateData = req.body;
@@ -192,8 +193,9 @@ export const deleteExpense = async (req: Request, res: Response): Promise<Respon
 };
 
 // Approve/reject expense
-export const updateExpenseStatus = async (req: AuthenticatedRequest, res: Response): Promise<Response> => {
+export const updateExpenseStatus = async (req: Request, res: Response): Promise<Response> => {
   try {
+    const authReq = req as AuthenticatedRequest;
     const { id } = req.params;
     const { status } = req.body;
 
@@ -209,7 +211,7 @@ export const updateExpenseStatus = async (req: AuthenticatedRequest, res: Respon
     };
 
     if (status === 'approved') {
-      updateData.approvedBy = req.user._id;
+      updateData.approvedBy = authReq.user._id;
     }
 
     const expense = await Expense.findByIdAndUpdate(
