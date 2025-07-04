@@ -6,7 +6,7 @@ import { UserRole } from '../constants/roles';
 type PermissionKey = keyof UserDocument['permissions'];
 
 // Define a custom request type that includes the user property
-interface AuthenticatedRequest extends Request {
+export interface AuthenticatedRequest extends Request {
   user: UserDocument;
 }
 

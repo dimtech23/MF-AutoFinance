@@ -1,14 +1,6 @@
 import { Request, Response } from 'express';
 import Expense from '../models/Expense';
-
-// Extend Request type to include user property
-interface AuthenticatedRequest extends Request {
-  user?: {
-    id: string;
-    email: string;
-    role: string;
-  };
-}
+import { AuthenticatedRequest } from '../middlewares/authMiddleware';
 
 // Get all expenses with optional filtering
 export const getAllExpenses = async (req: Request, res: Response): Promise<Response> => {
@@ -137,7 +129,7 @@ export const createExpense = async (req: AuthenticatedRequest, res: Response): P
       paymentMethod: paymentMethod || 'cash',
       notes,
       tags: tags || [],
-      createdBy: req.user?.id
+      createdBy: req.user._id
     });
 
     await expense.save();
@@ -217,7 +209,7 @@ export const updateExpenseStatus = async (req: AuthenticatedRequest, res: Respon
     };
 
     if (status === 'approved') {
-      updateData.approvedBy = req.user?.id;
+      updateData.approvedBy = req.user._id;
     }
 
     const expense = await Expense.findByIdAndUpdate(
