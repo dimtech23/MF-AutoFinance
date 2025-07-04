@@ -16,6 +16,7 @@ import { router as userRouter } from "./routes/userRoutes";
 import logoutRouter from "./routes/logoutRoute";
 import { dashboardRouter } from "./routes/dashboardRoute";
 import { appointmentRouter } from "./routes/appointmentRoute";
+import { expenseRouter } from "./routes/expenseRoute";
 
 dotenv.config();
 
@@ -113,6 +114,7 @@ app.use("/api/users", userRouter);
 app.use("/api/budgets", budgetRouter);
 app.use("/api/dashboard", dashboardRouter);
 app.use("/api/appointments", appointmentRouter);
+app.use("/api/expenses", expenseRouter);
 
 // Setup route
 app.use("/setup", setupRouter);
