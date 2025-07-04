@@ -18,10 +18,10 @@ const router = express.Router();
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
+  destination: (_req, _file, cb) => {
     cb(null, 'uploads/receipts/');
   },
-  filename: (req, file, cb) => {
+  filename: (_req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
     cb(null, 'receipt-' + uniqueSuffix + path.extname(file.originalname));
   }
@@ -32,7 +32,7 @@ const upload = multer({
   limits: {
     fileSize: 5 * 1024 * 1024 // 5MB limit
   },
-  fileFilter: (req, file, cb) => {
+  fileFilter: (_req, file, cb) => {
     // Accept images and PDFs
     if (file.mimetype.startsWith('image/') || file.mimetype === 'application/pdf') {
       cb(null, true);
@@ -51,11 +51,11 @@ router.get('/stats', authenticateToken, getExpenseStats);
 // Get a specific expense by ID - All authenticated users can view
 router.get('/:id', authenticateToken, getExpenseById);
 
-// Create a new expense - Admin, Accountant, and Manager can create
-router.post('/', authenticateToken, authorize([UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.MANAGER]), createExpense);
+// Create a new expense - Admin and Accountant can create
+router.post('/', authenticateToken, authorize([UserRole.ADMIN, UserRole.ACCOUNTANT]), createExpense);
 
-// Update an existing expense - Admin, Accountant, and Manager can update
-router.put('/:id', authenticateToken, authorize([UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.MANAGER]), updateExpense);
+// Update an existing expense - Admin and Accountant can update
+router.put('/:id', authenticateToken, authorize([UserRole.ADMIN, UserRole.ACCOUNTANT]), updateExpense);
 
 // Delete an expense - Admin and Accountant only
 router.delete('/:id', authenticateToken, authorize([UserRole.ADMIN, UserRole.ACCOUNTANT]), deleteExpense);
@@ -63,10 +63,10 @@ router.delete('/:id', authenticateToken, authorize([UserRole.ADMIN, UserRole.ACC
 // Update expense status (approve/reject) - Admin and Accountant only
 router.patch('/:id/status', authenticateToken, authorize([UserRole.ADMIN, UserRole.ACCOUNTANT]), updateExpenseStatus);
 
-// Upload receipt for expense - Admin, Accountant, and Manager can upload
+// Upload receipt for expense - Admin and Accountant can upload
 router.post('/:id/receipt', 
   authenticateToken, 
-  authorize([UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.MANAGER]), 
+  authorize([UserRole.ADMIN, UserRole.ACCOUNTANT]), 
   upload.single('receipt'), 
   uploadReceipt
 );

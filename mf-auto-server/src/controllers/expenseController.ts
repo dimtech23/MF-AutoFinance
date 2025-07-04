@@ -1,6 +1,14 @@
 import { Request, Response } from 'express';
-import Expense, { ExpenseDocument } from '../models/Expense';
-import User from '../models/User';
+import Expense from '../models/Expense';
+
+// Extend Request type to include user property
+interface AuthenticatedRequest extends Request {
+  user?: {
+    id: string;
+    email: string;
+    role: string;
+  };
+}
 
 // Get all expenses with optional filtering
 export const getAllExpenses = async (req: Request, res: Response): Promise<Response> => {
@@ -88,7 +96,7 @@ export const getExpenseById = async (req: Request, res: Response): Promise<Respo
 };
 
 // Create new expense
-export const createExpense = async (req: Request, res: Response): Promise<Response> => {
+export const createExpense = async (req: AuthenticatedRequest, res: Response): Promise<Response> => {
   try {
     const {
       title,
@@ -145,7 +153,7 @@ export const createExpense = async (req: Request, res: Response): Promise<Respon
 };
 
 // Update expense
-export const updateExpense = async (req: Request, res: Response): Promise<Response> => {
+export const updateExpense = async (req: AuthenticatedRequest, res: Response): Promise<Response> => {
   try {
     const { id } = req.params;
     const updateData = req.body;
@@ -192,7 +200,7 @@ export const deleteExpense = async (req: Request, res: Response): Promise<Respon
 };
 
 // Approve/reject expense
-export const updateExpenseStatus = async (req: Request, res: Response): Promise<Response> => {
+export const updateExpenseStatus = async (req: AuthenticatedRequest, res: Response): Promise<Response> => {
   try {
     const { id } = req.params;
     const { status } = req.body;
@@ -203,11 +211,13 @@ export const updateExpenseStatus = async (req: Request, res: Response): Promise<
       });
     }
 
-    const updateData: any = { status };
-    
+    const updateData: any = {
+      status,
+      approvedAt: new Date()
+    };
+
     if (status === 'approved') {
       updateData.approvedBy = req.user?.id;
-      updateData.approvedAt = new Date();
     }
 
     const expense = await Expense.findByIdAndUpdate(
@@ -236,14 +246,13 @@ export const getExpenseStats = async (req: Request, res: Response): Promise<Resp
     // Build filter object
     const filter: any = {};
     
-    if (category) filter.category = category;
-    
-    // Date range filter
     if (startDate || endDate) {
       filter.date = {};
       if (startDate) filter.date.$gte = new Date(startDate as string);
       if (endDate) filter.date.$lte = new Date(endDate as string);
     }
+    
+    if (category) filter.category = category;
 
     // Get total expenses
     const totalExpenses = await Expense.aggregate([
@@ -254,46 +263,55 @@ export const getExpenseStats = async (req: Request, res: Response): Promise<Resp
     // Get expenses by category
     const expensesByCategory = await Expense.aggregate([
       { $match: filter },
-      { $group: { _id: '$category', total: { $sum: '$amount' }, count: { $sum: 1 } } },
+      { 
+        $group: { 
+          _id: '$category', 
+          total: { $sum: '$amount' },
+          count: { $sum: 1 }
+        } 
+      },
       { $sort: { total: -1 } }
     ]);
 
     // Get expenses by status
     const expensesByStatus = await Expense.aggregate([
       { $match: filter },
-      { $group: { _id: '$status', total: { $sum: '$amount' }, count: { $sum: 1 } } }
-    ]);
-
-    // Get monthly expenses for the last 12 months
-    const monthlyExpenses = await Expense.aggregate([
-      { $match: filter },
-      {
-        $group: {
-          _id: {
-            year: { $year: '$date' },
-            month: { $month: '$date' }
-          },
+      { 
+        $group: { 
+          _id: '$status', 
           total: { $sum: '$amount' },
           count: { $sum: 1 }
-        }
-      },
-      { $sort: { '_id.year': -1, '_id.month': -1 } },
-      { $limit: 12 }
+        } 
+      }
     ]);
 
-    // Get recent expenses
-    const recentExpenses = await Expense.find(filter)
-      .sort({ date: -1 })
-      .limit(5)
-      .populate('createdBy', 'name')
-      .lean();
+    // Get monthly expenses for the current year
+    const currentYear = new Date().getFullYear();
+    const monthlyExpenses = await Expense.aggregate([
+      { 
+        $match: { 
+          ...filter,
+          date: { 
+            $gte: new Date(currentYear, 0, 1), 
+            $lt: new Date(currentYear + 1, 0, 1) 
+          } 
+        } 
+      },
+      { 
+        $group: { 
+          _id: { $month: '$date' }, 
+          total: { $sum: '$amount' },
+          count: { $sum: 1 }
+        } 
+      },
+      { $sort: { _id: 1 } }
+    ]);
 
     return res.status(200).json({
       totalExpenses: totalExpenses[0]?.total || 0,
       expensesByCategory,
       expensesByStatus,
-      monthlyExpenses,
-      recentExpenses
+      monthlyExpenses
     });
   } catch (error) {
     console.error('Error getting expense stats:', error);
@@ -301,7 +319,7 @@ export const getExpenseStats = async (req: Request, res: Response): Promise<Resp
   }
 };
 
-// Upload receipt
+// Upload receipt for expense
 export const uploadReceipt = async (req: Request, res: Response): Promise<Response> => {
   try {
     const { id } = req.params;
@@ -310,12 +328,15 @@ export const uploadReceipt = async (req: Request, res: Response): Promise<Respon
       return res.status(400).json({ message: 'No file uploaded' });
     }
 
-    // Update expense with receipt URL
     const expense = await Expense.findByIdAndUpdate(
       id,
-      { receipt: req.file.path },
+      { 
+        receipt: req.file.filename,
+        receiptPath: req.file.path
+      },
       { new: true }
-    ).populate('createdBy', 'name email');
+    ).populate('createdBy', 'name email')
+     .populate('approvedBy', 'name email');
 
     if (!expense) {
       return res.status(404).json({ message: 'Expense not found' });
