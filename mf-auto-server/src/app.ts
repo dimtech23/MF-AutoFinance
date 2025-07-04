@@ -160,6 +160,15 @@ app.get("/api", (_req: Request, res: Response): void => {
   });
 });
 
+// Test expenses endpoint
+app.get("/api/expenses-test", (_req: Request, res: Response): void => {
+  res.status(200).json({ 
+    message: "Expenses API is working",
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development'
+  });
+});
+
 // Production configuration to serve frontend - SIMPLIFIED
 if (!isDevelopment) {
   console.log("Running in production mode, configuring frontend serving");

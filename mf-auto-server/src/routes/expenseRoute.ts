@@ -13,13 +13,21 @@ import { authenticateToken, authorize } from "../middlewares/authMiddleware";
 import { UserRole } from "../constants/roles";
 import multer from 'multer';
 import path from 'path';
+import fs from 'fs';
 
 const router = express.Router();
+
+// Ensure uploads directory exists
+const uploadsDir = 'uploads/receipts';
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+  console.log(`Created uploads directory: ${uploadsDir}`);
+}
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => {
-    cb(null, 'uploads/receipts/');
+    cb(null, uploadsDir);
   },
   filename: (_req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);

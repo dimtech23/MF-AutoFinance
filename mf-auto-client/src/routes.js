@@ -17,7 +17,7 @@ const routes = [
     icon: "ni ni-tv-2 text-primary",
     component: Dashboard,
     layout: "/admin",
-    roles: ["Admin", "Accountant"]
+    roles: ["Admin", "Accountant", "Mechanic"]
   },
   {
     path: "/clients",

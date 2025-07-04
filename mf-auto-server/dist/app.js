@@ -19,6 +19,7 @@ const userRoutes_1 = require("./routes/userRoutes");
 const logoutRoute_1 = __importDefault(require("./routes/logoutRoute"));
 const dashboardRoute_1 = require("./routes/dashboardRoute");
 const appointmentRoute_1 = require("./routes/appointmentRoute");
+const expenseRoute_1 = require("./routes/expenseRoute");
 dotenv_1.default.config();
 const app = (0, express_1.default)();
 const port = parseInt(process.env.PORT || "4000", 10);
@@ -87,6 +88,7 @@ app.use("/api/users", userRoutes_1.router);
 app.use("/api/budgets", budgetRoute_1.budgetRouter);
 app.use("/api/dashboard", dashboardRoute_1.dashboardRouter);
 app.use("/api/appointments", appointmentRoute_1.appointmentRouter);
+app.use("/api/expenses", expenseRoute_1.expenseRouter);
 app.use("/setup", setupRoute_1.router);
 app.get("/test-db", async (_req, res) => {
     var _a;
@@ -122,6 +124,13 @@ app.get("/api", (_req, res) => {
     res.status(200).json({
         message: "Auto Garage Management API endpoints available",
         docs: "See documentation for available endpoints",
+        environment: process.env.NODE_ENV || 'development'
+    });
+});
+app.get("/api/expenses-test", (_req, res) => {
+    res.status(200).json({
+        message: "Expenses API is working",
+        timestamp: new Date().toISOString(),
         environment: process.env.NODE_ENV || 'development'
     });
 });

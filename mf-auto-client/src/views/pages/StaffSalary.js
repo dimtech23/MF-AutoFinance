@@ -171,7 +171,20 @@ const StaffSalary = () => {
       }
     } catch (error) {
       console.error('Error fetching expenses:', error);
-      toast.error('Failed to load expenses');
+      
+      // Provide more specific error messages
+      if (error.response?.status === 404) {
+        toast.error('Expenses API endpoint not found. Please check if the server is running.');
+      } else if (error.response?.status === 401) {
+        toast.error('Authentication required. Please log in again.');
+      } else if (error.response?.status === 403) {
+        toast.error('You do not have permission to view expenses.');
+      } else if (error.code === 'ERR_NETWORK') {
+        toast.error('Cannot connect to server. Please check your internet connection.');
+      } else {
+        toast.error('Failed to load expenses. Please try again.');
+      }
+      
       setExpenses([]);
     } finally {
       setLoading(false);
@@ -247,21 +260,44 @@ const StaffSalary = () => {
 
     try {
       if (editExpenseIndex) {
-        await expensesAPI.update(editExpenseIndex, expenseForm);
+        // Update existing expense
+        const response = await expensesAPI.update(editExpenseIndex, expenseForm);
         toast.success('Expense updated successfully');
+        
+        // Update with server response data
+        const updatedExpense = response.data;
+        setExpenses(prev => prev.map(exp => 
+          exp._id === editExpenseIndex ? updatedExpense : exp
+        ));
       } else {
-        await expensesAPI.create(expenseForm);
+        // Create new expense
+        const response = await expensesAPI.create(expenseForm);
         toast.success('Expense added successfully');
+        
+        // Add the new expense from server response
+        const newExpense = response.data;
+        setExpenses(prev => [newExpense, ...prev]);
       }
       
       handleExpenseDialogClose();
-      fetchExpenses();
       
       // Dispatch event to notify dashboard of expense update
       window.dispatchEvent(new CustomEvent('expense-updated'));
     } catch (error) {
       console.error('Error saving expense:', error);
-      toast.error('Failed to save expense');
+      
+      // Provide specific error messages
+      if (error.response?.status === 400) {
+        toast.error(error.response.data?.message || 'Invalid expense data');
+      } else if (error.response?.status === 401) {
+        toast.error('Authentication required. Please log in again.');
+      } else if (error.response?.status === 403) {
+        toast.error('You do not have permission to manage expenses.');
+      } else if (error.code === 'ERR_NETWORK') {
+        toast.error('Cannot connect to server. Please check your internet connection.');
+      } else {
+        toast.error('Failed to save expense. Please try again.');
+      }
     }
   };
 
@@ -270,28 +306,63 @@ const StaffSalary = () => {
       try {
         await expensesAPI.delete(expenseId);
         toast.success('Expense deleted successfully');
-        fetchExpenses();
+        
+        // Remove from local state
+        setExpenses(prev => prev.filter(exp => exp._id !== expenseId));
         
         // Dispatch event to notify dashboard of expense update
         window.dispatchEvent(new CustomEvent('expense-updated'));
       } catch (error) {
         console.error('Error deleting expense:', error);
-        toast.error('Failed to delete expense');
+        
+        // Provide specific error messages
+        if (error.response?.status === 404) {
+          toast.error('Expense not found. It may have been already deleted.');
+          // Remove from local state anyway
+          setExpenses(prev => prev.filter(exp => exp._id !== expenseId));
+        } else if (error.response?.status === 401) {
+          toast.error('Authentication required. Please log in again.');
+        } else if (error.response?.status === 403) {
+          toast.error('You do not have permission to delete expenses.');
+        } else if (error.code === 'ERR_NETWORK') {
+          toast.error('Cannot connect to server. Please check your internet connection.');
+        } else {
+          toast.error('Failed to delete expense. Please try again.');
+        }
       }
     }
   };
 
   const handleExpenseStatusUpdate = async (expenseId, newStatus) => {
     try {
-      await expensesAPI.updateStatus(expenseId, newStatus);
+      const response = await expensesAPI.updateStatus(expenseId, newStatus);
       toast.success(`Expense ${newStatus} successfully`);
-      fetchExpenses();
+      
+      // Update with server response data
+      const updatedExpense = response.data;
+      setExpenses(prev => prev.map(exp => 
+        exp._id === expenseId ? updatedExpense : exp
+      ));
       
       // Dispatch event to notify dashboard of expense update
       window.dispatchEvent(new CustomEvent('expense-updated'));
     } catch (error) {
       console.error('Error updating expense status:', error);
-      toast.error('Failed to update expense status');
+      
+      // Provide specific error messages
+      if (error.response?.status === 400) {
+        toast.error(error.response.data?.message || 'Invalid status value');
+      } else if (error.response?.status === 404) {
+        toast.error('Expense not found. It may have been deleted.');
+      } else if (error.response?.status === 401) {
+        toast.error('Authentication required. Please log in again.');
+      } else if (error.response?.status === 403) {
+        toast.error('You do not have permission to update expense status.');
+      } else if (error.code === 'ERR_NETWORK') {
+        toast.error('Cannot connect to server. Please check your internet connection.');
+      } else {
+        toast.error('Failed to update expense status. Please try again.');
+      }
     }
   };
 
