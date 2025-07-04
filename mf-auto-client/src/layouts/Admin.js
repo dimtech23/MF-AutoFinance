@@ -24,11 +24,14 @@ const Admin = (props) => {
             const isMobileView = window.innerWidth < 768;
             setIsMobile(isMobileView);
             
-            // Only auto close sidebar on mobile, don't auto open on desktop
+            // Auto close sidebar on mobile when screen size changes
             if (isMobileView && sidebarOpen) {
                 setSidebarOpen(false);
             }
-            // Remove the auto-open logic to allow manual toggle
+            // Keep sidebar open on desktop by default
+            if (!isMobileView && !sidebarOpen) {
+                setSidebarOpen(true);
+            }
         };
 
         window.addEventListener("resize", handleResize);
@@ -103,7 +106,15 @@ const Admin = (props) => {
                     imgAlt: "MF Autos Logo",
                 }}
             />
-            <div className={`main-content ${!sidebarOpen ? 'sidebar-hidden' : ''}`} ref={mainContent}>
+            <div 
+                className={`main-content ${!sidebarOpen ? 'sidebar-hidden' : ''}`} 
+                ref={mainContent}
+                style={{
+                    marginLeft: isMobile ? '0' : (sidebarOpen ? '280px' : '0'),
+                    width: isMobile ? '100%' : (sidebarOpen ? 'calc(100% - 280px)' : '100%'),
+                    transition: 'margin-left 0.3s ease, width 0.3s ease',
+                }}
+            >
                 <AdminNavbar 
                     {...props} 
                     toggleSidebar={toggleSidebar} 

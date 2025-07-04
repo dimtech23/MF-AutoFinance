@@ -50,9 +50,8 @@ import {
 import { styled } from "@mui/material/styles";
 
 // Role options
-const roleOptions = [
+const ROLES = [
   { value: "Admin", label: "Admin" },
-  { value: "Manager", label: "Manager" },
   { value: "Accountant", label: "Accountant" },
   { value: "Mechanic", label: "Mechanic" },
   { value: "Receptionist", label: "Receptionist" }
@@ -66,9 +65,8 @@ const userStatusOptions = [
 ];
 
 // Colors for role tags
-const roleColors = {
+const ROLE_COLORS = {
   "Admin": "error",
-  "Manager": "primary",
   "Accountant": "success",
   "Mechanic": "warning",
   "Receptionist": "info"
@@ -78,7 +76,6 @@ const roleColors = {
 const getAvatarColorByRole = (role) => {
   switch (role) {
     case "Admin": return "#f44336"; // Red
-    case "Manager": return "#2196f3"; // Blue
     case "Accountant": return "#4caf50"; // Green
     case "Mechanic": return "#ff9800"; // Orange
     case "Receptionist": return "#00bcd4"; // Cyan
@@ -315,15 +312,6 @@ const UserManagement = () => {
             canManageAppointments: true
           };
           break;
-        case "Manager":
-          newPermissions = {
-            canManageUsers: false,
-            canManageFinances: true,
-            canViewReports: true,
-            canManageInventory: true,
-            canManageAppointments: true
-          };
-          break;
         case "Accountant":
           newPermissions = {
             canManageUsers: false,
@@ -338,7 +326,7 @@ const UserManagement = () => {
             canManageUsers: false,
             canManageFinances: false,
             canViewReports: false,
-            canManageInventory: true,
+            canManageInventory: false,
             canManageAppointments: false
           };
           break;
@@ -533,6 +521,69 @@ const UserManagement = () => {
     }
   };
 
+  const getRoleColor = (role) => {
+    switch (role) {
+      case "Admin": return "#f44336"; // Red
+      case "Accountant": return "#4caf50"; // Green
+      case "Mechanic": return "#ff9800"; // Orange
+      case "Receptionist": return "#00bcd4"; // Cyan
+      default: return "#9e9e9e"; // Grey
+    }
+  };
+
+  const getRolePermissions = (role) => {
+    let permissions = {};
+    
+    switch (role) {
+      case "Admin":
+        permissions = {
+          canManageUsers: true,
+          canManageFinances: true,
+          canViewReports: true,
+          canManageInventory: true,
+          canManageAppointments: true
+        };
+        break;
+      case "Accountant":
+        permissions = {
+          canManageUsers: false,
+          canManageFinances: true,
+          canViewReports: true,
+          canManageInventory: false,
+          canManageAppointments: false
+        };
+        break;
+      case "Mechanic":
+        permissions = {
+          canManageUsers: false,
+          canManageFinances: false,
+          canViewReports: false,
+          canManageInventory: false,
+          canManageAppointments: false
+        };
+        break;
+      case "Receptionist":
+        permissions = {
+          canManageUsers: false,
+          canManageFinances: false,
+          canViewReports: false,
+          canManageInventory: false,
+          canManageAppointments: true
+        };
+        break;
+      default:
+        permissions = {
+          canManageUsers: false,
+          canManageFinances: false,
+          canViewReports: false,
+          canManageInventory: false,
+          canManageAppointments: false
+        };
+    }
+    
+    return permissions;
+  };
+
   if (isLoading) {
     return (
       <>
@@ -597,7 +648,7 @@ const UserManagement = () => {
                   onChange={(e) => setRoleFilter(e.target.value)}
                 >
                   <MenuItem value="">All Roles</MenuItem>
-                  {roleOptions.map(option => (
+                  {ROLES.map(option => (
                     <MenuItem key={option.value} value={option.value}>
                       {option.label}
                     </MenuItem>
@@ -688,7 +739,7 @@ const UserManagement = () => {
                         <TableCell>
                           <Chip 
                             label={user.role} 
-                            color={roleColors[user.role] || "default"}
+                            color={getRoleColor(user.role)}
                             size="small"
                           />
                         </TableCell>
@@ -811,7 +862,7 @@ const UserManagement = () => {
                     label="Role"
                     onChange={(e) => handleFormChange('role', e.target.value)}
                   >
-                    {roleOptions.map(option => (
+                    {ROLES.map(option => (
                       <MenuItem key={option.value} value={option.value}>
                         {option.label}
                       </MenuItem>

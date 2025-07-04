@@ -475,6 +475,73 @@ export const budgetAPI = {
   delete: (id) => api.delete(`/api/budgets/${id}`)
 };
 
+// Expenses related API calls
+export const expensesAPI = {
+  getAll: (params = {}) => {
+    // Convert params object to query string
+    const queryParams = new URLSearchParams();
+    
+    if (params.category) queryParams.append('category', params.category);
+    if (params.status) queryParams.append('status', params.status);
+    if (params.startDate) queryParams.append('startDate', params.startDate);
+    if (params.endDate) queryParams.append('endDate', params.endDate);
+    if (params.supplier) queryParams.append('supplier', params.supplier);
+    if (params.paymentMethod) queryParams.append('paymentMethod', params.paymentMethod);
+    if (params.page) queryParams.append('page', params.page);
+    if (params.limit) queryParams.append('limit', params.limit);
+    if (params.sortBy) queryParams.append('sortBy', params.sortBy);
+    if (params.sortOrder) queryParams.append('sortOrder', params.sortOrder);
+    
+    const queryString = queryParams.toString();
+    const url = queryString ? `/api/expenses?${queryString}` : '/api/expenses';
+    
+    return api.get(url);
+  },
+  
+  getById: (id) => api.get(`/api/expenses/${id}`),
+  
+  create: (data) => api.post('/api/expenses', data),
+  
+  update: (id, data) => {
+    if (!id) {
+      console.error("Expense update called with undefined ID");
+      throw new Error("Cannot update expense: ID is required");
+    }
+    
+    // Remove id from data to prevent duplicate ID fields
+    const { id: _, ...cleanData } = data;
+    return api.put(`/api/expenses/${id}`, cleanData);
+  },
+  
+  delete: (id) => api.delete(`/api/expenses/${id}`),
+  
+  updateStatus: (id, status) => api.patch(`/api/expenses/${id}/status`, { status }),
+  
+  getStats: (params = {}) => {
+    const queryParams = new URLSearchParams();
+    
+    if (params.startDate) queryParams.append('startDate', params.startDate);
+    if (params.endDate) queryParams.append('endDate', params.endDate);
+    if (params.category) queryParams.append('category', params.category);
+    
+    const queryString = queryParams.toString();
+    const url = queryString ? `/api/expenses/stats?${queryString}` : '/api/expenses/stats';
+    
+    return api.get(url);
+  },
+  
+  uploadReceipt: (id, file) => {
+    const formData = new FormData();
+    formData.append('receipt', file);
+    
+    return api.post(`/api/expenses/${id}/receipt`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  }
+};
+
 // Appointment related API calls
 export const appointmentAPI = {
   getAll: (params = {}) => {

@@ -162,17 +162,18 @@ const AdminNavbar = (props) => {
         <Container fluid className="px-3 py-1">
           {/* Left side - Brand and Sidebar Toggle */}
           <div className="d-flex align-items-center">
-            {/* Single Responsive Sidebar Toggle Button */}
+            {/* Mobile Sidebar Toggle Button */}
             <button 
               className="navbar-toggler border-0 me-3"
               type="button" 
               onClick={toggleSidebar}
               title="Toggle Sidebar"
+              aria-label="Toggle Sidebar"
             >
               <Menu size={16} />
             </button>
 
-            {/* Brand Text */}
+            {/* Brand Text - Only show on desktop */}
             <span className="h6 mb-0 text-white text-uppercase d-none d-lg-inline-block">
               {props.brandText}
             </span>
@@ -207,6 +208,7 @@ const AdminNavbar = (props) => {
                 <Notification setOpenedCollapse={props.setOpenedCollapse} />
               </div>
 
+              {/* User Dropdown - Clean display */}
               {userName && (
                 <UncontrolledDropdown nav>
                   <DropdownToggle className="navbar-dropdown pr-0 d-flex align-items-center" nav>
@@ -226,7 +228,7 @@ const AdminNavbar = (props) => {
               )}
             </div>
 
-            {/* Mobile Navigation */}
+            {/* Mobile Navigation - Simplified */}
             <div className="d-flex d-md-none align-items-center">
               <Button
                 className="navbar-btn-mobile me-1"
@@ -252,15 +254,20 @@ const AdminNavbar = (props) => {
                 <Notification setOpenedCollapse={props.setOpenedCollapse} />
               </div>
 
-              <Button
-                className="navbar-btn-mobile"
-                color="danger"
-                size="sm"
-                onClick={handleLogout}
-                title="Logout"
-              >
-                <i className="ni ni-user-run"></i>
-              </Button>
+              {/* Mobile User Display - Simplified */}
+              {userName && (
+                <UncontrolledDropdown nav>
+                  <DropdownToggle className="navbar-btn-mobile" nav>
+                    <i className="ni ni-circle-08"></i>
+                  </DropdownToggle>
+                  <DropdownMenu className="dropdown-menu-arrow" right>
+                    <DropdownItem href="#pablo" onClick={handleLogout}>
+                      <i className="ni ni-user-run me-2"></i>
+                      <span>Logout</span>
+                    </DropdownItem>
+                  </DropdownMenu>
+                </UncontrolledDropdown>
+              )}
             </div>
           </div>
         </Container>

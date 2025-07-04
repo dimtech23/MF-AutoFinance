@@ -37,7 +37,7 @@ const App = () => {
         <Switch>
           <ProtectedRoute
             path="/admin"
-            roles={["Admin", "Manager", "Accountant"]}
+            roles={["Admin", "Accountant", "Mechanic"]}
             component={Admin}
           />
           <Route path="/auth" component={Auth} />

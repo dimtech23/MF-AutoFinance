@@ -17,7 +17,7 @@ const routes = [
     icon: "ni ni-tv-2 text-primary",
     component: Dashboard,
     layout: "/admin",
-    roles: ["Admin", "Manager", "Accountant"]
+    roles: ["Admin", "Accountant"]
   },
   {
     path: "/clients",
@@ -25,7 +25,7 @@ const routes = [
     icon: "ni ni-single-02 text-green",
     component: Clients,
     layout: "/admin",
-    roles: ["Accountant", "Admin"]
+    roles: ["Accountant", "Admin", "Mechanic"]
   },
   {
     path: "/client-history",
@@ -33,7 +33,7 @@ const routes = [
     icon: "ni ni-bullet-list-67 text-red",
     component: ClientActivityHistory,
     layout: "/admin",
-    roles: ["Accountant", "Admin", "Manager"]
+    roles: ["Accountant", "Admin"]
   },
   {
     path: "/invoices",
@@ -49,7 +49,7 @@ const routes = [
     icon: "ni ni-chart-bar-32 text-blue",
     component: Reports,
     layout: "/admin",
-    roles: ["Admin", "Manager", "Accountant"]
+    roles: ["Admin", "Accountant"]
   },
   // {
   //   path: "/budget",
@@ -57,7 +57,7 @@ const routes = [
   //   icon: "ni ni-chart-pie-35 text-orange",
   //   component: Budget,
   //   layout: "/admin",
-  //   roles: ["Admin", "Accountant", "Manager"]
+  //   roles: ["Admin", "Accountant"]
   // },
   {
     path: "/user-management",

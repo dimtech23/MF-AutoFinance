@@ -5,6 +5,7 @@ import { toast } from "react-toastify";
 import {
   DollarSign,
   TrendingUp,
+  TrendingDown,
   Calendar,
   RefreshCw,
   Clock,
@@ -297,6 +298,8 @@ const Dashboard = () => {
   const [dailyWorkloadData, setDailyWorkloadData] = useState([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [timeRange, setTimeRange] = useState("month");
+  const [expensesData, setExpensesData] = useState([]);
+  const [expenseStats, setExpenseStats] = useState(null);
 
   // Suppress ResizeObserver warnings (harmless browser warnings)
   useEffect(() => {
@@ -462,19 +465,25 @@ const Dashboard = () => {
         statsRes,
         transactionsRes,
         appointmentsRes,
-        clientsRes
+        clientsRes,
+        expensesRes,
+        expenseStatsRes
       ] = await Promise.allSettled([
         apiRequest(`dashboard/stats?timeRange=${timeRange}`),
         apiRequest('dashboard/transactions'),
         apiRequest('dashboard/appointments'),
-        apiRequest('clients')
+        apiRequest('clients'),
+        apiRequest('expenses'),
+        apiRequest('expenses/stats')
       ]);
       
       console.log("API Responses:", {
         stats: statsRes,
         transactions: transactionsRes,
         appointments: appointmentsRes,
-        clients: clientsRes
+        clients: clientsRes,
+        expenses: expensesRes,
+        expenseStats: expenseStatsRes
       });
       
       // Process stats results
@@ -606,6 +615,28 @@ const Dashboard = () => {
         }
       }
       
+      // Process expenses results
+      if (expensesRes.status === 'fulfilled' && expensesRes.value.success) {
+        const data = expensesRes.value.data;
+        console.log("Setting expenses data:", data);
+        setExpensesData(data.expenses || []);
+        dashboardCache.update('expenses', data.expenses || []);
+      } else {
+        console.warn("Failed to fetch expenses, using empty array");
+        setExpensesData([]);
+      }
+      
+      // Process expense stats results
+      if (expenseStatsRes.status === 'fulfilled' && expenseStatsRes.value.success) {
+        const data = expenseStatsRes.value.data;
+        console.log("Setting expense stats:", data);
+        setExpenseStats(data);
+        dashboardCache.update('expenseStats', data);
+      } else {
+        console.warn("Failed to fetch expense stats, using null");
+        setExpenseStats(null);
+      }
+      
     } catch (error) {
       handleApiError(error, "fetching dashboard data");
       // Set null data on complete failure but don't show error to user
@@ -617,6 +648,8 @@ const Dashboard = () => {
       setPopularServicesData([]);
       setVehicleMakesData([]);
       setAppointmentAvailability(null);
+      setExpensesData([]);
+      setExpenseStats(null);
       // Don't set error state for dashboard data failures
     } finally {
       setLoading(false);
@@ -670,14 +703,22 @@ const Dashboard = () => {
       setRefreshTrigger(prev => prev + 1);
     };
 
+    const handleExpenseUpdate = (event) => {
+      console.log('Expense update received, refreshing dashboard data');
+      dashboardCache.clear(); // Clear cache to force fresh data
+      setRefreshTrigger(prev => prev + 1);
+    };
+
     window.addEventListener('payment-updated', handlePaymentUpdate);
     window.addEventListener('client-updated', handleClientUpdate);
     window.addEventListener('invoice-updated', handleInvoiceUpdate);
+    window.addEventListener('expense-updated', handleExpenseUpdate);
     
     return () => {
       window.removeEventListener('payment-updated', handlePaymentUpdate);
       window.removeEventListener('client-updated', handleClientUpdate);
       window.removeEventListener('invoice-updated', handleInvoiceUpdate);
+      window.removeEventListener('expense-updated', handleExpenseUpdate);
     };
   }, []);
 
@@ -1707,12 +1748,148 @@ const Dashboard = () => {
     );
   };
 
+  // Expenses by Category Chart
+  const renderExpensesByCategoryChart = () => {
+    if (!expenseStats || !expenseStats.expensesByCategory || expenseStats.expensesByCategory.length === 0) {
+      return (
+        <Card sx={{ p: 2, height: "100%" }}>
+          <CardHeader
+            title={
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <TrendingDown size={24} style={{ color: '#f44336' }} />
+                <Typography variant="h6" sx={{ mb: 1 }}>
+                  Expenses by Category
+                </Typography>
+              </Box>
+            }
+            subheader={
+              <Typography variant="body2" color="text.secondary">
+                Breakdown of expenses by category
+              </Typography>
+            }
+          />
+          <CardContent>
+            <Box sx={{ 
+              display: 'flex', 
+              flexDirection: 'column', 
+              alignItems: 'center', 
+              justifyContent: 'center', 
+              height: 300,
+              gap: 2
+            }}>
+              <TrendingDown size={48} color="#ccc" />
+              <Typography variant="body1" color="text.secondary">
+                No expenses recorded yet
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Expenses will appear here as they are added
+              </Typography>
+            </Box>
+          </CardContent>
+        </Card>
+      );
+    }
+
+    const totalExpenses = expenseStats.totalExpenses || 0;
+
+    return (
+      <Card sx={{ p: 2, height: "100%" }}>
+        <CardHeader
+          title={
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <TrendingDown size={24} style={{ color: '#f44336' }} />
+              <Typography variant="h6" sx={{ mb: 1 }}>
+                Expenses by Category
+              </Typography>
+            </Box>
+          }
+          subheader={
+            <Typography variant="body2" color="text.secondary">
+              Breakdown of expenses by category
+            </Typography>
+          }
+          action={
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography variant="h6" color="error.main" sx={{ fontWeight: 'bold' }}>
+                {formatters.currency(totalExpenses)}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Total Expenses
+              </Typography>
+            </Box>
+          }
+        />
+        <CardContent>
+          <ResponsiveContainer width="100%" height={400}>
+            <PieChart>
+              <Pie
+                data={expenseStats.expensesByCategory}
+                cx="50%"
+                cy="50%"
+                labelLine={false}
+                label={({ _id, percent, total }) => `${_id}\n${formatters.currency(total)} (${(percent * 100).toFixed(0)}%)`}
+                outerRadius={120}
+                fill="#8884d8"
+                dataKey="total"
+                paddingAngle={2}
+              >
+                {expenseStats.expensesByCategory.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                ))}
+              </Pie>
+              <RechartsTooltip
+                content={({ active, payload }) => {
+                  if (active && payload && payload.length) {
+                    const data = payload[0];
+                    const percentage = ((data.value / totalExpenses) * 100).toFixed(1);
+                    return (
+                      <Box sx={{ 
+                        bgcolor: 'background.paper', 
+                        p: 2, 
+                        border: '1px solid #ccc',
+                        borderRadius: 2,
+                        boxShadow: 3,
+                        minWidth: 200
+                      }}>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 'bold', color: data.color, mb: 1 }}>
+                          {data.payload._id}
+                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                          <Box sx={{ 
+                            width: 12, 
+                            height: 12, 
+                            bgcolor: data.color, 
+                            borderRadius: '50%' 
+                          }} />
+                          <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                            {formatters.currency(data.value)}
+                          </Typography>
+                        </Box>
+                        <Typography variant="body2" color="text.secondary">
+                          {percentage}% of total expenses
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {data.payload.count} transactions
+                        </Typography>
+                      </Box>
+                    );
+                  }
+                  return null;
+                }}
+              />
+            </PieChart>
+          </ResponsiveContainer>
+        </CardContent>
+      </Card>
+    );
+  };
+
   // Financial Summary Cards
   const renderFinancialSummaryCards = () => {
     if (!financialSummary && loading) {
       return (
         <Grid container spacing={3} sx={{ mb: 4 }}>
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid item xs={12} sm={6} md={3}>
             <Card sx={{ height: "100%" }}>
               <CardContent>
                 <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
@@ -1731,7 +1908,26 @@ const Dashboard = () => {
               </CardContent>
             </Card>
           </Grid>
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid item xs={12} sm={6} md={3}>
+            <Card sx={{ height: "100%" }}>
+              <CardContent>
+                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                  <Box>
+                    <Typography color="text.secondary" gutterBottom variant="body2" sx={{ fontWeight: 500 }}>
+                      Total Expenses
+                    </Typography>
+                    <Typography variant="h4" component="div" sx={{ fontWeight: "bold", color: '#f44336' }}>
+                      Loading...
+                    </Typography>
+                  </Box>
+                  <Avatar sx={{ bgcolor: '#f4433620', color: '#f44336' }}>
+                    <TrendingDown size={24} />
+                  </Avatar>
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
             <Card sx={{ height: "100%" }}>
               <CardContent>
                 <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
@@ -1750,7 +1946,7 @@ const Dashboard = () => {
               </CardContent>
             </Card>
           </Grid>
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid item xs={12} sm={6} md={3}>
             <Card sx={{ height: "100%" }}>
               <CardContent>
                 <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
@@ -1775,7 +1971,7 @@ const Dashboard = () => {
     
     return (
       <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} sm={6} md={4}>
+        <Grid item xs={12} sm={6} md={3}>
           <StatCard
             title="Total Garage Revenue"
             value={financialSummary?.totalIncome || 0}
@@ -1786,10 +1982,21 @@ const Dashboard = () => {
             timeRange={timeRange}
           />
         </Grid>
-        <Grid item xs={12} sm={6} md={4}>
+        <Grid item xs={12} sm={6} md={3}>
+          <StatCard
+            title="Total Expenses"
+            value={expenseStats?.totalExpenses || 0}
+            icon={TrendingDown}
+            trend={{ direction: 'down', value: 8 }}
+            color='#f44336'
+            formatters={formatters}
+            timeRange={timeRange}
+          />
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
           <StatCard
             title="Net Profit"
-            value={financialSummary?.netProfit || 0}
+            value={(financialSummary?.totalIncome || 0) - (expenseStats?.totalExpenses || 0)}
             icon={TrendingUp}
             trend={{ direction: 'up', value: 15 }}
             color='#11cdef'
@@ -1797,7 +2004,7 @@ const Dashboard = () => {
             timeRange={timeRange}
           />
         </Grid>
-        <Grid item xs={12} sm={6} md={4}>
+        <Grid item xs={12} sm={6} md={3}>
           <StatCard
             title="Average Service Value"
             value={financialSummary?.averageServiceValue || 0}
@@ -2082,6 +2289,9 @@ const Dashboard = () => {
           </Grid>
           <Grid item xs={12} md={6}>
             {renderDailyWorkloadChart()}
+          </Grid>
+          <Grid item xs={12} md={6}>
+            {renderExpensesByCategoryChart()}
           </Grid>
           <Grid item xs={12} md={6}>
             {renderRecentTransactionsTable()}

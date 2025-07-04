@@ -40,7 +40,7 @@
   width: 100% !important;
 }
 
-/* Sidebar toggle buttons */
+/* Sidebar toggle buttons - Improved mobile behavior */
 .navbar-top .navbar-toggler {
   border: none !important;
   color: white !important;
@@ -56,10 +56,13 @@
   border-radius: 4px !important;
   margin: 0 !important;
   line-height: 1 !important;
+  cursor: pointer !important;
+  outline: none !important;
 }
 
 .navbar-top .navbar-toggler:hover {
   background: rgba(255, 255, 255, 0.1) !important;
+  transform: scale(1.05) !important;
 }
 
 .navbar-top .navbar-toggler:focus {
@@ -67,7 +70,11 @@
   outline: none !important;
 }
 
-/* Desktop navigation buttons */
+.navbar-top .navbar-toggler:active {
+  transform: scale(0.95) !important;
+}
+
+/* Desktop navigation buttons - Better alignment */
 .navbar-top .navbar-btn {
   display: flex !important;
   align-items: center !important;
@@ -79,6 +86,8 @@
   transition: all 0.2s ease !important;
   margin: 0 0.25rem !important;
   line-height: 1 !important;
+  white-space: nowrap !important;
+  min-width: fit-content !important;
 }
 
 .navbar-top .navbar-btn:hover {
@@ -86,7 +95,12 @@
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2) !important;
 }
 
-/* Mobile navigation buttons */
+.navbar-top .navbar-btn i {
+  margin-right: 0.25rem !important;
+  font-size: 0.875rem !important;
+}
+
+/* Mobile navigation buttons - Improved touch targets */
 .navbar-top .navbar-btn-mobile {
   display: flex !important;
   align-items: center !important;
@@ -98,6 +112,8 @@
   border-radius: 4px !important;
   transition: all 0.2s ease !important;
   line-height: 1 !important;
+  cursor: pointer !important;
+  min-width: 30px !important;
 }
 
 .navbar-top .navbar-btn-mobile:hover {
@@ -105,7 +121,11 @@
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2) !important;
 }
 
-/* Dropdown styling */
+.navbar-top .navbar-btn-mobile:active {
+  transform: scale(0.95) !important;
+}
+
+/* Dropdown styling - Better alignment */
 .navbar-top .navbar-dropdown {
   display: flex !important;
   align-items: center !important;
@@ -118,10 +138,17 @@
   background: transparent !important;
   border: none !important;
   line-height: 1 !important;
+  cursor: pointer !important;
+  outline: none !important;
 }
 
 .navbar-top .navbar-dropdown:hover {
   background: rgba(255, 255, 255, 0.1) !important;
+}
+
+.navbar-top .navbar-dropdown:focus {
+  box-shadow: none !important;
+  outline: none !important;
 }
 
 /* Notification component wrapper */
@@ -133,7 +160,7 @@
   margin: 0 0.25rem !important;
 }
 
-/* Brand text */
+/* Brand text - Better typography */
 .navbar-top .h6 {
   font-size: 0.875rem !important;
   margin: 0 !important;
@@ -141,6 +168,8 @@
   display: flex !important;
   align-items: center !important;
   height: 45px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.5px !important;
 }
 
 /* Ensure all flex containers align properly */
@@ -148,6 +177,7 @@
   align-items: center !important;
   height: 45px !important;
   display: flex !important;
+  gap: 0.25rem !important;
 }
 
 /* Fix icon alignment in buttons */
@@ -159,6 +189,7 @@
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
+  font-size: 0.875rem !important;
 }
 
 /* Override any conflicting main-content styles */
@@ -198,7 +229,6 @@
 .admin-layout #navbar-main,
 .admin-layout .navbar-top {
   background-color: #444574 !important;
-  background: #444574 !important;
   min-height: 45px !important;
   max-height: 45px !important;
   height: 45px !important;
@@ -207,61 +237,58 @@
   align-items: center !important;
 }
 
-/* Sidebar hidden state for full-screen view */
+/* Main content adjustment when sidebar is hidden */
 .main-content.sidebar-hidden {
   margin-left: 0 !important;
   width: 100% !important;
 }
 
-/* Responsive adjustments */
+/* Mobile-specific improvements */
 @media (max-width: 768px) {
   .navbar-top .container-fluid {
     padding: 0.4rem 0.75rem !important;
   }
   
   .navbar-top .navbar-btn-mobile {
-    height: 28px !important;
-    width: 28px !important;
-    font-size: 0.7rem !important;
+    height: 32px !important;
+    width: 32px !important;
+    min-width: 32px !important;
   }
   
   .navbar-top .navbar-toggler {
-    height: 28px !important;
-    width: 28px !important;
+    height: 32px !important;
+    width: 32px !important;
+    min-width: 32px !important;
+  }
+  
+  /* Ensure proper spacing on mobile */
+  .navbar-top .d-flex > * {
+    margin-right: 0.25rem !important;
+  }
+  
+  .navbar-top .d-flex > *:last-child {
+    margin-right: 0 !important;
   }
 }
 
-/* Ensure proper spacing between navbar elements */
-.navbar-top .d-flex > * {
-  margin-right: 0.25rem !important;
-}
-
-.navbar-top .d-flex > *:last-child {
-  margin-right: 0 !important;
-}
-
-/* Override the main CSS file navbar rules */
+/* Navbar collapse behavior */
 .navbar {
-  min-height: 45px !important;
-  max-height: 45px !important;
-  height: 45px !important;
-  overflow: hidden !important;
-  display: flex !important;
-  align-items: center !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: none !important;
+  box-shadow: none !important;
 }
 
-/* FIXED RESPONSIVE DISPLAY RULES - PREVENT DUPLICATES */
-/* Desktop navigation - hide on mobile */
+/* Responsive display classes */
 .navbar-top .d-none.d-md-flex {
   display: none !important;
 }
 
-/* Mobile navigation - hide on desktop */
 .navbar-top .d-flex.d-md-none {
-  display: none !important;
+  display: flex !important;
 }
 
-/* Show desktop navigation on medium screens and up */
+/* Desktop styles */
 @media (min-width: 768px) {
   .navbar-top .d-none.d-md-flex {
     display: flex !important;
@@ -272,7 +299,7 @@
   }
 }
 
-/* Show mobile navigation on small screens */
+/* Mobile styles */
 @media (max-width: 767px) {
   .navbar-top .d-none.d-md-flex {
     display: none !important;
@@ -283,45 +310,40 @@
   }
 }
 
-/* AGGRESSIVE OVERRIDES FOR ARGON CSS FRAMEWORK */
-/* Override Argon's navbar styles that are causing alignment issues */
+/* Enhanced navbar styling */
 .navbar-top,
-.navbar-top *,
-.navbar-top .container-fluid,
-.navbar-top .container-fluid *,
-.navbar-top .d-flex,
-.navbar-top .d-flex *,
-.navbar-top .navbar-toggler,
-.navbar-top .navbar-btn,
-.navbar-top .navbar-btn-mobile,
-.navbar-top .navbar-dropdown,
-.navbar-top .notification-wrapper,
-.navbar-top .h6,
-.navbar-top .btn,
-.navbar-top .btn *,
-.navbar-top i,
-.navbar-top .ni {
-  vertical-align: middle !important;
+.navbar-top.navbar,
+.navbar-top.navbar-white,
+.navbar-top.navbar-dark,
+.navbar-top.navbar-light {
+  background: #444574 !important;
+  background-color: #444574 !important;
+  min-height: 45px !important;
+  max-height: 45px !important;
+  height: 45px !important;
+  overflow: hidden !important;
   display: flex !important;
   align-items: center !important;
-  justify-content: center !important;
-  line-height: 1 !important;
-  margin: 0 !important;
-  padding: 0 !important;
+  position: relative !important;
+  z-index: 1030 !important;
+  box-shadow: 0 0 2rem 0 rgba(136, 152, 170, 0.15) !important;
 }
 
-/* Force all navbar elements to be centered */
+/* Container improvements */
 .navbar-top .container-fluid {
   display: flex !important;
   align-items: center !important;
   justify-content: space-between !important;
-  height: 45px !important;
+  padding: 0.4rem 1rem !important;
   min-height: 45px !important;
   max-height: 45px !important;
-  padding: 0.4rem 1rem !important;
+  height: 45px !important;
+  overflow: hidden !important;
+  width: 100% !important;
+  margin: 0 !important;
 }
 
-/* Override any Argon button styles */
+/* Button improvements */
 .navbar-top .btn,
 .navbar-top .navbar-btn,
 .navbar-top .navbar-btn-mobile {
@@ -329,63 +351,75 @@
   align-items: center !important;
   justify-content: center !important;
   height: 30px !important;
+  padding: 0.4rem 0.75rem !important;
+  font-size: 0.75rem !important;
+  border-radius: 4px !important;
+  transition: all 0.2s ease !important;
   line-height: 1 !important;
-  vertical-align: middle !important;
-  margin: 0 0.25rem !important;
-  padding: 0.4rem !important;
+  border: none !important;
+  outline: none !important;
+  cursor: pointer !important;
 }
 
-/* Override Argon's icon styles */
+/* Icon improvements */
 .navbar-top .ni,
-.navbar-top i {
+.navbar-top .btn i,
+.navbar-top .navbar-btn i,
+.navbar-top .navbar-btn-mobile i {
+  line-height: 1 !important;
+  vertical-align: middle !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
-  line-height: 1 !important;
-  vertical-align: middle !important;
+  font-size: 0.875rem !important;
   margin: 0 !important;
-  padding: 0 !important;
 }
 
-/* Force all flex containers to center their content */
+/* Flex container improvements */
 .navbar-top .d-flex {
-  display: flex !important;
   align-items: center !important;
-  justify-content: center !important;
   height: 45px !important;
-  min-height: 45px !important;
-  max-height: 45px !important;
+  display: flex !important;
+  gap: 0.25rem !important;
+  margin: 0 !important;
+  padding: 0 !important;
 }
 
-/* Override any Bootstrap navbar styles */
+/* Navbar improvements */
 .navbar-top.navbar {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: space-between !important;
-  height: 45px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: none !important;
+  box-shadow: none !important;
+  background: #444574 !important;
+  background-color: #444574 !important;
   min-height: 45px !important;
   max-height: 45px !important;
-  padding: 0 !important;
-  margin: 0 !important;
-}
-
-/* Ensure proper text alignment */
-.navbar-top .h6,
-.navbar-top span,
-.navbar-top .text-white {
+  height: 45px !important;
+  overflow: hidden !important;
   display: flex !important;
   align-items: center !important;
-  justify-content: center !important;
-  line-height: 1 !important;
-  vertical-align: middle !important;
-  margin: 0 !important;
-  padding: 0 !important;
+  position: relative !important;
+  z-index: 1030 !important;
 }
 
-/* FIX FOR SIDEBAR OPEN/CLOSED STATE CENTERING */
-/* Ensure navbar maintains centering regardless of sidebar state */
+/* Typography improvements */
+.navbar-top .h6,
+.navbar-top h6 {
+  font-size: 0.875rem !important;
+  margin: 0 !important;
+  line-height: 1 !important;
+  display: flex !important;
+  align-items: center !important;
+  height: 45px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.5px !important;
+  color: white !important;
+}
+
+/* Main content navbar overrides */
 .main-content .navbar-top,
-.main-content.sidebar-hidden .navbar-top {
+.main-content #navbar-main {
   position: relative !important;
   left: auto !important;
   top: auto !important;
@@ -400,74 +434,66 @@
   overflow: hidden !important;
   display: flex !important;
   align-items: center !important;
-  justify-content: center !important;
+  margin: 0 !important;
 }
 
-/* Force container to maintain proper layout */
 .main-content .navbar-top .container-fluid,
-.main-content.sidebar-hidden .navbar-top .container-fluid {
+.main-content #navbar-main .container-fluid {
   display: flex !important;
   align-items: center !important;
   justify-content: space-between !important;
-  height: 45px !important;
-  min-height: 45px !important;
-  max-height: 45px !important;
   padding: 0.4rem 1rem !important;
-  width: 100% !important;
-  position: relative !important;
-  left: auto !important;
-  top: auto !important;
-}
-
-/* Ensure all navbar content stays centered */
-.main-content .navbar-top .d-flex,
-.main-content.sidebar-hidden .navbar-top .d-flex {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  height: 45px !important;
   min-height: 45px !important;
   max-height: 45px !important;
-  position: relative !important;
-  left: auto !important;
-  top: auto !important;
+  height: 45px !important;
+  overflow: hidden !important;
+  width: 100% !important;
+  margin: 0 !important;
 }
 
-/* CRITICAL: ENFORCE RESPONSIVE RULES IN ALL SIDEBAR STATES */
-/* Desktop navigation - ALWAYS hide on mobile regardless of sidebar state */
+.main-content .navbar-top .d-flex,
+.main-content #navbar-main .d-flex {
+  align-items: center !important;
+  height: 45px !important;
+  display: flex !important;
+  gap: 0.25rem !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* Responsive display for main content */
 .main-content .navbar-top .d-none.d-md-flex,
-.main-content.sidebar-hidden .navbar-top .d-none.d-md-flex {
+.main-content #navbar-main .d-none.d-md-flex {
   display: none !important;
 }
 
-/* Mobile navigation - ALWAYS hide on desktop regardless of sidebar state */
 .main-content .navbar-top .d-flex.d-md-none,
-.main-content.sidebar-hidden .navbar-top .d-flex.d-md-none {
-  display: none !important;
+.main-content #navbar-main .d-flex.d-md-none {
+  display: flex !important;
 }
 
-/* Show desktop navigation on medium screens and up - regardless of sidebar state */
+/* Desktop styles for main content */
 @media (min-width: 768px) {
   .main-content .navbar-top .d-none.d-md-flex,
-  .main-content.sidebar-hidden .navbar-top .d-none.d-md-flex {
+  .main-content #navbar-main .d-none.d-md-flex {
     display: flex !important;
   }
   
   .main-content .navbar-top .d-flex.d-md-none,
-  .main-content.sidebar-hidden .navbar-top .d-flex.d-md-none {
+  .main-content #navbar-main .d-flex.d-md-none {
     display: none !important;
   }
 }
 
-/* Show mobile navigation on small screens - regardless of sidebar state */
+/* Mobile styles for main content */
 @media (max-width: 767px) {
   .main-content .navbar-top .d-none.d-md-flex,
-  .main-content.sidebar-hidden .navbar-top .d-none.d-md-flex {
+  .main-content #navbar-main .d-none.d-md-flex {
     display: none !important;
   }
   
   .main-content .navbar-top .d-flex.d-md-none,
-  .main-content.sidebar-hidden .navbar-top .d-flex.d-md-none {
+  .main-content #navbar-main .d-flex.d-md-none {
     display: flex !important;
   }
 } 
